@@ -39,28 +39,6 @@ void advance (MultiFab& old_data, MultiFab& new_data,
 
     const Real* dx = geom.CellSize();
 
-    //
-    // Note that this simple example is not optimized.
-    // The following two MFIter loops could be merged
-    // and we do not have to use flux MultiFab.
-    //
-
-    // Compute fluxes one grid at a time
-    /*for ( MFIter mfi(old_data); mfi.isValid(); ++mfi )
-    {
-        const Box& bx = mfi.validbox();
-
-        compute_flux(BL_TO_FORTRAN_ANYD(old_data[mfi]),
-                     bx.loVect(), bx.hiVect(),
-                     &Ncomp,
-                     BL_TO_FORTRAN_ANYD(flux[0][mfi]),
-                     BL_TO_FORTRAN_ANYD(flux[1][mfi]),
-#if (BL_SPACEDIM == 3)
-                     BL_TO_FORTRAN_ANYD(flux[2][mfi]),
-#endif
-                     dx, &g, &dt);
-    }*/
-
     // Advance the solution one grid at a time
     for ( MFIter mfi(old_data); mfi.isValid(); ++mfi )
     {
@@ -143,6 +121,7 @@ void main_main ()
     }
 
     // Nghost = number of ghost cells for each array
+    // Need 6 ghosts for slope limited rk3
     int Nghost = 6;
 
     // Ncomp = number of components for each array
