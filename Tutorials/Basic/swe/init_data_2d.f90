@@ -18,9 +18,9 @@ subroutine init_data(U, philo, phihi, lo, hi, Ncomp, dx, prob_lo, prob_hi) bind(
      do i = lo(1), hi(1)
         x = prob_lo(1) + (dble(i)+0.5d0) * dx(1)
 
-        r2 = (x**2) / 0.01d0
+        r2 = (x**2 + y**2) / 0.01d0
 
-        U(i,j,1) = 1.d0 + 0.01d0*exp(-r2)
+        U(i,j,1) = 1.d0 + 0.1d0*exp(-r2)
 
         ! do velocities
         do k = 2, Ncomp

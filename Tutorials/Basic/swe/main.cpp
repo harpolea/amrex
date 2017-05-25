@@ -36,7 +36,6 @@ void advance (MultiFab& old_data, MultiFab& new_data,
 
     int Ncomp = old_data.nComp();
     int ng_p = old_data.nGrow();
-    int ng_f = flux[0].nGrow();
 
     const Real* dx = geom.CellSize();
 
@@ -47,7 +46,7 @@ void advance (MultiFab& old_data, MultiFab& new_data,
     //
 
     // Compute fluxes one grid at a time
-    for ( MFIter mfi(old_data); mfi.isValid(); ++mfi )
+    /*for ( MFIter mfi(old_data); mfi.isValid(); ++mfi )
     {
         const Box& bx = mfi.validbox();
 
@@ -60,7 +59,7 @@ void advance (MultiFab& old_data, MultiFab& new_data,
                      BL_TO_FORTRAN_ANYD(flux[2][mfi]),
 #endif
                      dx, &g, &dt);
-    }
+    }*/
 
     // Advance the solution one grid at a time
     for ( MFIter mfi(old_data); mfi.isValid(); ++mfi )
@@ -70,12 +69,7 @@ void advance (MultiFab& old_data, MultiFab& new_data,
         update_data(bx.loVect(), bx.hiVect(), &Ncomp,
                    BL_TO_FORTRAN_ANYD(old_data[mfi]),
                    BL_TO_FORTRAN_ANYD(new_data[mfi]),
-                   BL_TO_FORTRAN_ANYD(flux[0][mfi]),
-                   BL_TO_FORTRAN_ANYD(flux[1][mfi]),
-#if (BL_SPACEDIM == 3)
-                   BL_TO_FORTRAN_ANYD(flux[2][mfi]),
-#endif
-                   dx, dt);
+                   dx, &g, dt);
     }
 }
 
@@ -149,7 +143,7 @@ void main_main ()
     }
 
     // Nghost = number of ghost cells for each array
-    int Nghost = 2;
+    int Nghost = 6;
 
     // Ncomp = number of components for each array
     int Ncomp  = 3;
@@ -180,7 +174,7 @@ void main_main ()
 
     // compute the time step
     const Real* dx = geom.CellSize();
-    Real dt = 0.09*dx[0]*dx[0] / (2.0*BL_SPACEDIM);
+    Real dt = 0.9*dx[0] / (2.0*BL_SPACEDIM);
 
     // Write a plotfile of the initial data if plot_int > 0 (plot_int was defined in the inputs file)
     if (plot_int > 0)
@@ -194,11 +188,8 @@ void main_main ()
     std::array<MultiFab, BL_SPACEDIM> flux;
     for (int dir = 0; dir < BL_SPACEDIM; dir++)
     {
-        // flux(dir) has one component, zero ghost cells, and is nodal in direction dir
-        BoxArray edge_ba = ba;
-        edge_ba.surroundingNodes(dir);
-        flux[dir].define(edge_ba, dm, Ncomp, Nghost);
-
+        // flux(dir) has Ncomp components, Nghost ghost cells
+        flux[dir].define(ba, dm, Ncomp, Nghost);
     }
 
     for (int n = 1; n <= nsteps; ++n)
