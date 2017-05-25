@@ -1,16 +1,16 @@
-subroutine init_data(U, philo, phihi, lo, hi, Ncomp, dx, prob_lo, prob_hi) bind(C, name="init_data")
+subroutine init_data(U, philo, phihi, lo, hi, Ncomp, nlayers, dx, prob_lo, prob_hi) bind(C, name="init_data")
 
   use amrex_fort_module, only : amrex_real
 
   implicit none
 
-  integer, intent(in) :: lo(2), hi(2), philo(2), phihi(2), Ncomp
-  real(amrex_real), intent(inout) :: U(philo(1):phihi(1),philo(2):phihi(2), Ncomp)
+  integer, intent(in) :: lo(2), hi(2), philo(2), phihi(2), Ncomp, nlayers
+  real(amrex_real), intent(inout) :: U(philo(1):phihi(1),philo(2):phihi(2), Ncomp*nlayers)
   real(amrex_real), intent(in   ) :: dx(2)
   real(amrex_real), intent(in   ) :: prob_lo(2)
   real(amrex_real), intent(in   ) :: prob_hi(2)
 
-  integer          :: i,j,k
+  integer          :: i,j,k,l
   double precision :: x,y,r2
 
   do j = lo(2), hi(2)
@@ -24,18 +24,24 @@ subroutine init_data(U, philo, phihi, lo, hi, Ncomp, dx, prob_lo, prob_hi) bind(
 
         r2 = (x**2 + y**2)
 
-        if (r2 < 0.2**2) then
-            U(i,j,1) = 2.0d0
-        else
-            U(i,j,1) = 1.0d0
-        end if
+        do l = 0, nlayers-1
+            if (r2 < 0.2**2) then
+                U(i,j,l*Ncomp+1) = 4.0d0 - l*1.5d0
+            else
+                U(i,j,l*Ncomp+1) = 3.0d0 - l*1.5d0
+            end if
+        end do
 
         ! do velocities
-        do k = 2, Ncomp
-            U(i,j,k) = 0.d0
+        do l = 0, nlayers-1
+            do k = 2, Ncomp
+                U(i,j,l*Ncomp+k) = 0.d0
+            end do
         end do
 
      end do
   end do
+
+  U(:,:,Ncomp+1) = 1.5d0
 
 end subroutine init_data

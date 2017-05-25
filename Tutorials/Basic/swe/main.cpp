@@ -28,13 +28,13 @@ int main (int argc, char* argv[])
 
 void advance (MultiFab& old_data, MultiFab& new_data,
 	      std::array<MultiFab, BL_SPACEDIM>& flux,
-	      Real dt, const Geometry& geom, Real g)
+	      Real dt, const Geometry& geom, Real g, int nlayers)
 {
     // Fill the ghost cells of each grid from the other grids
     // includes periodic domain boundaries
     old_data.FillBoundary(geom.periodicity());
 
-    int Ncomp = old_data.nComp();
+    int Ncomp = old_data.nComp() / nlayers;
     int ng_p = old_data.nGrow();
 
     const Real* dx = geom.CellSize();
@@ -44,7 +44,7 @@ void advance (MultiFab& old_data, MultiFab& new_data,
     {
         const Box& bx = mfi.validbox();
 
-        update_data(bx.loVect(), bx.hiVect(), &Ncomp,
+        update_data(bx.loVect(), bx.hiVect(), &Ncomp, &nlayers,
                    BL_TO_FORTRAN_ANYD(old_data[mfi]),
                    BL_TO_FORTRAN_ANYD(new_data[mfi]),
                    dx, &g, dt);
@@ -124,6 +124,8 @@ void main_main ()
     // Need 6 ghosts for slope limited rk3
     int Nghost = 6;
 
+    int nlayers = 2;
+
     // Ncomp = number of components for each array
     int Ncomp  = 3;
 
@@ -134,8 +136,8 @@ void main_main ()
     DistributionMapping dm(ba);
 
     // we allocate two data multifabs; one will store the old state, the other the new.
-    MultiFab data_old(ba, dm, Ncomp, Nghost);
-    MultiFab data_new(ba, dm, Ncomp, Nghost);
+    MultiFab data_old(ba, dm, Ncomp*nlayers, Nghost);
+    MultiFab data_new(ba, dm, Ncomp*nlayers, Nghost);
 
     data_old.setVal(0.0);
     data_new.setVal(0.0);
@@ -147,7 +149,7 @@ void main_main ()
         const Box& bx = mfi.validbox();
 
         init_data(BL_TO_FORTRAN_ANYD(data_new[mfi]),
-                  bx.loVect(), bx.hiVect(), &Ncomp,
+                  bx.loVect(), bx.hiVect(), &Ncomp, &nlayers,
                  geom.CellSize(), geom.ProbLo(), geom.ProbHi());
     }
 
@@ -160,7 +162,7 @@ void main_main ()
     {
         int n = 0;
         const std::string& pltfile = amrex::Concatenate("plt",n,5);
-        WriteSingleLevelPlotfile(pltfile, data_new, {"h", "hu", "hv"}, geom, time, 0);
+        WriteSingleLevelPlotfile(pltfile, data_new, {"h0", "hu0", "hv0", "h1", "hu1", "hv1"}, geom, time, 0);
     }
 
     // build the flux multifabs
@@ -168,17 +170,15 @@ void main_main ()
     for (int dir = 0; dir < BL_SPACEDIM; dir++)
     {
         // flux(dir) has Ncomp components, Nghost ghost cells
-        flux[dir].define(ba, dm, Ncomp, Nghost);
+        flux[dir].define(ba, dm, Ncomp*nlayers, Nghost);
     }
 
     for (int n = 1; n <= nsteps; ++n)
     {
-        //for (int m = 0; m < Ncomp; m++) {
-        MultiFab::Copy(data_old, data_new, 0, 0, Ncomp, 0);
-        //}
+        MultiFab::Copy(data_old, data_new, 0, 0, Ncomp*nlayers, 0);
 
         // new_data = old_data + dt * (something)
-        advance(data_old, data_new, flux, dt, geom, g);
+        advance(data_old, data_new, flux, dt, geom, g, nlayers);
         time = time + dt;
 
         // Tell the I/O Processor to write out which step we're doing
@@ -188,7 +188,7 @@ void main_main ()
         if (plot_int > 0 && n%plot_int == 0)
         {
             const std::string& pltfile = amrex::Concatenate("plt",n,5);
-            WriteSingleLevelPlotfile(pltfile, data_new, {"h", "hu", "hv"}, geom, time, n);
+            WriteSingleLevelPlotfile(pltfile, data_new, {"h0", "hu0", "hv0", "h1", "hu1", "hv1"}, geom, time, n);
         }
     }
 

@@ -10,10 +10,12 @@ extern "C"
 
     void init_data(amrex_real* data, const int* dlo, const int* dhi,
                   const int* lo, const int* hi,
-                  const int* Ncomp,
-                  const amrex_real* dx, const amrex_real* prob_lo, const amrex_real* prob_hi);
+                  const int* Ncomp, const int* nlayers,
+                  const amrex_real* dx, const amrex_real* prob_lo,
+                  const amrex_real* prob_hi);
 
     void update_data(const int* lo, const int* hi, const int* Ncomp,
+                    const int* nlayers,
                     amrex_real* pold, const int* polo, const int* pohi,
                     amrex_real* pnew, const int* pnlo, const int* pnhi,
                     const amrex_real* dx, amrex_real* g, amrex_real dt); // note dt is passed by value
