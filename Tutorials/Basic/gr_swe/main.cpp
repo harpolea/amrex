@@ -28,7 +28,8 @@ int main (int argc, char* argv[])
 
 void advance (MultiFab& old_data, MultiFab& new_data,
 	      std::array<MultiFab, BL_SPACEDIM>& flux,
-	      Real dt, const Geometry& geom, Real g, int nlayers)
+	      Real dt, const Geometry& geom, int nlayers,
+          MultiFab& gamma_up, MultiFab& beta, MultiFab& alpha)
 {
     // Fill the ghost cells of each grid from the other grids
     // includes periodic domain boundaries
@@ -47,7 +48,10 @@ void advance (MultiFab& old_data, MultiFab& new_data,
         update_data(bx.loVect(), bx.hiVect(), &Ncomp, &nlayers,
                    BL_TO_FORTRAN_ANYD(old_data[mfi]),
                    BL_TO_FORTRAN_ANYD(new_data[mfi]),
-                   dx, &g, dt);
+                   dx, dt,
+                   BL_TO_FORTRAN_ANYD(gamma_up[mfi]),
+                   BL_TO_FORTRAN_ANYD(beta[mfi]),
+                   BL_TO_FORTRAN_ANYD(alpha[mfi]));
     }
 }
 
@@ -124,7 +128,7 @@ void main_main ()
     // Need 6 ghosts for slope limited rk3
     int Nghost = 6;
 
-    int nlayers = 2;
+    int nlayers = 1;
 
     // Ncomp = number of components for each array
     int Ncomp  = 3;
@@ -142,6 +146,15 @@ void main_main ()
     data_old.setVal(0.0);
     data_new.setVal(0.0);
 
+    // make metric multifabs
+    MultiFab gamma_up(ba, dm, 9*nlayers, Nghost);
+    MultiFab beta(ba, dm, 3*nlayers, Nghost);
+    MultiFab alpha(ba, dm, nlayers, Nghost);
+
+    gamma_up.setVal(0.0);
+    beta.setVal(0.0);
+    alpha.setVal(0.0);
+
     // Initialize data_new by calling a Fortran routine.
     // MFIter = MultiFab Iterator
     for ( MFIter mfi(data_new); mfi.isValid(); ++mfi )
@@ -150,7 +163,10 @@ void main_main ()
 
         init_data(BL_TO_FORTRAN_ANYD(data_new[mfi]),
                   bx.loVect(), bx.hiVect(), &Ncomp, &nlayers,
-                 geom.CellSize(), geom.ProbLo(), geom.ProbHi());
+                 geom.CellSize(), geom.ProbLo(), geom.ProbHi(),
+                 BL_TO_FORTRAN_ANYD(gamma_up[mfi]),
+                 BL_TO_FORTRAN_ANYD(beta[mfi]),
+                 BL_TO_FORTRAN_ANYD(alpha[mfi]));
     }
 
     // compute the time step
@@ -178,7 +194,7 @@ void main_main ()
         MultiFab::Copy(data_old, data_new, 0, 0, Ncomp*nlayers, 0);
 
         // new_data = old_data + dt * (something)
-        advance(data_old, data_new, flux, dt, geom, g, nlayers);
+        advance(data_old, data_new, flux, dt, geom, nlayers, gamma_up, beta, alpha);
         time = time + dt;
 
         // Tell the I/O Processor to write out which step we're doing

@@ -1,17 +1,20 @@
-subroutine init_data(U, philo, phihi, lo, hi, Ncomp, nlayers, dx, prob_lo, prob_hi) bind(C, name="init_data")
+subroutine init_data(U, philo, phihi, lo, hi, Ncomp, nlayers, dx, prob_lo, prob_hi, gamma_up, glo, ghi, beta, blo, bhi, alpha, alo, ahi) bind(C, name="init_data")
 
   use amrex_fort_module, only : amrex_real
 
   implicit none
 
-  integer, intent(in) :: lo(2), hi(2), philo(2), phihi(2), Ncomp, nlayers
+  integer, intent(in) :: lo(2), hi(2), philo(2), phihi(2), glo(2), ghi(2), blo(2), bhi(2), alo(2), ahi(2), Ncomp, nlayers
   real(amrex_real), intent(inout) :: U(philo(1):phihi(1),philo(2):phihi(2), Ncomp*nlayers)
   real(amrex_real), intent(in   ) :: dx(2)
   real(amrex_real), intent(in   ) :: prob_lo(2)
   real(amrex_real), intent(in   ) :: prob_hi(2)
+  real(amrex_real), intent(inout) :: beta(blo(1):bhi(1),blo(2):bhi(2), 3*nlayers)
+  real(amrex_real), intent(inout) :: gamma_up(glo(1):ghi(1),glo(2):ghi(2), 9*nlayers)
+  real(amrex_real), intent(inout) :: alpha(alo(1):ahi(1),alo(2):ahi(2), nlayers)
 
   integer          :: i,j,k,l
-  double precision :: x,y,r2
+  double precision :: x,y,r2, R
 
   do j = lo(2), hi(2)
      y = prob_lo(2) + (dble(j)+0.5d0) * dx(2)
@@ -42,6 +45,11 @@ subroutine init_data(U, philo, phihi, lo, hi, Ncomp, nlayers, dx, prob_lo, prob_
      end do
   end do
 
-  U(:,:,Ncomp+1) = 1.5d0
+  do l = 0, nlayers-1
+      alpha(:,:, l+1) = exp(-U(i,j,l*Ncomp+1))
+      gamma_up(:,:,l*Ncomp+1) = 1.0d0
+      gamma_up(:,:,l*Ncomp+5) = 1.0d0
+      gamma_up(:,:,l*Ncomp+9) = exp(-2.0d0 * U(i,j,l*Ncomp+1))
+  end do
 
 end subroutine init_data

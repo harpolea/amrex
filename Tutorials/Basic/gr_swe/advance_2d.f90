@@ -1,4 +1,5 @@
 subroutine phi(r, ph, size)
+    ! superbee limiter
     use amrex_fort_module, only : amrex_real
     implicit none
 
@@ -22,59 +23,91 @@ subroutine phi(r, ph, size)
 
 end subroutine phi
 
-subroutine swe_flux(U, f, lo, hi, Ncomp, nlayers, g, x_dir)
+subroutine W_swe(q, lo, hi, n, gamma_up, W)
+    ! Calculate lorentz factor
+    use amrex_fort_module, only : amrex_real
+    implicit none
+
+    integer, intent(in) :: lo(2), hi(2), n
+    real(amrex_real), intent(in) :: q(lo(1):hi(1), lo(2):hi(2), n)
+    real(amrex_real), intent(in) :: gamma_up(lo(1):hi(1), lo(2):hi(2),3,3)
+    real(amrex_real), intent(out) :: W(lo(1):hi(1), lo(2):hi(2))
+
+    W(:,:) = sqrt((q(:,:,2)**2 * gamma_up(:,:,1,1) + &
+                  2.0d0 * q(:,:,2) * q(:,:,3) * gamma_up(:,:,1,2) + &
+                  q(:,:,3)**2 * gamma_up(:,:,2,2)) / q(:,:,1)**2 + 1.0d0)
+
+end subroutine W_swe
+
+subroutine swe_flux(U, f, lo, hi, Ncomp, nlayers, x_dir,&
+                    gamma_up, glo, ghi, beta, alpha)
     use amrex_fort_module, only : amrex_real
     implicit none
 
     integer, intent(in) :: Ncomp, nlayers
-    real(amrex_real), intent(in) :: g
-    integer, intent(in) :: lo(2), hi(2)
+    integer, intent(in) :: lo(2), hi(2), glo(2), ghi(2)
     real(amrex_real), intent(in)  :: U(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, Ncomp*nlayers)
     real(amrex_real), intent(out) :: f(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, Ncomp*nlayers)
     logical, intent(in) :: x_dir
+    real(amrex_real), intent(in) :: gamma_up(glo(1):ghi(1), glo(2):ghi(2),3,3)
+    real(amrex_real), intent(in) :: beta(glo(1):ghi(1), glo(2):ghi(2),3)
+    real(amrex_real), intent(in) :: alpha(glo(1):ghi(1), glo(2):ghi(2))
 
     integer i, j, l, m
+    real(amrex_real) v(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, 2)
+    real(amrex_real) W(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1)
     real(amrex_real), parameter :: half = 0.5d0
 
     do l = 0, nlayers-1
+        call W_swe(U(:,:,l*Ncomp+1:l*Ncomp+3), lo-1,hi+1, Ncomp, gamma_up, W)
+
+        v(:,:,1) = U(:,:,l*Ncomp+2) / (U(:,:,l*Ncomp+1) * W)
+        v(:,:,2) = U(:,:,l*Ncomp+3) / (U(:,:,l*Ncomp+1) * W)
+
         if (x_dir) then
-            do    j = lo(2), hi(2)
-               do i = lo(1)-1, hi(1)+1
-                  f(i,j,l*Ncomp+1) =  U(i,j,l*Ncomp+2)
-                  f(i,j,l*Ncomp+2) = U(i,j,l*Ncomp+2)**2/U(i,j,l*Ncomp+1) + half * g * U(i,j,l*Ncomp+1)**2
-                  f(i,j,l*Ncomp+3) =  U(i,j,l*Ncomp+2) * U(i,j,l*Ncomp+3)
-               end do
-            end do
+          f(:,:,l*Ncomp+1) = U(:,:,l*Ncomp+1) * &
+            (v(:,:,1)*gamma_up(:,:,1,1) + v(:,:,2)*gamma_up(:,:,1,2) -&
+             beta(:,:,1) / alpha(:,:))
+          f(:,:,l*Ncomp+2) = U(:,:,l*Ncomp+2) * &
+            (v(:,:,1)*gamma_up(:,:,1,1) + v(:,:,2)*gamma_up(:,:,1,2) -&
+             beta(:,:,1) / alpha(:,:)) + half * U(:,:,l*Ncomp+1)**2 / W**2
+          f(:,:,l*Ncomp+3) = U(:,:,l*Ncomp+3) * &
+            (v(:,:,1)*gamma_up(:,:,1,1) + v(:,:,2)*gamma_up(:,:,1,2) -&
+             beta(:,:,1) / alpha(:,:))
         else
-            do    j = lo(2)-1, hi(2)+1
-               do i = lo(1), hi(1)
-                  f(i,j,l*Ncomp+1) =  U(i,j,l*Ncomp+3)
-                  f(i,j,l*Ncomp+2) = U(i,j,l*Ncomp+2) * U(i,j,l*Ncomp+3)
-                  f(i,j,l*Ncomp+3) =  U(i,j,l*Ncomp+3)**2/U(i,j,l*Ncomp+1) + half * g * U(i,j,l*Ncomp+1)**2
-               end do
-            end do
+          f(:,:,l*Ncomp+1) = U(:,:,l*Ncomp+1) * &
+            (v(:,:,1)*gamma_up(:,:,1,2) + v(:,:,2)*gamma_up(:,:,2,2) -&
+             beta(:,:,2) / alpha(:,:))
+          f(:,:,l*Ncomp+2) = U(:,:,l*Ncomp+2) * &
+            (v(:,:,1)*gamma_up(:,:,1,2) + v(:,:,2)*gamma_up(:,:,2,2) -&
+             beta(:,:,2) / alpha(:,:))
+          f(:,:,l*Ncomp+3) = U(:,:,l*Ncomp+3) * &
+            (v(:,:,1)*gamma_up(:,:,1,2) + v(:,:,2)*gamma_up(:,:,2,2) -&
+             beta(:,:,2) / alpha(:,:)) +  half * U(:,:,l*Ncomp+1)**2 / W**2
         end if
     end do
 
 end subroutine swe_flux
 
 subroutine compute_flux (U, datalo, datahi, lo, hi, Ncomp, nlayers,&
-     fluxx, fluxy, flo, fhi, dx, g, dt)! bind(C, name="compute_flux")
+     fluxx, fluxy, flo, fhi, dx, dt, gamma_up, glo, ghi, beta, alpha)! bind(C, name="compute_flux")
 
   use amrex_fort_module, only : amrex_real
   implicit none
 
-  integer lo(2), hi(2), Ncomp, nlayers, datalo(2), datahi(2), flo(2), fhi(2)
+  integer lo(2), hi(2), Ncomp, nlayers, datalo(2), datahi(2), flo(2), fhi(2), glo(2), ghi(2)
   real(amrex_real), intent(in)    :: U(datalo(1):datahi(1), datalo(2):datahi(2), Ncomp*nlayers)
   real(amrex_real), intent(inout) :: fluxx( flo(1): fhi(1), flo(2): fhi(2), Ncomp*nlayers)
   real(amrex_real), intent(inout) :: fluxy( flo(1): fhi(1), flo(2): fhi(2), Ncomp*nlayers)
   real(amrex_real), intent(in)    :: dt, dx(2)
-  real(amrex_real), intent(inout) :: g
 
   ! local variables
   integer i,j,k
   real(amrex_real) S_upwind(Ncomp*nlayers), S_downwind(Ncomp*nlayers), S(Ncomp*nlayers), r(Ncomp*nlayers), ph(Ncomp*nlayers), f_p(Ncomp*nlayers), f_m(Ncomp*nlayers)
-  real(amrex_real), parameter :: half = 0.5d0, alpha = 0.5d0
+  real(amrex_real), parameter :: half = 0.5d0, alph = 0.5d0
+  real(amrex_real), intent(in) :: gamma_up(glo(1):ghi(1), glo(2):ghi(2),3,3)
+  real(amrex_real), intent(in) :: beta(glo(1):ghi(1), glo(2):ghi(2),3)
+  real(amrex_real), intent(in) :: alpha(glo(1):ghi(1), glo(2):ghi(2))
 
   real(amrex_real) Up(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, Ncomp*nlayers)
   real(amrex_real) Um(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, Ncomp*nlayers)
@@ -105,13 +138,13 @@ subroutine compute_flux (U, datalo, datahi, lo, hi, Ncomp, nlayers,&
  !write(*,*) g, dt
  !return
 
- call swe_flux(Up, fp, lo, hi, Ncomp, nlayers, g, .true.)
- call swe_flux(Um, fm, lo, hi, Ncomp, nlayers, g, .true.)
+ call swe_flux(Up, fp, lo, hi, Ncomp, nlayers, .true., gamma_up, glo, ghi, beta, alpha)
+ call swe_flux(Um, fm, lo, hi, Ncomp, nlayers, .true., gamma_up, glo, ghi, beta, alpha)
 
   do    j = lo(2), hi(2)
      do i = lo(1), hi(1)
-        f_p = half * (fp(i,j,:) + fm(i+1,j,:) + alpha * dxdt(1) * (Up(i,j,:) - Um(i+1,j,:)))
-        f_m = half * (fp(i-1,j,:) + fm(i,j,:) + alpha * dxdt(1) * (Up(i-1,j,:) - Um(i,j,:)))
+        f_p = half * (fp(i,j,:) + fm(i+1,j,:) + alph * dxdt(1) * (Up(i,j,:) - Um(i+1,j,:)))
+        f_m = half * (fp(i-1,j,:) + fm(i,j,:) + alph * dxdt(1) * (Up(i-1,j,:) - Um(i,j,:)))
 
         fluxx(i,j,:) = -(f_p - f_m)
      end do
@@ -135,13 +168,13 @@ subroutine compute_flux (U, datalo, datahi, lo, hi, Ncomp, nlayers,&
      end do
  end do
 
- call swe_flux(Up, fp, lo, hi, Ncomp, nlayers, g, .false.)
- call swe_flux(Um, fm, lo, hi, Ncomp, nlayers, g, .false.)
+ call swe_flux(Up, fp, lo, hi, Ncomp, nlayers, .false., gamma_up, glo, ghi, beta, alpha)
+ call swe_flux(Um, fm, lo, hi, Ncomp, nlayers, .false., gamma_up, glo, ghi, beta, alpha)
 
    do    j = lo(2), hi(2)
       do i = lo(1), hi(1)
-         f_p = half * (fp(i,j,:) + fm(i,j+1,:) + alpha * dxdt(2) * (Up(i,j,:) - Um(i,j+1,:)))
-         f_m = half * (fp(i,j-1,:) + fm(i,j,:) + alpha * dxdt(2) * (Up(i,j-1,:) - Um(i,j,:)))
+         f_p = half * (fp(i,j,:) + fm(i,j+1,:) + alph * dxdt(2) * (Up(i,j,:) - Um(i,j+1,:)))
+         f_m = half * (fp(i,j-1,:) + fm(i,j,:) + alph * dxdt(2) * (Up(i,j-1,:) - Um(i,j,:)))
 
          fluxy(i,j,:) = -(f_p - f_m)
       end do
@@ -152,7 +185,7 @@ subroutine compute_flux (U, datalo, datahi, lo, hi, Ncomp, nlayers,&
 end subroutine compute_flux
 
 subroutine buoyancy(U, datalo, datahi, lo, hi, Ncomp, nlayers,&
-     buoy, flo, fhi, dx, g)
+     buoy, flo, fhi, dx)
 
      use amrex_fort_module, only : amrex_real
      implicit none
@@ -161,9 +194,11 @@ subroutine buoyancy(U, datalo, datahi, lo, hi, Ncomp, nlayers,&
      real(amrex_real), intent(in)    :: U(datalo(1):datahi(1), datalo(2):datahi(2), Ncomp*nlayers)
      real(amrex_real), intent(inout) :: buoy( flo(1): fhi(1), flo(2): fhi(2), Ncomp*nlayers)
      real(amrex_real), intent(in)    :: dx(2)
-     real(amrex_real), intent(inout) :: g
 
+     real(amrex_real) g
      integer i,j,l,m
+
+     g = 1.0d0
 
      buoy(:,:,:) = 0.0d0
 
@@ -188,19 +223,37 @@ subroutine buoyancy(U, datalo, datahi, lo, hi, Ncomp, nlayers,&
 
 end subroutine buoyancy
 
+subroutine grav_source(U, datalo, datahi, lo, hi, Ncomp, nlayers,&
+     buoy, flo, fhi, dx)
+
+     use amrex_fort_module, only : amrex_real
+     implicit none
+
+     integer lo(2), hi(2), Ncomp, nlayers, datalo(2), datahi(2), flo(2), fhi(2)
+     real(amrex_real), intent(in)    :: U(datalo(1):datahi(1), datalo(2):datahi(2), Ncomp*nlayers)
+     real(amrex_real), intent(inout) :: buoy( flo(1): fhi(1), flo(2): fhi(2), Ncomp*nlayers)
+     real(amrex_real), intent(in)    :: dx(2)
+
+     real(amrex_real) g
+     integer i,j,l,m
+
+end subroutine grav_source
+
 
 subroutine update_data (lo, hi, Ncomp, nlayers, dataold, polo, pohi, &
-     datanew, pnlo, pnhi, dx, g, dt) bind(C, name="update_data")
+     datanew, pnlo, pnhi, dx, dt, gamma_up, glo, ghi, beta, blo, bhi, alpha, alo, ahi) bind(C, name="update_data")
 
   use amrex_fort_module, only : amrex_real
   implicit none
 
-  integer lo(2), hi(2), Ncomp, nlayers, polo(2), pohi(2), pnlo(2), pnhi(2), fxlo(2), fxhi(2), fylo(2), fyhi(2)
+  integer lo(2), hi(2), Ncomp, nlayers, polo(2), pohi(2), pnlo(2), pnhi(2), glo(2), ghi(2), blo(2), bhi(2), alo(2), ahi(2)
   real(amrex_real), intent(in)    :: dataold(polo(1):pohi(1),polo(2):pohi(2), Ncomp*nlayers)
   real(amrex_real), intent(inout) :: datanew(pnlo(1):pnhi(1),pnlo(2):pnhi(2), Ncomp*nlayers)
   real(amrex_real), intent(in)    :: dx(2)
-  real(amrex_real), intent(inout) :: g
   real(amrex_real), value         :: dt
+  real(amrex_real), intent(in) :: gamma_up(glo(1):ghi(1), glo(2):ghi(2),3,3)
+  real(amrex_real), intent(in) :: beta(blo(1):bhi(1), blo(2):bhi(2),3)
+  real(amrex_real), intent(in) :: alpha(alo(1):ahi(1), alo(2):ahi(2))
 
   ! local variables
   integer i,j
@@ -212,7 +265,7 @@ subroutine update_data (lo, hi, Ncomp, nlayers, dataold, polo, pohi, &
   dtdx = dt/dx
 
   call compute_flux (dataold, polo, pohi, lo-4, hi+4, Ncomp, nlayers, &
-       fluxx, fluxy, lo-4, hi+4, dx, g, dt)
+       fluxx, fluxy, lo-4, hi+4, dx, dt, gamma_up, glo, ghi, beta, alpha)
 
    do   j = lo(2)-4, hi(2)+4
      do i = lo(1)-4, hi(1)+4
@@ -222,7 +275,7 @@ subroutine update_data (lo, hi, Ncomp, nlayers, dataold, polo, pohi, &
   end do
 
   call buoyancy(datanew, polo, pohi, lo-4, hi+4, Ncomp, nlayers, &
-       fluxx, lo-4, hi+4, dx, g)
+       fluxx, lo-4, hi+4, dx)
 
    do   j = lo(2)-4, hi(2)+4
      do i = lo(1)-4, hi(1)+4
@@ -231,7 +284,7 @@ subroutine update_data (lo, hi, Ncomp, nlayers, dataold, polo, pohi, &
   end do
 
   call compute_flux (datanew, pnlo, pnhi, lo-2, hi+2, Ncomp, nlayers, &
-       fluxx, fluxy, lo-4, hi+4, dx, g, dt)
+       fluxx, fluxy, lo-4, hi+4, dx, dt, gamma_up, glo, ghi, beta, alpha)
 
    do   j = lo(2)-2, hi(2)+2
      do i = lo(1)-2, hi(1)+2
@@ -241,7 +294,7 @@ subroutine update_data (lo, hi, Ncomp, nlayers, dataold, polo, pohi, &
   end do
 
   call buoyancy(datanew, polo, pohi, lo-2, hi+2, Ncomp, nlayers, &
-       fluxx, lo-4, hi+4, dx, g)
+       fluxx, lo-4, hi+4, dx)
 
    do   j = lo(2)-2, hi(2)+2
      do i = lo(1)-2, hi(1)+2
@@ -250,7 +303,7 @@ subroutine update_data (lo, hi, Ncomp, nlayers, dataold, polo, pohi, &
   end do
 
   call compute_flux (datanew, pnlo, pnhi, lo, hi, Ncomp, nlayers, &
-       fluxx, fluxy, lo-4, hi+4, dx, g, dt)
+       fluxx, fluxy, lo-4, hi+4, dx, dt, gamma_up, glo, ghi, beta, alpha)
 
   do    j = lo(2), hi(2)
      do i = lo(1), hi(1)
@@ -260,7 +313,7 @@ subroutine update_data (lo, hi, Ncomp, nlayers, dataold, polo, pohi, &
   end do
 
   call buoyancy(datanew, polo, pohi, lo, hi, Ncomp, nlayers, &
-       fluxx, lo-4, hi+4, dx, g)
+       fluxx, lo-4, hi+4, dx)
 
    do   j = lo(2), hi(2)
      do i = lo(1), hi(1)
