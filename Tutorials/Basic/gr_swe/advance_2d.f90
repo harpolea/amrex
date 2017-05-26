@@ -223,23 +223,6 @@ subroutine buoyancy(U, datalo, datahi, lo, hi, Ncomp, nlayers,&
 
 end subroutine buoyancy
 
-subroutine grav_source(U, datalo, datahi, lo, hi, Ncomp, nlayers,&
-     buoy, flo, fhi, dx)
-
-     use amrex_fort_module, only : amrex_real
-     implicit none
-
-     integer lo(2), hi(2), Ncomp, nlayers, datalo(2), datahi(2), flo(2), fhi(2)
-     real(amrex_real), intent(in)    :: U(datalo(1):datahi(1), datalo(2):datahi(2), Ncomp*nlayers)
-     real(amrex_real), intent(inout) :: buoy( flo(1): fhi(1), flo(2): fhi(2), Ncomp*nlayers)
-     real(amrex_real), intent(in)    :: dx(2)
-
-     real(amrex_real) g
-     integer i,j,l,m
-
-end subroutine grav_source
-
-
 subroutine update_data (lo, hi, Ncomp, nlayers, dataold, polo, pohi, &
      datanew, pnlo, pnhi, dx, dt, gamma_up, glo, ghi, beta, blo, bhi, alpha, alo, ahi) bind(C, name="update_data")
 
