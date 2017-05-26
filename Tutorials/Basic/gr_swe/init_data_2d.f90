@@ -46,10 +46,10 @@ subroutine init_data(U, philo, phihi, lo, hi, Ncomp, nlayers, dx, prob_lo, prob_
   end do
 
   do l = 0, nlayers-1
-      alpha(:,:, l+1) = exp(-U(i,j,l*Ncomp+1))
+      alpha(:,:, l+1) = exp(-U(:,:,l*Ncomp+1))
       gamma_up(:,:,l*Ncomp+1) = 1.0d0
       gamma_up(:,:,l*Ncomp+5) = 1.0d0
-      gamma_up(:,:,l*Ncomp+9) = exp(-2.0d0 * U(i,j,l*Ncomp+1))
+      gamma_up(:,:,l*Ncomp+9) = exp(-2.0d0 * U(:,:,l*Ncomp+1))
   end do
 
 end subroutine init_data

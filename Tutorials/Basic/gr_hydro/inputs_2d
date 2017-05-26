@@ -1,0 +1,6 @@
+nsteps = 300
+plot_int = 30
+n_cell = 256
+max_grid_size = 64
+g = 1.0
+gamma = 1.66666666666666667
