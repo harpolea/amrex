@@ -43,10 +43,12 @@ subroutine init_data(U, philo, phihi, lo, hi, Ncomp,dx, prob_lo, prob_hi, gamma_
      end do
   end do
 
-  alpha(:,:) = exp(-U(:,:,1))
-  gamma_up(:,:,1) = 1.0d0
-  gamma_up(:,:,5) = 1.0d0
-  gamma_up(:,:,9) = exp(-2.0d0 * U(:,:,1))
+  alpha(glo(1):ghi(1),glo(2):ghi(2)) = exp(-U(glo(1):ghi(1),glo(2):ghi(2),1))
+
+  gamma_up(glo(1):ghi(1),glo(2):ghi(2),1) = 1.0d0
+  gamma_up(glo(1):ghi(1),glo(2):ghi(2),5) = 1.0d0
+
+  gamma_up(glo(1):ghi(1),glo(2):ghi(2),9) = exp(-2.0d0 * U(glo(1):ghi(1),glo(2):ghi(2),1))
 
 
 end subroutine init_data

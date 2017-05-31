@@ -84,6 +84,8 @@ subroutine zbrent(p, x1, b, U, Ncomp, gamma, gamma_up)
     c = a
     fc = fa
 
+    mflag = .true.
+
     do i = 1, ITMAX
         if (fa /= fc .and. fb /= fc) then
             s = a*fb*fc / ((fa-fb) * (fa-fc)) + b*fa*fc / ((fb-fa)*(fb-fc)) +&
@@ -142,12 +144,13 @@ subroutine zbrent(p, x1, b, U, Ncomp, gamma, gamma_up)
         end if
 
         if (fb == 0.0d0 .or. fs == 0.0d0 .or. abs(b-a) < TOL) then
+            p = b
             return
         end if
 
     end do
 
-    b = x1
+    p = x1
 
 end subroutine zbrent
 
@@ -191,7 +194,6 @@ subroutine cons_to_prim(U, U_prim, p, lo, hi, Ncomp, gamma, gamma_up, glo, ghi)
             end if
 
             call f_of_p(fmin, pmin, q, Ncomp, gamma, gamma_up(i,j,:))
-            call f_of_p(fmax, pmax, q, Ncomp, gamma, gamma_up(i,j,:))
 
             if (fmin * fmax > 0.0d0) then
                 pmax = pmax * 10.d0
@@ -217,10 +219,10 @@ subroutine cons_to_prim(U, U_prim, p, lo, hi, Ncomp, gamma, gamma_up, glo, ghi)
             W2 = 1.0d0 + ssq / (q(1) * h)**2
 
             U_prim(i,j,1) = q(1) * sq / (q(4) + p(i,j) + q(1))
-            U_prim(i,j,2) = gamma_up(i,j,1)*q(2) / (W2 * h * U_prim(i,j,1)) +&
-                gamma_up(i,j,2) * q(3) / (W2 * h * U_prim(i,j,1))
-            U_prim(i,j,3) = gamma_up(i,j,2)*q(2) / (W2 * h * U_prim(i,j,1)) +&
-                gamma_up(i,j,5) * q(3) / (W2 * h * U_prim(i,j,1))
+            U_prim(i,j,2) = (gamma_up(i,j,1)*q(2) + gamma_up(i,j,2) * q(3)) /&
+                (W2 * h * U_prim(i,j,1))
+            U_prim(i,j,3) = (gamma_up(i,j,2)*q(2) + gamma_up(i,j,5) * q(3)) /&
+                (W2 * h * U_prim(i,j,1))
             U_prim(i,j,4) = (h - 1.0) / gamma
 
         end do
@@ -234,8 +236,8 @@ subroutine comp_flux(U, f, lo, hi, Ncomp, x_dir, gamma, gamma_up, glo, ghi, beta
 
     integer, intent(in) :: Ncomp
     integer, intent(in) :: lo(2), hi(2), glo(2), ghi(2)
-    real(amrex_real), intent(in)  :: U(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, Ncomp)
-    real(amrex_real), intent(out) :: f(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, Ncomp)
+    real(amrex_real), intent(in)  :: U(lo(1):hi(1), lo(2):hi(2), Ncomp)
+    real(amrex_real), intent(out) :: f(lo(1):hi(1), lo(2):hi(2), Ncomp)
     logical, intent(in) :: x_dir
     real(amrex_real), intent(in)  :: gamma
     real(amrex_real), intent(in)  :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), 9)
@@ -244,23 +246,41 @@ subroutine comp_flux(U, f, lo, hi, Ncomp, x_dir, gamma, gamma_up, glo, ghi, beta
 
     integer i, j
     real(amrex_real), parameter :: half = 0.5d0
-    real(amrex_real) p(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1)
-    real(amrex_real) U_prim(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, Ncomp)
+    real(amrex_real) p(lo(1):hi(1), lo(2):hi(2))
+    real(amrex_real) U_prim(lo(1):hi(1), lo(2):hi(2), Ncomp)
 
-    call cons_to_prim(U, U_prim, p, lo-1, hi+1, Ncomp, gamma, gamma_up, glo, ghi)
+    call cons_to_prim(U, U_prim, p, lo, hi, Ncomp, gamma, gamma_up, glo, ghi)
 
     if (x_dir) then
-        f(:,:,1) = U(:,:,1) * (U_prim(:,:,2) - beta(:,:,1) / alpha)
-        f(:,:,2) = U(:,:,2) * (U_prim(:,:,2) - beta(:,:,1) / alpha) + p
-        f(:,:,3) = U(:,:,3) * (U_prim(:,:,2) - beta(:,:,1) / alpha)
-        f(:,:,4) = U(:,:,4) * (U_prim(:,:,2) - beta(:,:,1) / alpha) + &
-            p * U_prim(:,:,2)
+        f(lo(1):hi(1),lo(2):hi(2),1) = U(lo(1):hi(1),lo(2):hi(2),1) *&
+            (U_prim(lo(1):hi(1),lo(2):hi(2),2) -&
+             beta(lo(1):hi(1),lo(2):hi(2),1) / alpha(lo(1):hi(1),lo(2):hi(2)))
+        f(lo(1):hi(1),lo(2):hi(2),2) = U(lo(1):hi(1),lo(2):hi(2),2) *&
+            (U_prim(lo(1):hi(1),lo(2):hi(2),2) -&
+             beta(lo(1):hi(1),lo(2):hi(2),1) / alpha(lo(1):hi(1),lo(2):hi(2)))&
+              + p
+        f(lo(1):hi(1),lo(2):hi(2),3) = U(lo(1):hi(1),lo(2):hi(2),3) *&
+            (U_prim(lo(1):hi(1),lo(2):hi(2),2) -&
+             beta(lo(1):hi(1),lo(2):hi(2),1) / alpha(lo(1):hi(1),lo(2):hi(2)))
+        f(lo(1):hi(1),lo(2):hi(2),4) = U(lo(1):hi(1),lo(2):hi(2),4) *&
+            (U_prim(lo(1):hi(1),lo(2):hi(2),2) -&
+             beta(lo(1):hi(1),lo(2):hi(2),1) / alpha(lo(1):hi(1),lo(2):hi(2)))&
+              + p * U_prim(lo(1):hi(1),lo(2):hi(2),2)
     else
-        f(:,:,1) = U(:,:,1) * (U_prim(:,:,3) - beta(:,:,2) / alpha)
-        f(:,:,2) = U(:,:,2) * (U_prim(:,:,3) - beta(:,:,2) / alpha)
-        f(:,:,3) = U(:,:,3) * (U_prim(:,:,3) - beta(:,:,2) / alpha) + p
-        f(:,:,4) = U(:,:,4) * (U_prim(:,:,3) - beta(:,:,2) / alpha) + &
-            p * U_prim(:,:,3)
+        f(lo(1):hi(1),lo(2):hi(2),1) = U(lo(1):hi(1),lo(2):hi(2),1) *&
+            (U_prim(lo(1):hi(1),lo(2):hi(2),3) -&
+             beta(lo(1):hi(1),lo(2):hi(2),2) / alpha(lo(1):hi(1),lo(2):hi(2)))
+        f(lo(1):hi(1),lo(2):hi(2),2) = U(lo(1):hi(1),lo(2):hi(2),2) *&
+            (U_prim(lo(1):hi(1),lo(2):hi(2),3) -&
+             beta(lo(1):hi(1),lo(2):hi(2),2) / alpha)
+        f(lo(1):hi(1),lo(2):hi(2),3) = U(lo(1):hi(1),lo(2):hi(2),3) *&
+            (U_prim(lo(1):hi(1),lo(2):hi(2),3) -&
+             beta(lo(1):hi(1),lo(2):hi(2),2) / alpha(lo(1):hi(1),lo(2):hi(2)))&
+              + p
+        f(lo(1):hi(1),lo(2):hi(2),4) = U(lo(1):hi(1),lo(2):hi(2),4) *&
+            (U_prim(lo(1):hi(1),lo(2):hi(2),3) -&
+             beta(lo(1):hi(1),lo(2):hi(2),2) / alpha(lo(1):hi(1),lo(2):hi(2)))&
+              + p * U_prim(lo(1):hi(1),lo(2):hi(2),3)
     end if
 
 end subroutine comp_flux
@@ -283,7 +303,7 @@ subroutine compute_flux (U, datalo, datahi, lo, hi, Ncomp,&
   ! local variables
   integer i,j,k
   real(amrex_real) S_upwind(Ncomp), S_downwind(Ncomp), S(Ncomp), r(Ncomp), ph(Ncomp), f_p(Ncomp), f_m(Ncomp)
-  real(amrex_real), parameter :: half = 0.5d0, alph = 0.5d0
+  real(amrex_real), parameter :: half = 0.5d0, alph = 1.0d0
 
   real(amrex_real) Up(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, Ncomp)
   real(amrex_real) Um(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, Ncomp)
@@ -314,15 +334,15 @@ subroutine compute_flux (U, datalo, datahi, lo, hi, Ncomp,&
  !write(*,*) g, dt
  !return
 
- call comp_flux(Up, fp, lo, hi, Ncomp, .true., gamma, gamma_up, glo, ghi, beta, alpha)
- call comp_flux(Um, fm, lo, hi, Ncomp, .true., gamma, gamma_up, glo, ghi, beta, alpha)
+ call comp_flux(Up, fp, lo-1, hi+1, Ncomp, .true., gamma, gamma_up, glo, ghi, beta, alpha)
+ call comp_flux(Um, fm, lo-1, hi+1, Ncomp, .true., gamma, gamma_up, glo, ghi, beta, alpha)
 
   do    j = lo(2), hi(2)
      do i = lo(1), hi(1)
-        f_p = half * (fp(i,j,:) + fm(i+1,j,:) + alph * dxdt(1) * (Up(i,j,:) - Um(i+1,j,:)))
-        f_m = half * (fp(i-1,j,:) + fm(i,j,:) + alph * dxdt(1) * (Up(i-1,j,:) - Um(i,j,:)))
+        f_p = half * (fp(i,j,:) + fm(i+1,j,:) + alph * (Up(i,j,:) - Um(i+1,j,:)))
+        f_m = half * (fp(i-1,j,:) + fm(i,j,:) + alph * (Up(i-1,j,:) - Um(i,j,:)))
 
-        fluxx(i,j,:) = -(f_p - f_m)
+        fluxx(i,j,:) = - alpha(i,j) * (f_p - f_m)
      end do
   end do
 
@@ -344,15 +364,15 @@ subroutine compute_flux (U, datalo, datahi, lo, hi, Ncomp,&
      end do
  end do
 
- call comp_flux(Up, fp, lo, hi, Ncomp, .false., gamma, gamma_up, glo, ghi, beta, alpha)
- call comp_flux(Um, fm, lo, hi, Ncomp, .false., gamma, gamma_up, glo, ghi, beta, alpha)
+ call comp_flux(Up, fp, lo-1, hi+1, Ncomp, .false., gamma, gamma_up, glo, ghi, beta, alpha)
+ call comp_flux(Um, fm, lo-1, hi+1, Ncomp, .false., gamma, gamma_up, glo, ghi, beta, alpha)
 
    do    j = lo(2), hi(2)
       do i = lo(1), hi(1)
-         f_p = half * (fp(i,j,:) + fm(i,j+1,:) + alph * dxdt(2) * (Up(i,j,:) - Um(i,j+1,:)))
-         f_m = half * (fp(i,j-1,:) + fm(i,j,:) + alph * dxdt(2) * (Up(i,j-1,:) - Um(i,j,:)))
+         f_p = half * (fp(i,j,:) + fm(i,j+1,:) + alph * (Up(i,j,:) - Um(i,j+1,:)))
+         f_m = half * (fp(i,j-1,:) + fm(i,j,:) + alph * (Up(i,j-1,:) - Um(i,j,:)))
 
-         fluxy(i,j,:) = -(f_p - f_m)
+         fluxy(i,j,:) = -alpha(i,j) * (f_p - f_m)
       end do
    end do
 
