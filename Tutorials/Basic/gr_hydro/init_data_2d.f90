@@ -28,8 +28,8 @@ subroutine init_data(U, philo, phihi, lo, hi, Ncomp,dx, prob_lo, prob_hi, gamma_
         r2 = (x**2 + y**2)
 
         if (r2 < 0.2**2) then
-            U(i,j,1) = 1.1d0
-            U(i,j,4) = 1.1d0
+            U(i,j,1) = 1.5d0
+            U(i,j,4) = 1.5d0
         else
             U(i,j,1) = 1.0d0
             U(i,j,4) = 1.0d0
