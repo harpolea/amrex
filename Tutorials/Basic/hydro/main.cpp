@@ -129,7 +129,7 @@ void main_main ()
     int Nghost = 6;
 
     // Ncomp = number of components for each array
-    int Ncomp  = 4;
+    int Ncomp  = 2 + BL_SPACEDIM;
 
     // time = starting time in the simulation
     Real time = 0.0;
@@ -164,7 +164,11 @@ void main_main ()
     {
         int n = 0;
         const std::string& pltfile = amrex::Concatenate("plt",n,5);
+#if (BL_SPACEDIM == 2)
         WriteSingleLevelPlotfile(pltfile, data_new, {"rho", "rhou", "rhov", "E"}, geom, time, 0);
+#else
+        WriteSingleLevelPlotfile(pltfile, data_new, {"rho", "rhou", "rhov", "rhow", "E"}, geom, time, 0);
+#endif
     }
 
     // build the flux multifabs
@@ -190,7 +194,11 @@ void main_main ()
         if (plot_int > 0 && n%plot_int == 0)
         {
             const std::string& pltfile = amrex::Concatenate("plt",n,5);
+#if (BL_SPACEDIM == 2)
             WriteSingleLevelPlotfile(pltfile, data_new, {"rho", "rhou", "rhov", "E"}, geom, time, n);
+#else
+            WriteSingleLevelPlotfile(pltfile, data_new, {"rho", "rhou", "rhov", "rhow", "E"}, geom, time, n);
+#endif
         }
     }
 
