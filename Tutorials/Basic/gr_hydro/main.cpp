@@ -29,7 +29,8 @@ int main (int argc, char* argv[])
 void advance (MultiFab& old_data, MultiFab& new_data,
 	      std::array<MultiFab, BL_SPACEDIM>& flux,
 	      Real dt, const Geometry& geom, Real gamma,
-          MultiFab& gamma_up, MultiFab& beta, MultiFab& alpha)
+          MultiFab& gamma_up, MultiFab& beta, MultiFab& alpha,
+          Real alpha0, Real M, Real R)
 {
     // Fill the ghost cells of each grid from the other grids
     // includes periodic domain boundaries
@@ -51,7 +52,8 @@ void advance (MultiFab& old_data, MultiFab& new_data,
                    dx, dt, &gamma,
                    BL_TO_FORTRAN_ANYD(gamma_up[mfi]),
                    BL_TO_FORTRAN_ANYD(beta[mfi]),
-                   BL_TO_FORTRAN_ANYD(alpha[mfi]));
+                   BL_TO_FORTRAN_ANYD(alpha[mfi]),
+                   alpha0, M, R);
     }
 }
 
@@ -63,7 +65,7 @@ void main_main ()
     // BL_SPACEDIM: number of dimensions
     int n_cell, max_grid_size, nsteps, plot_int, is_periodic[BL_SPACEDIM];
 
-    Real g, gamma;
+    Real alpha0, M, R, gamma;
 
     // inputs parameters
     {
@@ -86,14 +88,25 @@ void main_main ()
         nsteps = 10;
         pp.query("nsteps",nsteps);
 
-        // gravitational acceleration in shallow water equations
-        g = 0.0001;
-        pp.query("g", g);
+        // stellar mass
+        M = 1.0;
+        pp.query("M", M);
+
+        // stellar radius
+        R = 100.0;
+        pp.query("R", R);
+
+        // lapse function
+        alpha0 = sqrt(1.0 - 2 * M / R);
+        pp.query("alpha0", alpha0);
 
         // adiabatic index
         gamma = 5.0/3.0;
         pp.query("gamma", gamma);
     }
+
+    //std::cout << R << ' ' << alpha0 << ' ' << M << '\n';
+    //return;
 
     // make BoxArray and Geometry
     BoxArray ba;
@@ -168,7 +181,8 @@ void main_main ()
                  geom.CellSize(), geom.ProbLo(), geom.ProbHi(),
                  BL_TO_FORTRAN_ANYD(gamma_up[mfi]),
                  BL_TO_FORTRAN_ANYD(beta[mfi]),
-                 BL_TO_FORTRAN_ANYD(alpha[mfi]));
+                 BL_TO_FORTRAN_ANYD(alpha[mfi]),
+                 alpha0, M, R);
     }
 
     // compute the time step
@@ -180,7 +194,11 @@ void main_main ()
     {
         int n = 0;
         const std::string& pltfile = amrex::Concatenate("plt",n,5);
+#if (BL_SPACEDIM == 2)
         WriteSingleLevelPlotfile(pltfile, data_new, {"D", "Sx", "Sy", "tau"}, geom, time, 0);
+#else
+        WriteSingleLevelPlotfile(pltfile, data_new, {"D", "Sx", "Sy", "Sz", "tau"}, geom, time, 0);
+#endif
     }
 
     // build the flux multifabs
@@ -196,7 +214,7 @@ void main_main ()
         MultiFab::Copy(data_old, data_new, 0, 0, Ncomp, 0);
 
         // new_data = old_data + dt * (something)
-        advance(data_old, data_new, flux, dt, geom, gamma, gamma_up, beta, alpha);
+        advance(data_old, data_new, flux, dt, geom, gamma, gamma_up, beta, alpha, alpha0, M, R);
         time = time + dt;
 
         // Tell the I/O Processor to write out which step we're doing
@@ -206,7 +224,11 @@ void main_main ()
         if (plot_int > 0 && n%plot_int == 0)
         {
             const std::string& pltfile = amrex::Concatenate("plt",n,5);
+#if (BL_SPACEDIM == 2)
             WriteSingleLevelPlotfile(pltfile, data_new, {"D", "Sx", "Sy", "tau"}, geom, time, n);
+#else
+            WriteSingleLevelPlotfile(pltfile, data_new, {"D", "Sx", "Sy", "Sz", "tau"}, geom, time, n);
+#endif
         }
     }
 
