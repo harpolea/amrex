@@ -1,6 +1,6 @@
-nsteps = 10
-plot_int = 1
-n_cell = 64
+nsteps = 100
+plot_int = 5
+n_cell = 128
 max_grid_size = 32
 g = 1.0
 gamma = 1.66666666666666667

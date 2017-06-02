@@ -14,7 +14,7 @@ subroutine init_data(U, philo, phihi, lo, hi, Ncomp, dx, prob_lo, prob_hi) bind(
   double precision :: x,y,z,r2
 
   do k = lo(3), hi(3)
-      z = prob_lo(3) + (dble(j)+0.5d0) * dx(3)
+      z = prob_lo(3) + (dble(k)+0.5d0) * dx(3)
       do j = lo(2), hi(2)
          y = prob_lo(2) + (dble(j)+0.5d0) * dx(2)
          do i = lo(1), hi(1)
@@ -27,8 +27,8 @@ subroutine init_data(U, philo, phihi, lo, hi, Ncomp, dx, prob_lo, prob_hi) bind(
             r2 = (x**2 + y**2 + z**2)
 
             if (r2 < 0.2**2) then
-                U(i,j,k,1) = 1.5d0
-                U(i,j,k,5) = 1.5d0
+                U(i,j,k,1) = 1.d0 + 0.1d0*exp(-r2)
+                U(i,j,k,5) = 1.d0 + 0.1d0*exp(-r2)
             else
                 U(i,j,k,1) = 1.0d0
                 U(i,j,k,5) = 1.0d0

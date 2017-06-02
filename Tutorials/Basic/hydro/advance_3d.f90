@@ -49,9 +49,9 @@ subroutine comp_flux(U, f, lo, hi, Ncomp, dir, gamma)
     p = (gamma - 1.0d0) * (U(:,:,:,5) - &
         half * (U(:,:,:,2)**2 + U(:,:,:,3)**2 + U(:,:,:,4)**2) / U(:,:,:,1))
 
-    !if (p(lo(1), lo(2), lo(3)) /= p(lo(1), lo(2), lo(3))) then
-    !    write (*,*) "p is nan"
-    !end if
+    if (p(lo(1), lo(2), lo(3)) /= p(lo(1), lo(2), lo(3))) then
+        write (*,*) "p is nan", p(lo(1), lo(2), lo(3)), U(lo(1), lo(2), lo(3),:)
+    end if
 
     if (dir == 0) then
         f(:,:,:,1) = U(:,:,:,2)
@@ -91,7 +91,7 @@ subroutine compute_flux (U, datalo, datahi, lo, hi, Ncomp,&
   ! local variables
   integer i,j,k
   real(amrex_real) S_upwind(Ncomp), S_downwind(Ncomp), S(Ncomp), r(Ncomp), ph(Ncomp), f_p(Ncomp), f_m(Ncomp)
-  real(amrex_real), parameter :: half = 0.5d0, alph = 0.5d0
+  real(amrex_real), parameter :: half = 0.5d0, alph = 0.1d0
 
   real(amrex_real) Up(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1, Ncomp)
   real(amrex_real) Um(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1, Ncomp)
@@ -102,8 +102,8 @@ subroutine compute_flux (U, datalo, datahi, lo, hi, Ncomp,&
   dxdt = dx/dt
 
   ! x fluxes
-  do        k = lo(3), hi(3)
-      do    j = lo(2), hi(2)
+  do        k = lo(3)-1, hi(3)+1
+      do    j = lo(2)-1, hi(2)+1
          do i = lo(1)-1, hi(1)+1
              S_upwind = U(i+1,j,k,:) - U(i,j,k,:)
              S_downwind = U(i,j,k,:) - U(i-1,j,k,:)
@@ -141,9 +141,9 @@ subroutine compute_flux (U, datalo, datahi, lo, hi, Ncomp,&
   end do
 
   ! y fluxes
-  do        k = lo(3), hi(3)
+  do        k = lo(3)-1, hi(3)+1
       do    j = lo(2)-1, hi(2)+1
-         do i = lo(1), hi(1)
+         do i = lo(1)-1, hi(1)+1
              S_upwind = U(i,j+1,k,:) - U(i,j,k,:)
              S_downwind = U(i,j,k,:) - U(i,j-1,k,:)
              S = half * (S_upwind + S_downwind)
@@ -176,8 +176,8 @@ subroutine compute_flux (U, datalo, datahi, lo, hi, Ncomp,&
 
    ! z fluxes
    do        k = lo(3)-1, hi(3)+1
-       do    j = lo(2), hi(2)
-          do i = lo(1), hi(1)
+       do    j = lo(2)-1, hi(2)+1
+          do i = lo(1)-1, hi(1)+1
               S_upwind = U(i,j,k+1,:) - U(i,j,k,:)
               S_downwind = U(i,j,k,:) - U(i,j,k-1,:)
               S = half * (S_upwind + S_downwind)
