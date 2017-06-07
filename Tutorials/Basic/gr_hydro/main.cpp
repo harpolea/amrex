@@ -105,7 +105,7 @@ void main_main ()
         pp.query("gamma", gamma);
     }
 
-    //std::cout << R << ' ' << alpha0 << ' ' << M << '\n';
+    //Print() << R << ' ' << alpha0 << ' ' << M << '\n';
     //return;
 
     // make BoxArray and Geometry

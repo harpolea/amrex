@@ -128,7 +128,7 @@ void main_main ()
     // Need 6 ghosts for slope limited rk3
     int Nghost = 6;
 
-    int nlayers = 1;
+    int nlayers = 2;
 
     // Ncomp = number of components for each array
     int Ncomp  = 3;
