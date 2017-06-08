@@ -29,7 +29,8 @@ int main (int argc, char* argv[])
 void advance (MultiFab& old_data, MultiFab& new_data,
 	      std::array<MultiFab, BL_SPACEDIM>& flux,
 	      Real dt, const Geometry& geom, int nlayers,
-          MultiFab& gamma_up, MultiFab& beta, MultiFab& alpha)
+          MultiFab& gamma_up, MultiFab& beta, MultiFab& alpha,
+          Real alpha0, Real M, Real R)
 {
     // Fill the ghost cells of each grid from the other grids
     // includes periodic domain boundaries
@@ -51,7 +52,8 @@ void advance (MultiFab& old_data, MultiFab& new_data,
                    dx, dt,
                    BL_TO_FORTRAN_ANYD(gamma_up[mfi]),
                    BL_TO_FORTRAN_ANYD(beta[mfi]),
-                   BL_TO_FORTRAN_ANYD(alpha[mfi]));
+                   BL_TO_FORTRAN_ANYD(alpha[mfi]),
+                   &alpha0, &M, &R);
     }
 }
 
@@ -63,7 +65,7 @@ void main_main ()
     // BL_SPACEDIM: number of dimensions
     int n_cell, max_grid_size, nsteps, plot_int, is_periodic[BL_SPACEDIM];
 
-    Real g;
+    Real alpha0, M, R;
 
     // inputs parameters
     {
@@ -86,9 +88,17 @@ void main_main ()
         nsteps = 10;
         pp.query("nsteps",nsteps);
 
-        // gravitational acceleration in shallow water equations
-        g = 0.0001;
-        pp.query("g", g);
+        // stellar mass
+        M = 1.0;
+        pp.query("M", M);
+
+        // stellar radius
+        R = 100.0;
+        pp.query("R", R);
+
+        // lapse function
+        alpha0 = sqrt(1.0 - 2 * M / R);
+        pp.query("alpha0", alpha0);
     }
 
     // make BoxArray and Geometry
@@ -131,7 +141,7 @@ void main_main ()
     int nlayers = 2;
 
     // Ncomp = number of components for each array
-    int Ncomp  = 3;
+    int Ncomp  = 4;
 
     // time = starting time in the simulation
     Real time = 0.0;
@@ -166,7 +176,8 @@ void main_main ()
                  geom.CellSize(), geom.ProbLo(), geom.ProbHi(),
                  BL_TO_FORTRAN_ANYD(gamma_up[mfi]),
                  BL_TO_FORTRAN_ANYD(beta[mfi]),
-                 BL_TO_FORTRAN_ANYD(alpha[mfi]));
+                 BL_TO_FORTRAN_ANYD(alpha[mfi]),
+                 &alpha0, &M, &R);
     }
 
     // compute the time step
@@ -178,7 +189,7 @@ void main_main ()
     {
         int n = 0;
         const std::string& pltfile = amrex::Concatenate("plt",n,5);
-        WriteSingleLevelPlotfile(pltfile, data_new, {"h0", "hu0", "hv0", "h1", "hu1", "hv1"}, geom, time, 0);
+        WriteSingleLevelPlotfile(pltfile, data_new, {"phi0", "phiu0", "phiv0", "h0", "phi1", "phiu1", "phiv1", "h1"}, geom, time, 0);
     }
 
     // build the flux multifabs
@@ -194,7 +205,7 @@ void main_main ()
         MultiFab::Copy(data_old, data_new, 0, 0, Ncomp*nlayers, 0);
 
         // new_data = old_data + dt * (something)
-        advance(data_old, data_new, flux, dt, geom, nlayers, gamma_up, beta, alpha);
+        advance(data_old, data_new, flux, dt, geom, nlayers, gamma_up, beta, alpha, alpha0, M, R);
         time = time + dt;
 
         // Tell the I/O Processor to write out which step we're doing
@@ -204,7 +215,7 @@ void main_main ()
         if (plot_int > 0 && n%plot_int == 0)
         {
             const std::string& pltfile = amrex::Concatenate("plt",n,5);
-            WriteSingleLevelPlotfile(pltfile, data_new, {"h0", "hu0", "hv0", "h1", "hu1", "hv1"}, geom, time, n);
+            WriteSingleLevelPlotfile(pltfile, data_new, {"phi0", "phiu0", "phiv0", "h0", "phi1", "phiu1", "phiv1", "h1"}, geom, time, n);
         }
     }
 

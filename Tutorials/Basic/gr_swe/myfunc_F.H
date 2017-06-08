@@ -15,7 +15,9 @@ extern "C"
                   const amrex_real* prob_hi,
                   amrex_real* gamma_up, const int* glo, const int* ghi,
                   amrex_real* beta, const int* blo, const int* bhi,
-                  amrex_real* alpha, const int* alo, const int* ahi);
+                  amrex_real* alpha, const int* alo, const int* ahi,
+                  const amrex_real* alpha0, const amrex_real* M,
+                  const amrex_real* R);
 
     void update_data(const int* lo, const int* hi, const int* Ncomp,
                     const int* nlayers,
@@ -24,7 +26,9 @@ extern "C"
                     const amrex_real* dx, amrex_real dt,
                     amrex_real* gamma_up, const int* glo, const int* ghi,
                     amrex_real* beta, const int* blo, const int* bhi,
-                    amrex_real* alpha, const int* alo, const int* ahi); // note dt is passed by value
+                    amrex_real* alpha, const int* alo, const int* ahi,
+                    const amrex_real* alpha0, const amrex_real* M,
+                    const amrex_real* R); // note dt is passed by value
 
 #ifdef __cplusplus
 }
