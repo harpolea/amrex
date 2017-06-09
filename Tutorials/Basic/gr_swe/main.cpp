@@ -182,7 +182,7 @@ void main_main ()
 
     // compute the time step
     const Real* dx = geom.CellSize();
-    Real dt = 0.9*dx[0] / (2.0*BL_SPACEDIM);
+    Real dt = 0.9*dx[0];// / (2.0*BL_SPACEDIM);
 
     // Write a plotfile of the initial data if plot_int > 0 (plot_int was defined in the inputs file)
     if (plot_int > 0)
