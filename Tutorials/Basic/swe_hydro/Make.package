@@ -1,0 +1,7 @@
+CEXE_sources += main.cpp
+FEXE_headers += myfunc_F.H
+
+f90EXE_sources += init_data.f90
+f90EXE_sources += advance_comp.f90
+f90EXE_sources += advance_swe.f90
+f90EXE_sources += utils.f90

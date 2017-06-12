@@ -1,0 +1,8 @@
+nsteps = 150
+plot_int = 10
+n_cell = 128
+max_grid_size = 32
+alpha0 = 0.9899494937
+M = 1.0
+R = 100.0
+gamma = 1.66666666666666667
