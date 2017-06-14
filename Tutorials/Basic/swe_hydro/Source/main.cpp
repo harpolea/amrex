@@ -1,93 +1,38 @@
 
-#include <new>
 #include <iostream>
-#include <iomanip>
 
-#include <AMReX_Amr.H>
-#include <AMReX_ParmParse.H>
+#include <AMReX.H>
+#include <AMReX_BLProfiler.H>
 #include <AMReX_ParallelDescriptor.H>
-#include <AMReX_AmrLevel.H>
+
+#include <AmrAdv.H>
 
 using namespace amrex;
 
-int
-main (int   argc,
-      char* argv[])
+int main(int argc, char* argv[])
 {
     amrex::Initialize(argc,argv);
-    Real dRunTime1 = ParallelDescriptor::second();
 
-    std::cout << std::setprecision(10);
+    BL_PROFILE_VAR("main()", pmain);
 
-    int  max_step;
-    Real strt_time;
-    Real stop_time;
-    ParmParse pp; 
-
-    max_step  = -1;
-    strt_time =  0.0;
-    stop_time = -1.0;
-
-    pp.query("max_step",max_step);
-    pp.query("strt_time",strt_time);
-    pp.query("stop_time",stop_time);
-
-    if (strt_time < 0.0) {
-        amrex::Abort("MUST SPECIFY a non-negative strt_time"); 
-    }
-
-    if (max_step < 0 && stop_time < 0.0) {
-	amrex::Abort("Exiting because neither max_step nor stop_time is non-negative.");
-    }
+    const Real strt_total = ParallelDescriptor::second();
 
     {
-	std::unique_ptr<Amr> amrptr(new Amr);
+	AmrAdv amradv;
+	
+	amradv.InitData();
 
-	amrptr->init(strt_time,stop_time);
-
-	// If we set the regrid_on_restart flag and if we are *not* going to take
-	//    a time step then we want to go ahead and regrid here.
-	if ( amrptr->RegridOnRestart() && 
-	     ( (amrptr->levelSteps(0) >= max_step) ||
-	       (amrptr->cumTime() >= stop_time) ) )
-	{
-	    //
-	    // Regrid only!
-	    //
-	    amrptr->RegridOnly(amrptr->cumTime());
-	}
+	amradv.Evolve();
 	
-	while ( amrptr->okToContinue()                            &&
-		(amrptr->levelSteps(0) < max_step || max_step < 0) &&
-		(amrptr->cumTime() < stop_time || stop_time < 0.0) )
-	    
-	{
-	    //
-	    // Do a timestep.
-	    //
-	    amrptr->coarseTimeStep(stop_time);
-	}
+	Real end_total = ParallelDescriptor::second() - strt_total;
 	
-	// Write final checkpoint and plotfile
-	if (amrptr->stepOfLastCheckPoint() < amrptr->levelSteps(0)) {
-	    amrptr->checkPoint();
-	}
-	
-	if (amrptr->stepOfLastPlotFile() < amrptr->levelSteps(0)) {
-	    amrptr->writePlotFile();
+	ParallelDescriptor::ReduceRealMax(end_total ,ParallelDescriptor::IOProcessorNumber());
+	if (amradv.Verbose() && ParallelDescriptor::IOProcessor()) {
+	    std::cout << "\nTotal Time                     : " << end_total << '\n';
 	}
     }
 
-    Real dRunTime2 = ParallelDescriptor::second() - dRunTime1;
-
-    ParallelDescriptor::ReduceRealMax(dRunTime2, ParallelDescriptor::IOProcessorNumber());
-
-    if (ParallelDescriptor::IOProcessor())
-    {
-        std::cout << "Run time = " << dRunTime2 << std::endl;
-    }
+    BL_PROFILE_VAR_STOP(pmain);
 
     amrex::Finalize();
-
-    return 0;
 }
