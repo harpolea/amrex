@@ -1,4 +1,5 @@
-CEXE_sources += main.cpp
+CEXE_sources += main.cpp MyAmr.cpp
+CEXE_headers += MyAmr.H
 FEXE_headers += myfunc_F.H
 
 f90EXE_sources += init_data.f90

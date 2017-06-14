@@ -4,6 +4,8 @@
 #include <AMReX_Geometry.H>
 #include <AMReX_MultiFab.H>
 #include <AMReX_Print.H>
+#include <AMReX_MultiFabUtil.H>
+
 
 #include <array>
 
@@ -11,6 +13,7 @@
 #include <iomanip>
 
 #include "myfunc_F.H"
+#include <MyAmr.H>
 
 using namespace amrex;
 
@@ -27,7 +30,6 @@ int main (int argc, char* argv[])
 }
 
 void advance (MultiFab& old_data, MultiFab& new_data,
-	      std::array<MultiFab, BL_SPACEDIM>& flux,
 	      Real dt, const Geometry& geom, Real gamma,
           MultiFab& gamma_up, MultiFab& beta, MultiFab& alpha,
           Real alpha0, Real M, Real R)
@@ -63,9 +65,9 @@ void main_main ()
     Real strt_time = ParallelDescriptor::second();
 
     // BL_SPACEDIM: number of dimensions
-    int n_cell, max_grid_size, nsteps, plot_int, is_periodic[BL_SPACEDIM];
+    int n_cell, max_grid_size, nsteps, plot_int, is_periodic[BL_SPACEDIM], nlayers;
 
-    Real alpha0, M, R, gamma;
+    Real alpha0, M, R, gamma, min_compressible_resolution;
 
     // inputs parameters
     {
@@ -103,6 +105,13 @@ void main_main ()
         // adiabatic index
         gamma = 5.0/3.0;
         pp.query("gamma", gamma);
+
+        // nlayers
+        pp.get("nlayers", nlayers);
+
+        // get models
+        min_compressible_resolution = 5.0e-3;
+        pp.query("min_compressible_resolution", min_compressible_resolution);
     }
 
     //Print() << R << ' ' << alpha0 << ' ' << M << '\n';
@@ -176,13 +185,25 @@ void main_main ()
     {
         const Box& bx = mfi.validbox();
 
-        init_data(BL_TO_FORTRAN_ANYD(data_new[mfi]),
-                  bx.loVect(), bx.hiVect(), &Ncomp,
-                 geom.CellSize(), geom.ProbLo(), geom.ProbHi(),
-                 BL_TO_FORTRAN_ANYD(gamma_up[mfi]),
-                 BL_TO_FORTRAN_ANYD(beta[mfi]),
-                 BL_TO_FORTRAN_ANYD(alpha[mfi]),
-                 alpha0, M, R);
+        const Real* dx = geom.CellSize();
+
+        if (std::min(std::min(dx[0], dx[1]), dx[2]) > min_compressible_resolution) {
+            init_swe_data(BL_TO_FORTRAN_ANYD(data_new[mfi]),
+                      bx.loVect(), bx.hiVect(), &Ncomp,
+                     geom.CellSize(), geom.ProbLo(), geom.ProbHi(),
+                     BL_TO_FORTRAN_ANYD(gamma_up[mfi]),
+                     BL_TO_FORTRAN_ANYD(beta[mfi]),
+                     BL_TO_FORTRAN_ANYD(alpha[mfi]),
+                     alpha0, M, R);
+        } else {
+            init_comp_data(BL_TO_FORTRAN_ANYD(data_new[mfi]),
+                      bx.loVect(), bx.hiVect(), &Ncomp,
+                     geom.CellSize(), geom.ProbLo(), geom.ProbHi(),
+                     BL_TO_FORTRAN_ANYD(gamma_up[mfi]),
+                     BL_TO_FORTRAN_ANYD(beta[mfi]),
+                     BL_TO_FORTRAN_ANYD(alpha[mfi]),
+                     alpha0, M, R);
+        }
     }
 
     // compute the time step
@@ -201,20 +222,12 @@ void main_main ()
 #endif
     }
 
-    // build the flux multifabs
-    std::array<MultiFab, BL_SPACEDIM> flux;
-    for (int dir = 0; dir < BL_SPACEDIM; dir++)
-    {
-        // flux(dir) has Ncomp components, Nghost ghost cells
-        flux[dir].define(ba, dm, Ncomp, Nghost);
-    }
-
     for (int n = 1; n <= nsteps; ++n)
     {
         MultiFab::Copy(data_old, data_new, 0, 0, Ncomp, 0);
 
         // new_data = old_data + dt * (something)
-        advance(data_old, data_new, flux, dt, geom, gamma, gamma_up, beta, alpha, alpha0, M, R);
+        advance(data_old, data_new, dt, geom, gamma, gamma_up, beta, alpha, alpha0, M, R);
         time = time + dt;
 
         // Tell the I/O Processor to write out which step we're doing
