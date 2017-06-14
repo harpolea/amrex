@@ -16,7 +16,7 @@ AmrAdv::PlotFileMF () const
 {
     Array<const MultiFab*> r;
     for (int i = 0; i <= finest_level; ++i) {
-	r.push_back(phi_new[i].get());
+	       r.push_back(phi_new[i].get());
     }
     return r;
 }
@@ -24,7 +24,7 @@ AmrAdv::PlotFileMF () const
 Array<std::string>
 AmrAdv::PlotFileVarNames () const
 {
-    return {"phi"};
+    return {"h", "hu", "hv"};
 }
 
 void
@@ -33,7 +33,7 @@ AmrAdv::WritePlotFile () const
     const std::string& plotfilename = PlotFileName(istep[0]);
     const auto& mf = PlotFileMF();
     const auto& varnames = PlotFileVarNames();
-    
+
     amrex::WriteMultiLevelPlotfile(plotfilename, finest_level+1, mf, varnames,
 				    Geom(), t_new[0], istep, refRatio());
 }
@@ -43,4 +43,3 @@ AmrAdv::InitFromCheckpoint ()
 {
     amrex::Abort("AmrAdv::InitFromCheckpoint: todo");
 }
-

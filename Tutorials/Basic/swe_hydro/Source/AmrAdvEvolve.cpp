@@ -14,38 +14,38 @@ AmrAdv::Evolve ()
 
     for (int step = istep[0]; step < max_step && cur_time < stop_time; ++step)
     {
-	if (ParallelDescriptor::IOProcessor()) {
-	    std::cout << "\nSTEP " << step+1 << " starts ..." << std::endl;
-	}
+    	if (ParallelDescriptor::IOProcessor()) {
+    	    std::cout << "\nSTEP " << step+1 << " starts ..." << std::endl;
+    	}
 
-	ComputeDt();
+    	ComputeDt();
 
-	int lev = 0;
-	int iteration = 1;
-	timeStep(lev, cur_time, iteration);
+    	int lev = 0;
+    	int iteration = 1;
+    	timeStep(lev, cur_time, iteration);
 
-	cur_time += dt[0];
+    	cur_time += dt[0];
 
-	if (ParallelDescriptor::IOProcessor()) {
-	    std::cout << "STEP " << step+1 << " ends." << " TIME = " << cur_time << " DT = " << dt[0]
-		      << std::endl;
-	}
+    	if (ParallelDescriptor::IOProcessor()) {
+    	    std::cout << "STEP " << step+1 << " ends." << " TIME = " << cur_time << " DT = " << dt[0]
+    		      << std::endl;
+    	}
 
-	// sync up time
-	for (int lev = 0; lev <= finest_level; ++lev) {
-	    t_new[lev] = cur_time;
-	}
+    	// sync up time
+    	for (int lev = 0; lev <= finest_level; ++lev) {
+    	    t_new[lev] = cur_time;
+    	}
 
-	if (plot_int > 0 && (step+1) % plot_int == 0) {
-	    last_plot_file_step = step+1;
-	    WritePlotFile();
-	}
+    	if (plot_int > 0 && (step+1) % plot_int == 0) {
+    	    last_plot_file_step = step+1;
+    	    WritePlotFile();
+    	}
 
-	if (cur_time >= stop_time - 1.e-6*dt[0]) break;
+    	if (cur_time >= stop_time - 1.e-6*dt[0]) break;
     }
 
     if (plot_int > 0 && istep[0] > last_plot_file_step) {
-	WritePlotFile();
+	       WritePlotFile();
     }
 }
 
@@ -61,26 +61,26 @@ AmrAdv::timeStep (int lev, Real time, int iteration)
         {
             if (istep[lev] % regrid_int == 0)
             {
-		int old_finest = finest_level; // regrid changes finest_level
-		regrid(lev, time);
+        		int old_finest = finest_level; // regrid changes finest_level
+        		regrid(lev, time);
 
-		for (int k = lev; k <= finest_level; ++k) {
-		    last_regrid_step[k] = istep[k];
-		}
+        		for (int k = lev; k <= finest_level; ++k) {
+        		    last_regrid_step[k] = istep[k];
+        		}
 
-		for (int k = old_finest+1; k <= finest_level; ++k) {
-		    dt[k] = dt[k-1] / MaxRefRatio(k-1);
-		}
+        		for (int k = old_finest+1; k <= finest_level; ++k) {
+        		    dt[k] = dt[k-1] / MaxRefRatio(k-1);
+        		}
+    	    }
 	    }
-	}
     }
 
     if (Verbose() && ParallelDescriptor::IOProcessor()) {
-	std::cout << "[Level " << lev
-		  << " step " << istep[lev]+1 << "] ";
-	std::cout << "ADVANCE with dt = "
-		  << dt[lev]
-		  << std::endl;
+    	std::cout << "[Level " << lev
+    		  << " step " << istep[lev]+1 << "] ";
+    	std::cout << "ADVANCE with dt = "
+    		  << dt[lev]
+    		  << std::endl;
     }
 
     Advance(lev, time, dt[lev], iteration, nsubsteps[lev]);
@@ -89,27 +89,27 @@ AmrAdv::timeStep (int lev, Real time, int iteration)
 
     if (Verbose() && ParallelDescriptor::IOProcessor())
     {
-	std::cout << "[Level " << lev
-		  << " step " << istep[lev] << "] ";
-        std::cout << "Advanced "
-                  << CountCells(lev)
-                  << " cells"
-                  << std::endl;
+    	std::cout << "[Level " << lev
+    		  << " step " << istep[lev] << "] ";
+            std::cout << "Advanced "
+                      << CountCells(lev)
+                      << " cells"
+                      << std::endl;
     }
 
     if (lev < finest_level)
     {
-	for (int i = 1; i <= nsubsteps[lev+1]; ++i)
-	{
-	    timeStep(lev+1, time+(i-1)*dt[lev+1], i);
-	}
+    	for (int i = 1; i <= nsubsteps[lev+1]; ++i)
+    	{
+    	    timeStep(lev+1, time+(i-1)*dt[lev+1], i);
+    	}
 
-	if (do_reflux)
-	{
-	    flux_reg[lev+1]->Reflux(*phi_new[lev], 1.0, 0, 0, phi_new[lev]->nComp(), geom[lev]);
-	}
+    	if (do_reflux)
+    	{
+    	    flux_reg[lev+1]->Reflux(*phi_new[lev], 1.0, 0, 0, phi_new[lev]->nComp(), geom[lev]);
+    	}
 
-	AverageDownTo(lev); // average lev+1 down to lev
+    	AverageDownTo(lev); // average lev+1 down to lev
     }
 
 }
@@ -117,7 +117,8 @@ AmrAdv::timeStep (int lev, Real time, int iteration)
 void
 AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
 {
-    constexpr int num_grow = 3;
+    constexpr int num_grow = 6;
+    const int ncomp = phi_new[lev]->nComp();
 
     std::swap(phi_old[lev], phi_new[lev]);
     t_old[lev] = t_new[lev];
@@ -130,17 +131,16 @@ AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
     const Real ctr_time = 0.5*(old_time+new_time);
 
     const Real* dx = geom[lev].CellSize();
-    const Real* prob_lo = geom[lev].ProbLo();
 
     MultiFab fluxes[BL_SPACEDIM];
     if (do_reflux)
     {
-	for (int i = 0; i < BL_SPACEDIM; ++i)
-	{
-	    BoxArray ba = grids[lev];
-	    ba.surroundingNodes(i);
-	    fluxes[i].define(ba, dmap[lev], S_new.nComp(), 0);
-	}
+    	for (int i = 0; i < BL_SPACEDIM; ++i)
+    	{
+    	    BoxArray ba = grids[lev];
+    	    ba.surroundingNodes(i);
+    	    fluxes[i].define(ba, dmap[lev], S_new.nComp(), num_grow);
+    	}
     }
 
     // State with ghost cells
@@ -151,62 +151,59 @@ AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
 #pragma omp parallel
 #endif
     {
-	FArrayBox flux[BL_SPACEDIM], uface[BL_SPACEDIM];
+    	FArrayBox flux[BL_SPACEDIM], uface[BL_SPACEDIM];
 
-	for (MFIter mfi(S_new, true); mfi.isValid(); ++mfi)
-	{
-	    const Box& bx = mfi.tilebox();
+    	for (MFIter mfi(S_new, true); mfi.isValid(); ++mfi)
+    	{
+    	    const Box& bx = mfi.tilebox();
 
-	    const FArrayBox& statein = Sborder[mfi];
-	    FArrayBox& stateout      =   S_new[mfi];
+    	    const FArrayBox& statein = Sborder[mfi];
+    	    FArrayBox& stateout      =   S_new[mfi];
 
-	    // Allocate fabs for fluxes and Godunov velocities.
-	    for (int i = 0; i < BL_SPACEDIM ; i++) {
-		const Box& bxtmp = amrex::surroundingNodes(bx,i);
-		flux[i].resize(bxtmp,S_new.nComp());
-		uface[i].resize(amrex::grow(bxtmp,1),1);
-	    }
+    	    // Allocate fabs for fluxes and Godunov velocities.
+    	    for (int i = 0; i < BL_SPACEDIM ; i++) {
+        		const Box& bxtmp = amrex::surroundingNodes(bx,i);
+        		flux[i].resize(amrex::grow(bxtmp,num_grow),S_new.nComp());
+        		uface[i].resize(amrex::grow(bxtmp,1),1);
+    	    }
 
-        get_face_velocity(level, ctr_time,
-                  BL_TO_FORTRAN_3D(statein),
-			      AMREX_D_DECL(BL_TO_FORTRAN(uface[0]),
-				     BL_TO_FORTRAN(uface[1]),
-				     BL_TO_FORTRAN(uface[2])),
-			      NUM_STATE);
+            get_face_velocity(lev, ctr_time,
+                      BL_TO_FORTRAN_3D(statein),
+    			      AMREX_D_DECL(BL_TO_FORTRAN(uface[0]),
+    				     BL_TO_FORTRAN(uface[1]),
+    				     BL_TO_FORTRAN(uface[2])),
+    			      &ncomp);
 
-                  advect(time, bx.loVect(), bx.hiVect(),
-      		   BL_TO_FORTRAN_3D(statein),
-      		   BL_TO_FORTRAN_3D(stateout),
-      		   AMREX_D_DECL(BL_TO_FORTRAN_3D(uface[0]),
-      			  BL_TO_FORTRAN_3D(uface[1]),
-      			  BL_TO_FORTRAN_3D(uface[2])),
-      		   AMREX_D_DECL(BL_TO_FORTRAN_3D(flux[0]),
-      			  BL_TO_FORTRAN_3D(flux[1]),
-      			  BL_TO_FORTRAN_3D(flux[2])),
-      		   dx, dt, NUM_STATE);
+            advect(time, bx.loVect(), bx.hiVect(),
+          		   BL_TO_FORTRAN_3D(statein),
+          		   BL_TO_FORTRAN_3D(stateout),
+          		   AMREX_D_DECL(BL_TO_FORTRAN_3D(flux[0]),
+          			  BL_TO_FORTRAN_3D(flux[1]),
+          			  BL_TO_FORTRAN_3D(flux[2])),
+          		   dx, dt, &ncomp);
 
 
-	    if (do_reflux) {
-		for (int i = 0; i < BL_SPACEDIM ; i++) {
-		    fluxes[i][mfi].copy(flux[i],mfi.nodaltilebox(i));
-		}
-	    }
-	}
+    	    if (do_reflux) {
+        		for (int i = 0; i < BL_SPACEDIM ; i++) {
+        		    fluxes[i][mfi].copy(flux[i],mfi.nodaltilebox(i));
+        		}
+    	    }
+    	}
     }
 
     if (do_reflux) { // Note that the fluxes have already been scaled by dt and area.
-	if (flux_reg[lev]) {
-	    for (int i = 0; i < BL_SPACEDIM; ++i) {
-		flux_reg[lev]->FineAdd(fluxes[i],i,0,0,fluxes[i].nComp(), 1.0);
-	    }
-	}
+    	if (flux_reg[lev]) {
+    	    for (int i = 0; i < BL_SPACEDIM; ++i) {
+    		    flux_reg[lev]->FineAdd(fluxes[i],i,0,0,fluxes[i].nComp(), 1.0);
+    	    }
+    	}
 
-	if (flux_reg[lev+1]) {
-	    flux_reg[lev+1]->setVal(0.0);
-	    for (int i = 0; i < BL_SPACEDIM; ++i) {
-		flux_reg[lev+1]->CrseInit(fluxes[i],i,0,0,fluxes[i].nComp(), -1.0);
-	    }
-	}
+    	if (flux_reg[lev+1]) {
+    	    flux_reg[lev+1]->setVal(0.0);
+    	    for (int i = 0; i < BL_SPACEDIM; ++i) {
+    		    flux_reg[lev+1]->CrseInit(fluxes[i],i,0,0,fluxes[i].nComp(), -1.0);
+    	    }
+    	}
     }
 }
 
@@ -217,7 +214,7 @@ AmrAdv::ComputeDt ()
 
     for (int lev = 0; lev <= finest_level; ++lev)
     {
-	dt_tmp[lev] = EstTimeStep(lev, true);
+	   dt_tmp[lev] = EstTimeStep(lev, true);
     }
     ParallelDescriptor::ReduceRealMin(&dt_tmp[0], dt_tmp.size());
 
@@ -225,20 +222,20 @@ AmrAdv::ComputeDt ()
     Real dt_0 = dt_tmp[0];
     int n_factor = 1;
     for (int lev = 0; lev <= finest_level; ++lev) {
-	dt_tmp[lev] = std::min(dt_tmp[lev], change_max*dt[lev]);
-	n_factor *= nsubsteps[lev];
-	dt_0 = std::min(dt_0, n_factor*dt_tmp[lev]);
+    	dt_tmp[lev] = std::min(dt_tmp[lev], change_max*dt[lev]);
+    	n_factor *= nsubsteps[lev];
+    	dt_0 = std::min(dt_0, n_factor*dt_tmp[lev]);
     }
 
     // Limit dt's by the value of stop_time.
     const Real eps = 1.e-3*dt_0;
     if (t_new[0] + dt_0 > stop_time - eps) {
-	dt_0 = stop_time - t_new[0];
+	       dt_0 = stop_time - t_new[0];
     }
 
     dt[0] = dt_0;
     for (int lev = 1; lev <= finest_level; ++lev) {
-	dt[lev] = dt[lev-1] / nsubsteps[lev];
+	       dt[lev] = dt[lev-1] / nsubsteps[lev];
     }
 }
 
@@ -250,43 +247,58 @@ AmrAdv::EstTimeStep (int lev, bool local) const
     Real dt_est = std::numeric_limits<Real>::max();
 
     const Real* dx = geom[lev].CellSize();
-    const Real* prob_lo = geom[lev].ProbLo();
     const Real cur_time = t_new[lev];
     const MultiFab& S_new = *phi_new[lev];
+
+    int ncomp = phi_new[lev]->nComp();
+    //int num_grow = phi_new[lev]->nGrow();
+    constexpr int num_grow = 3;
+
+    // State with ghost cells
+    MultiFab Sborder(grids[lev], dmap[lev], S_new.nComp(), num_grow);
+    //FillPatch(lev, cur_time, Sborder, 0, num_grow);
 
 #ifdef _OPENMP
 #pragma omp parallel reduction(min:dt_est)
 #endif
     {
-	FArrayBox uface[BL_SPACEDIM];
+    	FArrayBox uface[BL_SPACEDIM];
 
-	for (MFIter mfi(S_new, true); mfi.isValid(); ++mfi)
-	{
-	    for (int i = 0; i < BL_SPACEDIM ; i++) {
-		const Box& bx = mfi.nodaltilebox(i);
-		uface[i].resize(bx,1);
-	    }
+    	for (MFIter mfi(S_new, true); mfi.isValid(); ++mfi)
+    	{
+    	    for (int i = 0; i < BL_SPACEDIM ; i++) {
+        		const Box& bx = mfi.nodaltilebox(i);
+        		uface[i].resize(bx,1);
+    	    }
 
-	    get_face_velocity(lev, cur_time,
-			      AMREX_D_DECL(BL_TO_FORTRAN(uface[0]),
-				     BL_TO_FORTRAN(uface[1]),
-				     BL_TO_FORTRAN(uface[2])),
-			      dx, prob_lo);
+    	    const FArrayBox& statein = Sborder[mfi];
 
-	    for (int i = 0; i < BL_SPACEDIM; ++i) {
-		Real umax = uface[i].norm(0);
-		if (umax > 1.e-100) {
-		    dt_est = std::min(dt_est, dx[i] / umax);
-		}
-	    }
-	}
+    	    get_face_velocity(lev, cur_time,
+                      BL_TO_FORTRAN_3D(statein),
+    			      AMREX_D_DECL(BL_TO_FORTRAN(uface[0]),
+    				     BL_TO_FORTRAN(uface[1]),
+    				     BL_TO_FORTRAN(uface[2])),
+    			      &ncomp);
+
+    	    for (int i = 0; i < BL_SPACEDIM; ++i) {
+        		Real umax = uface[i].norm(0);
+        		if (umax > 1.e-100) {
+                    std::cout << "umax: " << umax << '\n';
+        		    dt_est = std::min(dt_est, dx[i] / umax);
+        		} else {
+                    dt_est = std::min(dt_est, dx[i]);
+                }
+    	    }
+    	}
     }
 
     if (!local) {
-	ParallelDescriptor::ReduceRealMin(dt_est);
+	       ParallelDescriptor::ReduceRealMin(dt_est);
     }
 
     dt_est *= cfl;
+
+    std::cout << "dt_est: " << dt_est << '\n';
 
     return dt_est;
 }

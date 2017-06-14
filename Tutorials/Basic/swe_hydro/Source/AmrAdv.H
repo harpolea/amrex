@@ -65,8 +65,8 @@ private:
     amrex::Array<std::unique_ptr<amrex::MultiFab> > phi_new;
     amrex::Array<std::unique_ptr<amrex::MultiFab> > phi_old;
 
-    amrex::Array<std::unique_ptr<amrex::FluxRegister> > flux_reg; 
-    
+    amrex::Array<std::unique_ptr<amrex::FluxRegister> > flux_reg;
+
     // runtime parameters
 
     int max_step   = std::numeric_limits<int>::max();

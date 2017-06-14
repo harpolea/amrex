@@ -1,6 +1,6 @@
 
 subroutine get_face_velocity(level, time, &
-     q, q_l1, q_l2, q_h1, q_h2, &
+     q, q_lo, q_hi, &
      vx, vx_l1, vx_l2, vx_h1, vx_h2, &
      vy, vy_l1, vy_l2, vy_h1, vy_h2, &
      Ncomp) bind(C, name="get_face_velocity")
@@ -11,10 +11,10 @@ subroutine get_face_velocity(level, time, &
 
   integer, intent(in) :: level, Ncomp
   double precision, intent(in) :: time
-  integer, intent(in) :: q_l1, q_l2, q_h1, q_h2
+  integer, intent(in) :: q_lo(2), q_hi(2)
   integer, intent(in) :: vx_l1, vx_l2, vx_h1, vx_h2
   integer, intent(in) :: vy_l1, vy_l2, vy_h1, vy_h2
-  double precision, intent(in) :: q(q_l1:q_h1,q_l2:q_h2, Ncomp)
+  double precision, intent(in) :: q(q_lo(1):q_hi(1),q_lo(2):q_hi(2), Ncomp)
   double precision, intent(out) :: vx(vx_l1:vx_h1,vx_l2:vx_h2)
   double precision, intent(out) :: vy(vy_l1:vy_h1,vy_l2:vy_h2)
 

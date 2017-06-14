@@ -18,18 +18,18 @@ int main(int argc, char* argv[])
     const Real strt_total = ParallelDescriptor::second();
 
     {
-	AmrAdv amradv;
-	
-	amradv.InitData();
+    	AmrAdv amradv;
 
-	amradv.Evolve();
-	
-	Real end_total = ParallelDescriptor::second() - strt_total;
-	
-	ParallelDescriptor::ReduceRealMax(end_total ,ParallelDescriptor::IOProcessorNumber());
-	if (amradv.Verbose() && ParallelDescriptor::IOProcessor()) {
-	    std::cout << "\nTotal Time                     : " << end_total << '\n';
-	}
+    	amradv.InitData();
+
+    	amradv.Evolve();
+
+    	Real end_total = ParallelDescriptor::second() - strt_total;
+
+    	ParallelDescriptor::ReduceRealMax(end_total ,ParallelDescriptor::IOProcessorNumber());
+    	if (amradv.Verbose() && ParallelDescriptor::IOProcessor()) {
+    	    std::cout << "\nTotal Time                     : " << end_total << '\n';
+    	}
     }
 
     BL_PROFILE_VAR_STOP(pmain);

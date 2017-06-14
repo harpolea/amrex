@@ -1,9 +1,9 @@
 
 ! ::: -----------------------------------------------------------
 ! ::: This routine will tag high error cells based on the state
-! ::: 
+! :::
 ! ::: INPUTS/OUTPUTS:
-! ::: 
+! :::
 ! ::: tag        <=  integer tag array
 ! ::: tag_lo,hi   => index extent of tag array
 ! ::: state       => state array
@@ -21,23 +21,23 @@ subroutine state_error(tag,tag_lo,tag_hi, &
                        state,state_lo,state_hi, &
                        set,clear,&
                        lo,hi,&
-                       dx,problo,time,level) bind(C, name="state_error")
+                       dx,problo,time,level,Ncomp) bind(C, name="state_error")
 
   use tagging_params_module, only : phierr, phigrad, max_phierr_lev, max_phigrad_lev
   implicit none
-  
-  integer          :: lo(3),hi(3)
+
+  integer          :: lo(3),hi(3),Ncomp
   integer          :: state_lo(3),state_hi(3)
   integer          :: tag_lo(3),tag_hi(3)
   double precision :: state(state_lo(1):state_hi(1), &
                             state_lo(2):state_hi(2), &
-                            state_lo(3):state_hi(3))
+                            state_lo(3):state_hi(3),Ncomp)
   integer          :: tag(tag_lo(1):tag_hi(1),tag_lo(2):tag_hi(2),tag_lo(3):tag_hi(3))
   double precision :: problo(3),dx(3),time
   integer          :: level,set,clear
 
   double precision :: ax, ay, az
-  integer          :: i, j, k, dim
+  integer          :: i, j, k, n, dim
 
   if (state_lo(3) .eq. state_hi(3)) then
      dim = 2
@@ -50,7 +50,7 @@ subroutine state_error(tag,tag_lo,tag_hi, &
      do       k = lo(3), hi(3)
         do    j = lo(2), hi(2)
            do i = lo(1), hi(1)
-              if (state(i,j,k) .ge. phierr(level)) then
+              if (state(i,j,k,1) .ge. phierr(level)) then
                  tag(i,j,k) = set
               endif
            enddo
@@ -63,15 +63,15 @@ subroutine state_error(tag,tag_lo,tag_hi, &
      do       k = lo(3), hi(3)
         do    j = lo(2), hi(2)
            do i = lo(1), hi(1)
-              ax = abs(state(i-1,j,k)-state(i,j,k))
-              ax = max(ax, abs(state(i,j,k)-state(i+1,j,k)))
-              ay = abs(state(i,j-1,k)-state(i,j,k))
-              ay = max(ay, abs(state(i,j,k)-state(i,j+1,k)))
+              ax = abs(state(i-1,j,k,1)-state(i,j,k,1))
+              ax = max(ax, abs(state(i,j,k,1)-state(i+1,j,k,1)))
+              ay = abs(state(i,j-1,k,1)-state(i,j,k,1))
+              ay = max(ay, abs(state(i,j,k,1)-state(i,j+1,k,1)))
               if (dim .eq. 2) then
                  az = 0.d0
               else
-                 az = abs(state(i,j,k-1)-state(i,j,k))
-                 az = max(az, abs(state(i,j,k)-state(i,j,k+1)))
+                 az = abs(state(i,j,k-1,1)-state(i,j,k,1))
+                 az = max(az, abs(state(i,j,k,1)-state(i,j,k+1,1)))
               end if
               if (max(ax,ay,az) .ge. phigrad(level)) then
                  tag(i,j,k) = set
@@ -80,6 +80,5 @@ subroutine state_error(tag,tag_lo,tag_hi, &
          enddo
       end do
    endif
-  
-end subroutine state_error
 
+end subroutine state_error

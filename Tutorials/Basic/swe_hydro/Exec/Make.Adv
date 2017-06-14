@@ -1,5 +1,4 @@
-AMREX_HOME ?= ../../../..
-ADR_DIR  ?= $(AMREX_HOME)/OldTutorials/AMR_Adv_C
+ADR_DIR  ?= $(AMREX_HOME)/Tutorials/Basic/swe_hydro
 
 TOP := $(ADR_DIR)
 
@@ -18,14 +17,13 @@ INCLUDE_LOCATIONS += $(Blocs)
 VPATH_LOCATIONS   += $(Blocs)
 
 
-Pdirs 	:= Base AmrCore Amr Boundary Particle
+Pdirs 	:= Base AmrCore Boundary Particle
 Ppack	+= $(foreach dir, $(Pdirs), $(AMREX_HOME)/Src/$(dir)/Make.package)
 
 include $(Ppack)
 
 
-all: $(executable) 
+all: $(executable)
 	@echo SUCCESS
 
 include $(AMREX_HOME)/Tools/GNUMake/Make.rules
-

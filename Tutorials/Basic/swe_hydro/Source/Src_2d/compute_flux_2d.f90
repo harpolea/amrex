@@ -27,26 +27,27 @@ contains
     double precision, dimension(glo(1):ghi(1),glo(2):ghi(2),Ncomp) :: &
          phi_p, phi_m, fp, fm, slope
 
-    integer :: i, j, k
-    double precision :: dtdx(2), f_p, f_m
+    integer :: i, j
+    double precision :: dtdx(2), dxdt(2), f_p(Ncomp), f_m(Ncomp)
     double precision, parameter :: g = 1.0d0, alpha = 0.5d0
 
-    hdtdx = dt/dx
+    dtdx = dt/dx
+    dxdt = dx/dt
 
-    call slopex(glo, ghi, &
+    call slopex(lo-1, hi+1, &
                 phi, ph_lo, ph_hi, &
                 slope, glo, ghi, Ncomp)
 
     ! compute phi on x faces
-    do    j = lo(2)-1, hi(2)+1
-       do i = lo(1)  , hi(1)+1
+    do    j = lo(2), hi(2)
+       do i = lo(1)-1  , hi(1)+1
            phi_p(i,j,:) = phi(i,j,:) + 0.5d0 * slope(i,j,:)
            phi_m(i,j,:) = phi(i,j,:) - 0.5d0 * slope(i,j,:)
        end do
     end do
 
-    call swe_flux(phi_p, fp, lo, hi, Ncomp, g, .true.)
-    call swe_flux(phi_m, fm, lo, hi, Ncomp, g, .true.)
+    call swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, g, .true.)
+    call swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, g, .true.)
 
     do    j = lo(2), hi(2)
        do i = lo(1), hi(1)
@@ -57,7 +58,7 @@ contains
        end do
     end do
 
-    call slopey(glo, ghi, &
+    call slopey(lo-1, hi+1, &
                 phi, ph_lo, ph_hi, &
                 slope, glo, ghi, Ncomp)
 
@@ -70,8 +71,8 @@ contains
     end do
 
 
-    call swe_flux(phi_p, fp, lo, hi, Ncomp, g, .false.)
-    call swe_flux(phi_m, fm, lo, hi, Ncomp, g, .false.)
+    call swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, g, .false.)
+    call swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, g, .false.)
 
     do    j = lo(2), hi(2)
        do i = lo(1), hi(1)
@@ -84,15 +85,15 @@ contains
 
   end subroutine compute_flux_2d
 
-  subroutine swe_flux(U, f, lo, hi, Ncomp, g, x_dir)
+  subroutine swe_flux(U, f, glo, ghi, lo, hi, Ncomp, g, x_dir)
       use amrex_fort_module, only : amrex_real
       implicit none
 
       integer, intent(in) :: Ncomp
       real(amrex_real), intent(in) :: g
-      integer, intent(in) :: lo(2), hi(2)
-      real(amrex_real), intent(in)  :: U(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, Ncomp)
-      real(amrex_real), intent(out) :: f(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, Ncomp)
+      integer, intent(in) :: glo(2), ghi(2), lo(2), hi(2)
+      real(amrex_real), intent(in)  :: U(glo(1):ghi(1), glo(2):ghi(2), Ncomp)
+      real(amrex_real), intent(out) :: f(glo(1):ghi(1), glo(2):ghi(2), Ncomp)
       logical, intent(in) :: x_dir
 
       integer i, j

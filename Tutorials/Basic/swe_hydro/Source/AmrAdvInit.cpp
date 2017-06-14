@@ -9,25 +9,25 @@ AmrAdv::InitData ()
 {
     if (restart_chkfile.empty())
     {
-	const Real time = 0.0;
-	InitFromScratch(time);
-	AverageDown();
+    	const Real time = 0.0;
+    	InitFromScratch(time);
+    	AverageDown();
 
-	if (plot_int > 0) {
-	    WritePlotFile();
-	}
+    	if (plot_int > 0) {
+    	    WritePlotFile();
+    	}
     }
     else
     {
-	InitFromCheckpoint();
+	       InitFromCheckpoint();
     }
 }
 
 void AmrAdv::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
 				      const DistributionMapping& dm)
 {
-    const int ncomp = 1;
-    const int nghost = 0;
+    const int ncomp = 3;
+    const int nghost = 6;
 
     phi_new[lev].reset(new MultiFab(ba, dm, ncomp, nghost));
     phi_old[lev].reset(new MultiFab(ba, dm, ncomp, nghost));
@@ -36,7 +36,7 @@ void AmrAdv::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     t_old[lev] = time - 1.e200;
 
     if (lev > 0 && do_reflux) {
-	flux_reg[lev].reset(new FluxRegister(ba, dm, refRatio(lev-1), lev, ncomp));
+	       flux_reg[lev].reset(new FluxRegister(ba, dm, refRatio(lev-1), lev, ncomp));
     }
 
     const Real* dx = geom[lev].CellSize();
@@ -51,8 +51,8 @@ void AmrAdv::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
         const int* lo  = box.loVect();
         const int* hi  = box.hiVect();
 
-	initdata(lev, cur_time, ARLIM_3D(lo), ARLIM_3D(hi),
-		 BL_TO_FORTRAN_3D(state[mfi]), ZFILL(dx),
-		 ZFILL(prob_lo));
+    	initdata(lev, cur_time, ARLIM_3D(lo), ARLIM_3D(hi),
+    		 BL_TO_FORTRAN_3D(state[mfi]), ZFILL(dx),
+    		 ZFILL(prob_lo), &ncomp);
     }
 }
