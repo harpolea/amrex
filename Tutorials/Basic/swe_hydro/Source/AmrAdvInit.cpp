@@ -27,7 +27,7 @@ void AmrAdv::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
 				      const DistributionMapping& dm)
 {
     const int ncomp = 3;
-    const int nghost = 6;
+    const int nghost = 1;
 
     phi_new[lev].reset(new MultiFab(ba, dm, ncomp, nghost));
     phi_old[lev].reset(new MultiFab(ba, dm, ncomp, nghost));

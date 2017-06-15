@@ -63,8 +63,8 @@ contains
                 slope, glo, ghi, Ncomp)
 
     ! compute phi on y faces
-    do    j = lo(2)  , hi(2)+1
-       do i = lo(1)-1, hi(1)+1
+    do    j = lo(2)-1  , hi(2)+1
+       do i = lo(1), hi(1)
            phi_p(i,j,:) = phi(i,j,:) + 0.5d0 * slope(i,j,:)
            phi_m(i,j,:) = phi(i,j,:) - 0.5d0 * slope(i,j,:)
        end do
@@ -104,14 +104,14 @@ contains
              do i = lo(1)-1, hi(1)+1
                 f(i,j,1) =  U(i,j,2)
                 f(i,j,2) = U(i,j,2)**2/U(i,j,1) + half * g * U(i,j,1)**2
-                f(i,j,3) =  U(i,j,2) * U(i,j,3)
+                f(i,j,3) =  U(i,j,2) * U(i,j,3)/U(i,j,1)
              end do
           end do
       else
           do    j = lo(2)-1, hi(2)+1
              do i = lo(1), hi(1)
                 f(i,j,1) =  U(i,j,3)
-                f(i,j,2) = U(i,j,2) * U(i,j,3)
+                f(i,j,2) = U(i,j,2) * U(i,j,3)/U(i,j,1)
                 f(i,j,3) =  U(i,j,3)**2/U(i,j,1) + half * g * U(i,j,1)**2
              end do
           end do

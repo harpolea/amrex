@@ -21,9 +21,8 @@ subroutine state_error(tag,tag_lo,tag_hi, &
                        state,state_lo,state_hi, &
                        set,clear,&
                        lo,hi,&
-                       dx,problo,time,level,Ncomp) bind(C, name="state_error")
+                       dx,problo,time,phierr,Ncomp) bind(C, name="state_error")
 
-  use tagging_params_module, only : phierr, phigrad, max_phierr_lev, max_phigrad_lev
   implicit none
 
   integer          :: lo(3),hi(3),Ncomp
@@ -33,8 +32,8 @@ subroutine state_error(tag,tag_lo,tag_hi, &
                             state_lo(2):state_hi(2), &
                             state_lo(3):state_hi(3),Ncomp)
   integer          :: tag(tag_lo(1):tag_hi(1),tag_lo(2):tag_hi(2),tag_lo(3):tag_hi(3))
-  double precision :: problo(3),dx(3),time
-  integer          :: level,set,clear
+  double precision :: problo(3),dx(3),time, phierr
+  integer          :: set,clear
 
   double precision :: ax, ay, az
   integer          :: i, j, k, n, dim
@@ -46,39 +45,15 @@ subroutine state_error(tag,tag_lo,tag_hi, &
   end if
 
   ! Tag on regions of high phi
-  if (level .lt. max_phierr_lev) then
      do       k = lo(3), hi(3)
         do    j = lo(2), hi(2)
            do i = lo(1), hi(1)
-              if (state(i,j,k,1) .ge. phierr(level)) then
+              if (state(i,j,k,1) .ge. phierr) then
                  tag(i,j,k) = set
               endif
            enddo
         enddo
      enddo
-  endif
 
-  ! Tag on regions of high phisity gradient
-  if (level .lt. max_phigrad_lev) then
-     do       k = lo(3), hi(3)
-        do    j = lo(2), hi(2)
-           do i = lo(1), hi(1)
-              ax = abs(state(i-1,j,k,1)-state(i,j,k,1))
-              ax = max(ax, abs(state(i,j,k,1)-state(i+1,j,k,1)))
-              ay = abs(state(i,j-1,k,1)-state(i,j,k,1))
-              ay = max(ay, abs(state(i,j,k,1)-state(i,j+1,k,1)))
-              if (dim .eq. 2) then
-                 az = 0.d0
-              else
-                 az = abs(state(i,j,k-1,1)-state(i,j,k,1))
-                 az = max(az, abs(state(i,j,k,1)-state(i,j,k+1,1)))
-              end if
-              if (max(ax,ay,az) .ge. phigrad(level)) then
-                 tag(i,j,k) = set
-              end if
-            enddo
-         enddo
-      end do
-   endif
 
 end subroutine state_error

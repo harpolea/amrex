@@ -145,13 +145,15 @@ AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
 
     // State with ghost cells
     MultiFab Sborder(grids[lev], dmap[lev], S_new.nComp(), num_grow);
-    FillPatch(lev, time, Sborder, 0, Sborder.nComp());
+    for (int i = 0; i < Sborder.nComp(); i++) {
+        FillPatch(lev, time, Sborder, i, 1);//Sborder.nComp());
+    }
 
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
     {
-    	FArrayBox flux[BL_SPACEDIM], uface[BL_SPACEDIM];
+    	FArrayBox flux[BL_SPACEDIM];
 
     	for (MFIter mfi(S_new, true); mfi.isValid(); ++mfi)
     	{
@@ -162,17 +164,8 @@ AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
 
     	    // Allocate fabs for fluxes and Godunov velocities.
     	    for (int i = 0; i < BL_SPACEDIM ; i++) {
-        		const Box& bxtmp = amrex::surroundingNodes(bx,i);
-        		flux[i].resize(amrex::grow(bxtmp,num_grow),S_new.nComp());
-        		uface[i].resize(amrex::grow(bxtmp,1),1);
+        		flux[i].resize(amrex::grow(bx,num_grow),S_new.nComp());
     	    }
-
-            get_face_velocity(lev, ctr_time,
-                      BL_TO_FORTRAN_3D(statein),
-    			      AMREX_D_DECL(BL_TO_FORTRAN(uface[0]),
-    				     BL_TO_FORTRAN(uface[1]),
-    				     BL_TO_FORTRAN(uface[2])),
-    			      &ncomp);
 
             advect(time, bx.loVect(), bx.hiVect(),
           		   BL_TO_FORTRAN_3D(statein),
@@ -181,7 +174,6 @@ AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
           			  BL_TO_FORTRAN_3D(flux[1]),
           			  BL_TO_FORTRAN_3D(flux[2])),
           		   dx, dt, &ncomp);
-
 
     	    if (do_reflux) {
         		for (int i = 0; i < BL_SPACEDIM ; i++) {
@@ -252,10 +244,10 @@ AmrAdv::EstTimeStep (int lev, bool local) const
 
     int ncomp = phi_new[lev]->nComp();
     //int num_grow = phi_new[lev]->nGrow();
-    constexpr int num_grow = 3;
+    //constexpr int num_grow = 3;
 
     // State with ghost cells
-    MultiFab Sborder(grids[lev], dmap[lev], S_new.nComp(), num_grow);
+    //MultiFab Sborder(grids[lev], dmap[lev], S_new.nComp(), num_grow);
     //FillPatch(lev, cur_time, Sborder, 0, num_grow);
 
 #ifdef _OPENMP
@@ -271,7 +263,7 @@ AmrAdv::EstTimeStep (int lev, bool local) const
         		uface[i].resize(bx,1);
     	    }
 
-    	    const FArrayBox& statein = Sborder[mfi];
+    	    const FArrayBox& statein = S_new[mfi];
 
     	    get_face_velocity(lev, cur_time,
                       BL_TO_FORTRAN_3D(statein),
@@ -283,7 +275,6 @@ AmrAdv::EstTimeStep (int lev, bool local) const
     	    for (int i = 0; i < BL_SPACEDIM; ++i) {
         		Real umax = uface[i].norm(0);
         		if (umax > 1.e-100) {
-                    std::cout << "umax: " << umax << '\n';
         		    dt_est = std::min(dt_est, dx[i] / umax);
         		} else {
                     dt_est = std::min(dt_est, dx[i]);

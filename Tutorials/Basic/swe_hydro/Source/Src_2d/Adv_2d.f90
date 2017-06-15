@@ -31,8 +31,8 @@ subroutine advect(time, lo, hi, &
 
   dtdx = dt/dx
 
-  glo = lo - 6
-  ghi = hi + 6
+  glo = lo - 4
+  ghi = hi + 4
 
   ! edge states
   call bl_allocate(phix_1d, glo, ghi, Ncomp)
