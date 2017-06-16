@@ -30,6 +30,7 @@ contains
     integer :: i, j
     double precision :: dxdt(2), f_p(Ncomp), f_m(Ncomp)
     double precision, parameter :: g = 1.0d-3, gamma = 5.0d0/3.0d0, alpha = 0.5d0
+    logical :: gr = .true.
 
     dxdt = dx/dt
 
@@ -46,8 +47,13 @@ contains
     end do
 
     if (Ncomp < 4) then
-        call swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, g, .true.)
-        call swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, g, .true.)
+        if (gr) then
+            call gr_swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, .true.)
+            call gr_swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, .true.)
+        else
+            call swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, g, .true.)
+            call swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, g, .true.)
+        end if
     else
         call comp_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, gamma, .true.)
         call comp_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, gamma, .true.)
@@ -75,8 +81,13 @@ contains
     end do
 
     if (Ncomp < 4) then
-        call swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, g, .false.)
-        call swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, g, .false.)
+        if (gr) then
+            call gr_swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, .false.)
+            call gr_swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, .false.)
+        else
+            call swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, g, .false.)
+            call swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, g, .false.)
+        end if
     else
         call comp_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, gamma, .false.)
         call comp_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, gamma, .false.)
@@ -124,6 +135,93 @@ contains
       end if
 
   end subroutine swe_flux
+
+  subroutine W_swe(q, lo, hi, Ncomp, gamma_up, glo, ghi, W)
+      ! Calculate lorentz factor
+      implicit none
+
+      integer, intent(in) :: lo(2), hi(2), Ncomp, glo(2), ghi(2)
+      double precision, intent(in) :: q(glo(1):ghi(1), glo(2):ghi(2), Ncomp)
+      double precision, intent(in) :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), 9)
+      double precision, intent(out) :: W(glo(1):ghi(1), glo(2):ghi(2))
+
+      integer i,j
+
+      do j = lo(2), hi(2)
+          do i = lo(1), hi(1)
+              W(i,j) = sqrt((q(i,j,2)**2 * gamma_up(i,j,1)+ &
+                    2.0d0 * q(i,j,2) * q(i,j,3) * gamma_up(i,j,2) + &
+                    q(i,j,3)**2 * gamma_up(i,j,5)) / q(i,j,1)**2 + 1.0d0)
+              ! nan check
+              if (W(i,j) /= W(i,j)) then
+                  W(i,j) = 1.0d0
+              end if
+        end do
+    end do
+
+  end subroutine W_swe
+
+  subroutine gr_swe_flux(U, f, glo, ghi, lo, hi, Ncomp, x_dir)
+      implicit none
+
+      integer, intent(in) :: Ncomp
+      integer, intent(in) :: glo(2), ghi(2), lo(2), hi(2)
+      double precision, intent(in)  :: U(glo(1):ghi(1), glo(2):ghi(2), Ncomp)
+      double precision, intent(out) :: f(glo(1):ghi(1), glo(2):ghi(2), Ncomp)
+      logical, intent(in) :: x_dir
+
+      integer :: i, j
+      double precision :: v(2), W(glo(1):ghi(1),glo(2):ghi(2))
+      double precision :: alpha(glo(1):ghi(1),glo(2):ghi(2))
+      double precision :: beta(glo(1):ghi(1),glo(2):ghi(2),3)
+      double precision :: gamma_up(glo(1):ghi(1),glo(2):ghi(2),9)
+
+      alpha = exp(-U(:,:,1))
+      beta = 0.0d0
+
+      gamma_up = 0.0d0
+      gamma_up(:,:,1) = 1.0d0
+      gamma_up(:,:,5) = 1.0d0
+
+      call W_swe(U, lo-1, hi+1, Ncomp, gamma_up, glo, ghi, W)
+
+      if (x_dir) then
+          do    j = lo(2), hi(2)
+             do i = lo(1)-1, hi(1)+1
+                v(1) = U(i,j,2) / (U(i,j,1) * W(i,j))
+                v(2) = U(i,j,3) / (U(i,j,1) * W(i,j))
+
+                f(i,j,1) =  U(i,j,1) * &
+                      (v(1)*gamma_up(i,j,1) + v(2)*gamma_up(i,j,2) -&
+                       beta(i,j,1) / alpha(i,j))
+                f(i,j,2) = U(i,j,2) * &
+                      (v(1)*gamma_up(i,j,1) + v(2)*gamma_up(i,j,2) -&
+                       beta(i,j,1) / alpha(i,j)) + 0.5d0 * U(i,j,1)**2 / W(i,j)**2
+                f(i,j,3) =  U(i,j,3) * &
+                      (v(1)*gamma_up(i,j,1) + v(2)*gamma_up(i,j,2) -&
+                       beta(i,j,1) / alpha(i,j))
+             end do
+          end do
+      else
+          do    j = lo(2)-1, hi(2)+1
+             do i = lo(1), hi(1)
+                v(1) = U(i,j,2) / (U(i,j,1) * W(i,j))
+                v(2) = U(i,j,3) / (U(i,j,1) * W(i,j))
+
+                f(i,j,1) = U(i,j,1) * &
+                      (v(1)*gamma_up(i,j,2) + v(2)*gamma_up(i,j,5) -&
+                       beta(i,j,2) / alpha(i,j))
+                f(i,j,2) = U(i,j,2) * &
+                      (v(1)*gamma_up(i,j,2) + v(2)*gamma_up(i,j,5) -&
+                       beta(i,j,2) / alpha(i,j))
+                f(i,j,3) =  U(i,j,3) * &
+                      (v(1)*gamma_up(i,j,2) + v(2)*gamma_up(i,j,5) -&
+                       beta(i,j,2) / alpha(i,j)) +  0.5d0 * U(i,j,1)**2 / W(i,j)**2
+             end do
+          end do
+      end if
+
+  end subroutine gr_swe_flux
 
   subroutine comp_flux(U, f, glo, ghi, lo, hi, Ncomp, gamma, x_dir)
       implicit none

@@ -48,7 +48,8 @@ subroutine state_error(tag,tag_lo,tag_hi, &
      do       k = lo(3), hi(3)
         do    j = lo(2), hi(2)
            do i = lo(1), hi(1)
-              if (state(i,j,k,1) .ge. phierr) then
+               ! NOTE: changed to be less than for gr
+              if (state(i,j,k,1) .le. phierr) then
                  tag(i,j,k) = set
               endif
            enddo

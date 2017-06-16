@@ -26,7 +26,8 @@ subroutine initdata(level, time, lo, hi, &
 
   integer          :: dm
   integer          :: i,j,k
-  double precision :: x,y,z,r2
+  double precision :: x,y,z,r2,alpha
+  double precision, parameter ::  alpha0 = 0.9899494937d0, M = 1.0d0, R = 100.0d0
 
   if (phi_lo(3) .eq. 0 .and. phi_hi(3) .eq. 0) then
      dm = 2
@@ -46,11 +47,12 @@ subroutine initdata(level, time, lo, hi, &
 
            if ( dm.eq. 2) then
               r2 = ((x-0.5d0)**2 + (y-0.75d0)**2) / 0.01d0
-              phi(i,j,k,1) = 1.d0 + exp(-r2)
            else
               r2 = ((x-0.5d0)**2 + (y-0.75d0)**2 + (z-0.5d0)**2) / 0.01d0
-              phi(i,j,k,1) = 1.d0 + exp(-r2)
            end if
+           alpha = sqrt(1.0d0 - 2.0d0 * M / (1.0d0 + exp(-r2) + R)) !alpha0 + M * (1.0d0 + exp(-r2)) / (R**2 * alpha0)
+           !phi(i,j,k,1) = 1.d0 + exp(-r2)
+           phi(i,j,k,1) = -log(alpha)
            if (Ncomp == 4) then ! compressible
                phi(i,j,k,4) = phi(i,j,k,1)
            end if

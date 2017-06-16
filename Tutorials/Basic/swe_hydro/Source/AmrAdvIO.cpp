@@ -28,7 +28,7 @@ AmrAdv::PlotFileVarNames () const
 
         return {"h", "hu", "hv"};
     } else {
-        return {"rho", "rhou", "rhov", "eps"};
+        return {"rho", "rhou", "rhov", "E"};
     }
 }
 
