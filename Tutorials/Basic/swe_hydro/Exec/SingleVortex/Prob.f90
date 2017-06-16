@@ -52,9 +52,11 @@ subroutine initdata(level, time, lo, hi, &
            end if
            alpha = sqrt(1.0d0 - 2.0d0 * M / (1.0d0 + exp(-r2) + R)) !alpha0 + M * (1.0d0 + exp(-r2)) / (R**2 * alpha0)
            !phi(i,j,k,1) = 1.d0 + exp(-r2)
-           phi(i,j,k,1) = -log(alpha)
            if (Ncomp == 4) then ! compressible
+               phi(i,j,k,1) = 1.d0 + exp(-r2)
                phi(i,j,k,4) = phi(i,j,k,1)
+           else
+               phi(i,j,k,1) = -log(alpha)
            end if
         end do
      end do

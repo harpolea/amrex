@@ -55,8 +55,13 @@ contains
             call swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, g, .true.)
         end if
     else
-        call comp_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, gamma, .true.)
-        call comp_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, gamma, .true.)
+        if (gr) then
+            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 0, gamma, glo, ghi)
+            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 0, gamma, glo, ghi)
+        else
+            call comp_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, gamma, .true.)
+            call comp_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, gamma, .true.)
+        end if
     end if
 
     do    j = lo(2), hi(2)
@@ -89,8 +94,13 @@ contains
             call swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, g, .false.)
         end if
     else
-        call comp_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, gamma, .false.)
-        call comp_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, gamma, .false.)
+        if (gr) then
+            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 1, gamma, glo, ghi)
+            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 1, gamma, glo, ghi)
+        else
+            call comp_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, gamma, .false.)
+            call comp_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, gamma, .false.)
+        end if
     end if
 
     do    j = lo(2), hi(2)
@@ -259,5 +269,267 @@ contains
       end if
 
   end subroutine comp_flux
+
+  subroutine f_of_p(f, p, U, Ncomp, gamma, gamma_up)
+      implicit none
+
+      integer, intent(in) :: Ncomp
+      double precision, intent(in)  :: U(Ncomp), p, gamma, gamma_up(9)
+      double precision, intent(out) :: f
+
+      double precision :: sq
+
+      sq = sqrt((U(4) + p + U(1))**2 - U(2)**2*gamma_up(1)-&
+          2.0d0 * U(2) * U(3) * gamma_up(2) -&
+          U(3)**2 * gamma_up(4))
+
+      f = (gamma - 1.0d0) * sq / (U(4) + p + U(1)) * &
+          (sq - p * (U(4) + p + U(1)) / sq - U(1)) - p
+
+  end subroutine f_of_p
+
+  subroutine zbrent(p, x1, b, U, Ncomp, gamma, gamma_up)
+      ! route finder using brent's method
+      implicit none
+
+      integer, intent(in) :: Ncomp
+      double precision, intent(out) :: p
+      double precision, intent(in)  :: U(Ncomp), gamma, gamma_up(9), x1
+      double precision, intent(inout) :: b
+
+      double precision, parameter :: TOL = 1.0d-12
+      integer, parameter :: ITMAX = 100
+
+      double precision a, c, d, fa, fb, fc, fs, s
+      logical mflag, con1, con2, con3, con4, con5
+      integer i
+
+      a = x1
+      c = 0.0d0
+      d = 0.0d0
+      call f_of_p(fa, a, U, Ncomp, gamma, gamma_up)
+      call f_of_p(fb, b, U, Ncomp, gamma, gamma_up)
+      fc = 0.0d0
+
+      if (fa * fb >= 0.0d0) then
+          p = b
+          return
+      end if
+
+      if (abs(fa) < abs(fb)) then
+          d = a
+          a = b
+          b = d
+
+          d = fa
+          fa = fb
+          fb = d
+      end if
+
+      c = a
+      fc = fa
+
+      mflag = .true.
+
+      do i = 1, ITMAX
+          if (fa /= fc .and. fb /= fc) then
+              s = a*fb*fc / ((fa-fb) * (fa-fc)) + b*fa*fc / ((fb-fa)*(fb-fc)) +&
+                  c*fa*fb / ((fc-fa)*(fc-fb))
+          else
+              s = b - fb * (b-a) / (fb-fa)
+          end if
+
+          con1 = .false.
+
+          if (0.25d0 * (3.0d0 * a + b) < b) then
+              if ( s < 0.25d0 * (3.0d0 * a + b) .or. s > b) then
+                  con1 = .true.
+              end if
+          else if (s < b .or. s > 0.25d0  * (3.0d0 * a + b)) then
+              con1 = .true.
+          end if
+
+          con2 = mflag .and. abs(s - b) >= 0.5d0 * abs(b-c)
+
+          con3 = (.not. mflag) .and. abs(s-b) >= 0.5d0 * abs(c-d)
+
+          con4 = mflag .and. abs(b-c) < TOL
+
+          con5 = (.not. mflag) .and. abs(c-d) < TOL
+
+          if (con1 .or. con2 .or. con3 .or. con4 .or. con5) then
+              s = 0.5d0 * (a + b)
+              mflag = .true.
+          else
+              mflag = .false.
+          end if
+
+          call f_of_p(fs, s, U, Ncomp, gamma, gamma_up)
+
+          if (abs(fa) < abs(fb)) then
+              d = a
+              a = b
+              b = d
+
+              d = fa
+              fa = fb
+              fb = d
+          end if
+
+          d = c
+          c = b
+          fc = fb
+
+          if (fa * fs < 0.0d0) then
+              b = s
+              fb = fs
+          else
+              a = s
+              fa = fs
+          end if
+
+          if (fb == 0.0d0 .or. fs == 0.0d0 .or. abs(b-a) < TOL) then
+              p = b
+              return
+          end if
+
+      end do
+
+      p = x1
+
+  end subroutine zbrent
+
+  subroutine cons_to_prim(U, U_prim, p, lo, hi, Ncomp, gamma, gamma_up, glo, ghi)
+      ! convert from conserved variables (D, Sx, Sy, tau) to primitive variables (rho, v^x, v^y, eps). Also outputs the pressure
+      implicit none
+
+      integer, intent(in) :: Ncomp
+      integer, intent(in) :: lo(2), hi(2), glo(2), ghi(2)
+      double precision, intent(in)  :: U(glo(1):ghi(1), glo(2):ghi(2), Ncomp)
+      double precision, intent(out) :: U_prim(lo(1):hi(1), lo(2):hi(2), Ncomp)
+      double precision, intent(out) :: p(lo(1):hi(1), lo(2):hi(2))
+      double precision, intent(in)  :: gamma
+      double precision, intent(in)  :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), 9)
+
+      double precision :: pmin, pmax, ssq, q(Ncomp), fmin, fmax, sq, h, W2
+      integer :: i, j
+
+      do j = lo(2), hi(2)
+          do i = lo(1), hi(1)
+              q = U(i, j, :)
+              ssq = q(2)**2 * gamma_up(i,j,1) + &
+                  2.0d0 * q(2) * q(3) * gamma_up(i,j,2) + &
+                  q(3)**2 * gamma_up(i,j,5)
+
+              pmin = (1.0d0 - ssq)**2 * q(4) * (gamma - 1.0d0)
+              pmax = (gamma - 1.0d0) * (q(4) + q(1)) / (2.0d0 - gamma)
+
+              if (pmin < 0.0d0) then
+                  pmin = 0.d0
+              end if
+
+              if (pmax < 0.d0 .or. pmax < pmin) then
+                  pmax = 1.0d0
+              end if
+
+              call f_of_p(fmin, pmin, q, Ncomp, gamma, gamma_up(i,j,:))
+              call f_of_p(fmax, pmax, q, Ncomp, gamma, gamma_up(i,j,:))
+
+              if (fmin * fmax > 0.0d0) then
+                  pmin = 0.d0
+              end if
+
+              call f_of_p(fmin, pmin, q, Ncomp, gamma, gamma_up(i,j,:))
+
+              if (fmin * fmax > 0.0d0) then
+                  pmax = pmax * 10.d0
+              end if
+
+              call zbrent(p(i,j), pmin, pmax, q, Ncomp, gamma, gamma_up(i,j,:))
+
+              if (p(i,j) /= p(i,j) .or. p(i,j) < 0.0d0 .or. p(i,j) > 1.0d0) then
+                  p(i,j) = abs((gamma - 1.0d0) * (q(4) + q(1)) / (2.0d0 - gamma))
+
+                  if (p(i,j) > 1.0d0) then
+                      p(i,j) = 1.0d0
+                  end if
+              end if
+
+              sq = sqrt((q(4) + p(i,j) + q(1))**2 - ssq)
+
+              if (sq /= sq) then
+                  sq = q(4) + p(i,j) + q(1)
+              end if
+
+              h = 1.0d0 + gamma * (sq - p(i,j) * (q(4) + p(i,j) + q(1)) / sq - q(1)) / q(1)
+              W2 = 1.0d0 + ssq / (q(1) * h)**2
+
+              U_prim(i,j,1) = q(1) * sq / (q(4) + p(i,j) + q(1))
+              U_prim(i,j,2) = (gamma_up(i,j,1)*q(2) + gamma_up(i,j,2) * q(3)) /&
+                  (W2 * h * U_prim(i,j,1))
+              U_prim(i,j,3) = (gamma_up(i,j,4)*q(2) + gamma_up(i,j,5) * q(3)) /&
+                  (W2 * h * U_prim(i,j,1))
+              U_prim(i,j,4) = (h - 1.0) / gamma
+
+          end do
+      end do
+
+  end subroutine cons_to_prim
+
+  subroutine gr_comp_flux(U, f, lo, hi, Ncomp, dir, gamma, glo, ghi)
+      implicit none
+
+      integer, intent(in) :: Ncomp, dir
+      integer, intent(in) :: lo(2), hi(2), glo(2), ghi(2)
+      double precision, intent(in)  :: U(glo(1):ghi(1), glo(2):ghi(2), Ncomp)
+      double precision, intent(out) :: f(glo(1):ghi(1), glo(2):ghi(2), Ncomp)
+      double precision, intent(in)  :: gamma
+
+      integer :: i,j
+      double precision :: p(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1)
+      double precision :: U_prim(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, Ncomp)
+      double precision :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), 9)
+      double precision :: beta(glo(1):ghi(1), glo(2):ghi(2), 3)
+      double precision :: alpha(glo(1):ghi(1), glo(2):ghi(2))
+      double precision, parameter ::  alpha0 = 0.9899494937d0, M = 1.0d0, R = 100.0d0
+
+      alpha = sqrt(1.0d0 - 2.0d0 * M / (R+1.0))
+      beta = 0.0d0
+      gamma_up = 0.0d0
+      gamma_up(:,:,1) = 1.0d0
+      gamma_up(:,:,5) = 1.0d0
+
+      call cons_to_prim(U, U_prim, p, lo-1, hi+1, Ncomp, gamma, gamma_up, glo, ghi)
+
+      if (dir == 0) then
+          do j = lo(2), hi(2)
+              do i = lo(1)-1, hi(1)+1
+                  f(i,j,1) = U(i,j,1) * (U_prim(i,j,2) - &
+                       beta(i,j,1) / alpha(i,j))
+                  f(i,j,2) = U(i,j,2) * (U_prim(i,j,2) - &
+                       beta(i,j,1) / alpha(i,j)) + p(i,j)
+                  f(i,j,3) = U(i,j,3) * (U_prim(i,j,2) - &
+                       beta(i,j,1) / alpha(i,j))
+                  f(i,j,4) = U(i,j,4) * (U_prim(i,j,2) - &
+                       beta(i,j,1) / alpha(i,j)) + p(i,j) * U_prim(i,j,2)
+               end do
+           end do
+      else
+          do j = lo(2)-1, hi(2)+1
+              do i = lo(1), hi(1)
+                  !write(*,*) "y, alpha", alpha(lo(1),lo(2),lo(3))
+                  f(i,j,1) = U(i,j,1) * (U_prim(i,j,3) - &
+                       beta(i,j,2) / alpha(i,j))
+                  f(i,j,2) = U(i,j,2) * (U_prim(i,j,3) - &
+                      beta(i,j,2) / alpha(i,j))
+                  f(i,j,3) = U(i,j,3) * (U_prim(i,j,3) - &
+                       beta(i,j,2) / alpha(i,j)) + p(i,j)
+                  f(i,j,4) = U(i,j,4) * (U_prim(i,j,3) - &
+                       beta(i,j,2) / alpha(i,j)) + p(i,j) * U_prim(i,j,3)
+               end do
+           end do
+      end if
+
+  end subroutine gr_comp_flux
 
 end module compute_flux_module
