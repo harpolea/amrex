@@ -108,7 +108,6 @@ AmrAdv::timeStep (int lev, Real time, int iteration)
     	{
     	    flux_reg[lev+1]->Reflux(*phi_new[lev], 1.0, 0, 0, phi_new[lev]->nComp(), geom[lev]);
     	}
-
     	AverageDownTo(lev); // average lev+1 down to lev
     }
 
@@ -145,9 +144,10 @@ AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
 
     // State with ghost cells
     MultiFab Sborder(grids[lev], dmap[lev], S_new.nComp(), num_grow);
-    for (int i = 0; i < Sborder.nComp(); i++) {
-        FillPatch(lev, time, Sborder, i, 1);//Sborder.nComp());
-    }
+    FillPatch(lev, time, Sborder, 0, S_new.nComp());
+    //for (int i = 0; i < Sborder.nComp(); i++) {
+        //FillPatch(lev, time, Sborder, i, 1);//Sborder.nComp());
+    //}
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -164,7 +164,7 @@ AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
 
     	    // Allocate fabs for fluxes and Godunov velocities.
     	    for (int i = 0; i < BL_SPACEDIM ; i++) {
-        		flux[i].resize(amrex::grow(bx,num_grow),S_new.nComp());
+        		flux[i].resize(amrex::grow(bx,3),S_new.nComp());
     	    }
 
             advect(time, bx.loVect(), bx.hiVect(),
@@ -277,7 +277,7 @@ AmrAdv::EstTimeStep (int lev, bool local) const
         		if (umax > 1.e-100) {
         		    dt_est = std::min(dt_est, dx[i] / umax);
         		} else {
-                    dt_est = std::min(dt_est, dx[i]);
+                    dt_est = dx[i] / (2.0*BL_SPACEDIM);
                 }
     	    }
     	}

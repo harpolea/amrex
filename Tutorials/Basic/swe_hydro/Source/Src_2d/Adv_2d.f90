@@ -27,7 +27,7 @@ subroutine advect(time, lo, hi, &
   double precision :: dtdx(2)
 
   ! Some compiler may not support 'contiguous'.  Remove it in that case.
-  double precision, dimension(:,:,:), pointer, contiguous :: phix_1d, phiy_1d, phix, phiy, slope, u1
+  double precision, dimension(:,:,:), pointer, contiguous :: phi_p, phi_m, fp, fm, slope, u1
 
   dtdx = dt/dx
 
@@ -35,10 +35,10 @@ subroutine advect(time, lo, hi, &
   ghi = hi + 4
 
   ! edge states
-  call bl_allocate(phix_1d, glo, ghi, Ncomp)
-  call bl_allocate(phiy_1d, glo, ghi, Ncomp)
-  call bl_allocate(phix   , glo, ghi, Ncomp)
-  call bl_allocate(phiy   , glo, ghi, Ncomp)
+  call bl_allocate(phi_p, glo, ghi, Ncomp)
+  call bl_allocate(phi_m, glo, ghi, Ncomp)
+  call bl_allocate(fp   , glo, ghi, Ncomp)
+  call bl_allocate(fm   , glo, ghi, Ncomp)
   ! slope
   call bl_allocate(slope  , glo, ghi, Ncomp)
 
@@ -59,15 +59,14 @@ subroutine advect(time, lo, hi, &
                        uin, ui_lo, ui_hi, &
                        flxx, fx_lo, fx_hi, &
                        flxy, fy_lo, fy_hi, &
-                       phix_1d, phiy_1d, phix, phiy, slope, glo, ghi, Ncomp)
+                       phi_p, phi_m, fp, fm, slope, glo, ghi, Ncomp)
 
 
   ! Do a conservative update
   do    j = lo(2)-3,hi(2)+3
      do i = lo(1)-3,hi(1)+3
         u1(i,j,:) = uin(i,j,:) + &
-             (flxx(i,j,:)  * dtdx(1) &
-             + flxy(i,j,:)  * dtdx(2) )
+             (flxx(i,j,:)  * dtdx(1) + flxy(i,j,:)  * dtdx(2) )
      enddo
   enddo
 
@@ -78,13 +77,12 @@ subroutine advect(time, lo, hi, &
                        u1, glo, ghi, &
                        flxx, fx_lo, fx_hi, &
                        flxy, fy_lo, fy_hi, &
-                       phix_1d, phiy_1d, phix, phiy, slope, glo, ghi, Ncomp)
+                       phi_p, phi_m, fp, fm, slope, glo, ghi, Ncomp)
 
    do    j = lo(2),hi(2)
       do i = lo(1),hi(1)
          uout(i,j,:) = 0.5d0 * (uin(i,j,:) + u1(i,j,:) + &
-              (flxx(i,j,:)  * dtdx(1) &
-              + flxy(i,j,:)  * dtdx(2) ))
+              (flxx(i,j,:)  * dtdx(1) + flxy(i,j,:)  * dtdx(2) ))
       enddo
    enddo
 
@@ -102,10 +100,12 @@ subroutine advect(time, lo, hi, &
      !enddo
   !enddo
 
-  call bl_deallocate(phix_1d)
-  call bl_deallocate(phiy_1d)
-  call bl_deallocate(phix)
-  call bl_deallocate(phiy)
+  !write(*,*) "uout", uout(lo(1),lo(2),:)
+
+  call bl_deallocate(phi_p)
+  call bl_deallocate(phi_m)
+  call bl_deallocate(fp)
+  call bl_deallocate(fm)
   call bl_deallocate(slope)
   call bl_deallocate(u1)
 

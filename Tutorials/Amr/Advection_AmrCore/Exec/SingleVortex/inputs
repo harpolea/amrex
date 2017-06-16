@@ -4,7 +4,7 @@ stop_time = 2.0
 # PROBLEM SIZE & GEOMETRY
 geometry.is_periodic =  1  1  1
 geometry.coord_sys   =  0       # 0 => cart
-geometry.prob_lo     =  0.0  0.0  0.0 
+geometry.prob_lo     =  0.0  0.0  0.0
 geometry.prob_hi     =  1.0  1.0  1.0
 amr.n_cell           =  64   64   64
 
@@ -26,7 +26,7 @@ adv.cfl            = 0.7     # cfl number for hyperbolic system
 			     # the 3D test, but need to use 0.7 in 2D
 			     # to satisfy CFL condition.
 
-adv.do_reflux = 1
+adv.do_reflux = 0
 
 # Tagging
 adv.phierr = 1.01  1.1  1.5

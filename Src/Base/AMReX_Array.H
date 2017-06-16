@@ -32,13 +32,13 @@ public:
 
     const T& operator[] (std::size_t i) const
     {
-	BL_ASSERT(i < this->size());
+	//BL_ASSERT(i < this->size());
 	return this->std::vector<T>::operator[](i);
     }
 
-    //! get access to the underlying array 
+    //! get access to the underlying array
     T* dataPtr () { return this->data(); }
-    //! get access to the underlying array 
+    //! get access to the underlying array
     const T* dataPtr () const { return this->data(); }
 };
 
