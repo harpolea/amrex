@@ -289,7 +289,7 @@ AmrAdv::EstTimeStep (int lev, bool local) const
 
     dt_est *= cfl;
 
-    std::cout << "dt_est: " << dt_est << '\n';
+    //std::cout << "dt_est: " << dt_est << '\n';
 
     return dt_est;
 }

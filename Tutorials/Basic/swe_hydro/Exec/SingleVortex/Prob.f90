@@ -51,6 +51,9 @@ subroutine initdata(level, time, lo, hi, &
               r2 = ((x-0.5d0)**2 + (y-0.75d0)**2 + (z-0.5d0)**2) / 0.01d0
               phi(i,j,k,1) = 1.d0 + exp(-r2)
            end if
+           if (Ncomp == 4) then ! compressible
+               phi(i,j,k,4) = phi(i,j,k,1)
+           end if
         end do
      end do
   end do

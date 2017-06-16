@@ -24,7 +24,12 @@ AmrAdv::PlotFileMF () const
 Array<std::string>
 AmrAdv::PlotFileVarNames () const
 {
-    return {"h", "hu", "hv"};
+    if (phi_new[0]->nComp() < 4) {
+
+        return {"h", "hu", "hv"};
+    } else {
+        return {"rho", "rhou", "rhov", "eps"};
+    }
 }
 
 void
