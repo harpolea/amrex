@@ -84,6 +84,8 @@ private:
     std::string plot_file {"plt"};
     int check_int = -1;
     int plot_int = -1;
+
+    int max_swe_level = -1;
 };
 
 #endif

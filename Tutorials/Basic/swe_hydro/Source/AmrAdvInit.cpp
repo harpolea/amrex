@@ -26,8 +26,14 @@ AmrAdv::InitData ()
 void AmrAdv::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
 				      const DistributionMapping& dm)
 {
-    const int ncomp = 4;
+    int ncomp;
     const int nghost = 1;
+
+    if (lev > max_swe_level) {
+        ncomp = 4;
+    } else {
+        ncomp = 3;
+    }
 
     phi_new[lev].reset(new MultiFab(ba, dm, ncomp, nghost));
     phi_old[lev].reset(new MultiFab(ba, dm, ncomp, nghost));

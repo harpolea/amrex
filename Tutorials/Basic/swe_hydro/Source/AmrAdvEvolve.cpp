@@ -118,6 +118,7 @@ AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
 {
     constexpr int num_grow = 6;
     const int ncomp = phi_new[lev]->nComp();
+    const bool gr = false;
 
     std::swap(phi_old[lev], phi_new[lev]);
     t_old[lev] = t_new[lev];
@@ -173,7 +174,7 @@ AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
           		   AMREX_D_DECL(BL_TO_FORTRAN_3D(flux[0]),
           			  BL_TO_FORTRAN_3D(flux[1]),
           			  BL_TO_FORTRAN_3D(flux[2])),
-          		   dx, dt, &ncomp);
+          		   dx, dt, &ncomp, &gr);
 
     	    if (do_reflux) {
         		for (int i = 0; i < BL_SPACEDIM ; i++) {

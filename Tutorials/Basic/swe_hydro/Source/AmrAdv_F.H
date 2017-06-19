@@ -32,7 +32,27 @@ extern "C"
 		AMREX_D_DECL(BL_FORT_FAB_ARG_3D(fx),
 		       BL_FORT_FAB_ARG_3D(fy),
 		       BL_FORT_FAB_ARG_3D(fz)),
-		const amrex_real* dx, const amrex_real& dt, const int* Ncomp);
+		const amrex_real* dx, const amrex_real& dt, const int* Ncomp,
+        const bool* gr);
+
+    void comp_from_swe(BL_FORT_FAB_ARG_3D(U_comp),
+        const BL_FORT_FAB_ARG_3D(U_swe),
+        const amrex_real* p, const amrex_real* rho,
+        const int* lo, const int* hi,
+        const int* n_cons_comp, const int* n_swe_comp,
+        const amrex_real* gamma,
+        const BL_FORT_FAB_ARG_3D(gamma_up),
+        const amrex_real* dz);
+
+    void swe_from_comp(const BL_FORT_FAB_ARG_3D(U_prim),
+        BL_FORT_FAB_ARG_3D(U_swe),
+        const BL_FORT_FAB_ARG_3D(p_comp),
+        const amrex_real* p_swe,
+        const int* lo, const int* hi,
+        const int* n_cons_comp, const int* n_swe_comp,
+        const BL_FORT_FAB_ARG_3D(gamma_up),
+        const amrex_real* alpha0, const amrex_real* M,
+        const amrex_real* R, const amrex_real* dz);
 
 #ifdef __cplusplus
 }

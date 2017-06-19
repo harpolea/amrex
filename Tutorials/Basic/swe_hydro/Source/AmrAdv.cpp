@@ -70,6 +70,8 @@ AmrAdv::ReadParameters ()
     	pp.query("cfl", cfl);
 
     	pp.query("do_reflux", do_reflux);
+
+        pp.query("max_swe_level", max_swe_level);
     }
 }
 
@@ -77,8 +79,14 @@ void
 AmrAdv::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 				const DistributionMapping& dm)
 {
-    const int ncomp = phi_new[lev-1]->nComp();
+    int ncomp = phi_new[lev-1]->nComp();
     const int nghost = phi_new[lev-1]->nGrow();
+
+    if (lev > max_swe_level) {
+        ncomp = 4;
+    } else {
+        ncomp = 3;
+    }
 
     phi_new[lev].reset(new MultiFab(ba, dm, ncomp, nghost));
     phi_old[lev].reset(new MultiFab(ba, dm, ncomp, nghost));
@@ -91,6 +99,11 @@ AmrAdv::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     }
 
     FillCoarsePatch(lev, time, *phi_new[lev], 0, ncomp);
+
+    //if (lev == max_swe_level+1) {
+        // do conversion from swe to comp
+        //comp_from_swe(phi_new[lev], phi_new[lev-1], p, rho, lo, hi, 4, 3, gamma, gamma_up, dz);
+    //}
 }
 
 

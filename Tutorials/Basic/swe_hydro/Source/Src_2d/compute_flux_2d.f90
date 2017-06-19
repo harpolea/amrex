@@ -12,7 +12,7 @@ contains
                              phi, ph_lo, ph_hi, &
                              flxx, fx_lo, fx_hi, &
                              flxy, fy_lo, fy_hi, &
-                             phi_p, phi_m, fp, fm, slope, glo, ghi, Ncomp)
+                             phi_p, phi_m, fp, fm, slope, glo, ghi, Ncomp, gr)
 
     use slope_module, only: slopex, slopey
 
@@ -24,13 +24,14 @@ contains
     double precision, intent(in   ) :: phi (ph_lo(1):ph_hi(1),ph_lo(2):ph_hi(2),Ncomp)
     double precision, intent(  out) :: flxx(fx_lo(1):fx_hi(1),fx_lo(2):fx_hi(2),Ncomp)
     double precision, intent(  out) :: flxy(fy_lo(1):fy_hi(1),fy_lo(2):fy_hi(2),Ncomp)
+    logical, intent(in) :: gr
     double precision, dimension(glo(1):ghi(1),glo(2):ghi(2),Ncomp) :: &
          phi_p, phi_m, fp, fm, slope
 
     integer :: i, j
     double precision :: dxdt(2), f_p(Ncomp), f_m(Ncomp)
-    double precision, parameter :: g = 1.0d-3, gamma = 5.0d0/3.0d0, alpha = 0.5d0
-    logical :: gr = .true.
+    double precision, parameter :: g = 1.0d-3, gamma = 5.0d0/3.0d0, alph = 0.5d0
+    double precision :: alpha(glo(1):ghi(1), glo(2):ghi(2))
 
     dxdt = dx/dt
 
@@ -48,16 +49,16 @@ contains
 
     if (Ncomp < 4) then
         if (gr) then
-            call gr_swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, .true.)
-            call gr_swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, .true.)
+            call gr_swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, .true., alpha)
+            call gr_swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, .true., alpha)
         else
             call swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, g, .true.)
             call swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, g, .true.)
         end if
     else
         if (gr) then
-            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 0, gamma, glo, ghi)
-            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 0, gamma, glo, ghi)
+            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 0, gamma, glo, ghi, alpha)
+            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 0, gamma, glo, ghi, alpha)
         else
             call comp_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, gamma, .true.)
             call comp_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, gamma, .true.)
@@ -66,10 +67,14 @@ contains
 
     do    j = lo(2), hi(2)
        do i = lo(1), hi(1)
-          f_p = 0.5d0 * (fp(i,j,:) + fm(i+1,j,:) + alpha * dxdt(1) * (phi_p(i,j,:) - phi_m(i+1,j,:)))
-          f_m = 0.5d0 * (fp(i-1,j,:) + fm(i,j,:) + alpha * dxdt(1) * (phi_p(i-1,j,:) - phi_m(i,j,:)))
+          f_p = 0.5d0 * (fp(i,j,:) + fm(i+1,j,:) + alph * dxdt(1) * (phi_p(i,j,:) - phi_m(i+1,j,:)))
+          f_m = 0.5d0 * (fp(i-1,j,:) + fm(i,j,:) + alph * dxdt(1) * (phi_p(i-1,j,:) - phi_m(i,j,:)))
 
           flxx(i,j,:) = -(f_p - f_m)
+
+          if (gr) then
+              flxx(i,j,:) = flxx(i,j,:) * alpha(i,j)
+          end if
        end do
     end do
 
@@ -87,16 +92,16 @@ contains
 
     if (Ncomp < 4) then
         if (gr) then
-            call gr_swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, .false.)
-            call gr_swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, .false.)
+            call gr_swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, .false., alpha)
+            call gr_swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, .false., alpha)
         else
             call swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, g, .false.)
             call swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, g, .false.)
         end if
     else
         if (gr) then
-            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 1, gamma, glo, ghi)
-            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 1, gamma, glo, ghi)
+            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 1, gamma, glo, ghi, alpha)
+            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 1, gamma, glo, ghi, alpha)
         else
             call comp_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, gamma, .false.)
             call comp_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, gamma, .false.)
@@ -105,10 +110,13 @@ contains
 
     do    j = lo(2), hi(2)
        do i = lo(1), hi(1)
-          f_p = 0.5d0 * (fp(i,j,:) + fm(i,j+1,:) + alpha * dxdt(2) * (phi_p(i,j,:) - phi_m(i,j+1,:)))
-          f_m = 0.5d0 * (fp(i,j-1,:) + fm(i,j,:) + alpha * dxdt(2) * (phi_p(i,j-1,:) - phi_m(i,j,:)))
+          f_p = 0.5d0 * (fp(i,j,:) + fm(i,j+1,:) + alph * dxdt(2) * (phi_p(i,j,:) - phi_m(i,j+1,:)))
+          f_m = 0.5d0 * (fp(i,j-1,:) + fm(i,j,:) + alph * dxdt(2) * (phi_p(i,j-1,:) - phi_m(i,j,:)))
 
           flxy(i,j,:) = -(f_p - f_m)
+          if (gr) then
+              flxy(i,j,:) = flxy(i,j,:) * alpha(i,j)
+          end if
        end do
     end do
 
@@ -171,7 +179,7 @@ contains
 
   end subroutine W_swe
 
-  subroutine gr_swe_flux(U, f, glo, ghi, lo, hi, Ncomp, x_dir)
+  subroutine gr_swe_flux(U, f, glo, ghi, lo, hi, Ncomp, x_dir, alpha)
       implicit none
 
       integer, intent(in) :: Ncomp
@@ -179,10 +187,10 @@ contains
       double precision, intent(in)  :: U(glo(1):ghi(1), glo(2):ghi(2), Ncomp)
       double precision, intent(out) :: f(glo(1):ghi(1), glo(2):ghi(2), Ncomp)
       logical, intent(in) :: x_dir
+      double precision, intent(out) :: alpha(glo(1):ghi(1),glo(2):ghi(2))
 
       integer :: i, j
       double precision :: v(2), W(glo(1):ghi(1),glo(2):ghi(2))
-      double precision :: alpha(glo(1):ghi(1),glo(2):ghi(2))
       double precision :: beta(glo(1):ghi(1),glo(2):ghi(2),3)
       double precision :: gamma_up(glo(1):ghi(1),glo(2):ghi(2),9)
 
@@ -210,6 +218,8 @@ contains
                 f(i,j,3) =  U(i,j,3) * &
                       (v(1)*gamma_up(i,j,1) + v(2)*gamma_up(i,j,2) -&
                        beta(i,j,1) / alpha(i,j))
+
+                f(i,j,:) = f(i,j,:)
              end do
           end do
       else
@@ -227,6 +237,8 @@ contains
                 f(i,j,3) =  U(i,j,3) * &
                       (v(1)*gamma_up(i,j,2) + v(2)*gamma_up(i,j,5) -&
                        beta(i,j,2) / alpha(i,j)) +  0.5d0 * U(i,j,1)**2 / W(i,j)**2
+
+                f(i,j,:) = f(i,j,:)
              end do
           end do
       end if
@@ -416,7 +428,7 @@ contains
 
       do j = lo(2), hi(2)
           do i = lo(1), hi(1)
-              q = U(i, j, :)
+              q = U(i,j,:)
               ssq = q(2)**2 * gamma_up(i,j,1) + &
                   2.0d0 * q(2) * q(3) * gamma_up(i,j,2) + &
                   q(3)**2 * gamma_up(i,j,5)
@@ -469,14 +481,14 @@ contains
                   (W2 * h * U_prim(i,j,1))
               U_prim(i,j,3) = (gamma_up(i,j,4)*q(2) + gamma_up(i,j,5) * q(3)) /&
                   (W2 * h * U_prim(i,j,1))
-              U_prim(i,j,4) = (h - 1.0) / gamma
+              U_prim(i,j,4) = (h - 1.0d0) / gamma
 
           end do
       end do
 
   end subroutine cons_to_prim
 
-  subroutine gr_comp_flux(U, f, lo, hi, Ncomp, dir, gamma, glo, ghi)
+  subroutine gr_comp_flux(U, f, lo, hi, Ncomp, dir, gamma, glo, ghi, alpha)
       implicit none
 
       integer, intent(in) :: Ncomp, dir
@@ -484,14 +496,14 @@ contains
       double precision, intent(in)  :: U(glo(1):ghi(1), glo(2):ghi(2), Ncomp)
       double precision, intent(out) :: f(glo(1):ghi(1), glo(2):ghi(2), Ncomp)
       double precision, intent(in)  :: gamma
+      double precision, intent(out) :: alpha(glo(1):ghi(1),glo(2):ghi(2))
 
       integer :: i,j
       double precision :: p(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1)
       double precision :: U_prim(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, Ncomp)
       double precision :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), 9)
       double precision :: beta(glo(1):ghi(1), glo(2):ghi(2), 3)
-      double precision :: alpha(glo(1):ghi(1), glo(2):ghi(2))
-      double precision, parameter ::  alpha0 = 0.9899494937d0, M = 1.0d0, R = 100.0d0
+      double precision, parameter :: M = 1.0d0, R = 100.0d0
 
       alpha = sqrt(1.0d0 - 2.0d0 * M / (R+1.0))
       beta = 0.0d0
@@ -512,6 +524,8 @@ contains
                        beta(i,j,1) / alpha(i,j))
                   f(i,j,4) = U(i,j,4) * (U_prim(i,j,2) - &
                        beta(i,j,1) / alpha(i,j)) + p(i,j) * U_prim(i,j,2)
+
+                  f(i,j,:) = f(i,j,:)
                end do
            end do
       else
@@ -526,10 +540,11 @@ contains
                        beta(i,j,2) / alpha(i,j)) + p(i,j)
                   f(i,j,4) = U(i,j,4) * (U_prim(i,j,3) - &
                        beta(i,j,2) / alpha(i,j)) + p(i,j) * U_prim(i,j,3)
+
+                  f(i,j,:) = f(i,j,:)
                end do
            end do
       end if
-
   end subroutine gr_comp_flux
 
 end module compute_flux_module

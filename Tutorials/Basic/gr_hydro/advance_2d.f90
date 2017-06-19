@@ -232,7 +232,7 @@ subroutine cons_to_prim(U, U_prim, p, lo, hi, Ncomp, gamma, gamma_up, glo, ghi)
                 (W2 * h * U_prim(i,j,1))
             U_prim(i,j,3) = (gamma_up(i,j,2)*q(2) + gamma_up(i,j,5) * q(3)) /&
                 (W2 * h * U_prim(i,j,1))
-            U_prim(i,j,4) = (h - 1.0) / gamma
+            U_prim(i,j,4) = (h - 1.0d0) / gamma
 
         end do
     end do

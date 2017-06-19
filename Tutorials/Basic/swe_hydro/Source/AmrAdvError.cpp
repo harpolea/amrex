@@ -12,14 +12,23 @@ AmrAdv::ErrorEst (int lev, TagBoxArray& tags, Real time, int /*ngrow*/)
     static bool first = true;
     static Array<Real> phierr;
 
+    const int ncomp = phi_new[lev]->nComp();
+
     if (first)
     {
     	first = false;
     	ParmParse pp("adv");
-    	int n = pp.countval("phierr");
-    	if (n > 0) {
-    	    pp.getarr("phierr", phierr, 0, n);
-    	}
+        if (ncomp < 4) {
+            int n = pp.countval("swe_phierr");
+        	if (n > 0) {
+        	    pp.getarr("swe_phierr", phierr, 0, n);
+        	}
+        } else {
+            int n = pp.countval("phierr");
+            if (n > 0) {
+                pp.getarr("phierr", phierr, 0, n);
+            }
+        }
     }
 
     if (lev >= phierr.size()) return;
@@ -31,7 +40,6 @@ AmrAdv::ErrorEst (int lev, TagBoxArray& tags, Real time, int /*ngrow*/)
     const Real* prob_lo = geom[lev].ProbLo();
 
     const MultiFab& state = *phi_new[lev];
-    const int ncomp = phi_new[lev]->nComp();
 
 
 #ifdef _OPENMP
