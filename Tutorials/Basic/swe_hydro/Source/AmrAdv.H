@@ -1,5 +1,5 @@
-#ifndef AMR_Adv_C_V2_Adv_H_
-#define AMR_Adv_C_V2_Adv_H_
+#ifndef AMR_Adv_H_
+#define AMR_Adv_H_
 
 #include <string>
 #include <limits>
@@ -30,6 +30,8 @@ public:
 			      const amrex::DistributionMapping& dm) override;
     virtual void ClearLevel (int lev) override;
     virtual void ErrorEst (int lev, amrex::TagBoxArray& tags, amrex::Real time, int /*ngrow*/) override;
+
+    void InitFromScratch (amrex::Real time);
 
 private:
 
@@ -86,6 +88,11 @@ private:
     int plot_int = -1;
 
     int max_swe_level = -1;
+    int nlayers = 1;
+
+    amrex::Array<amrex::Real> rho;
+    amrex::Array<amrex::Real> p;
+
 };
 
 #endif

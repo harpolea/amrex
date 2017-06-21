@@ -293,7 +293,7 @@ contains
 
       sq = sqrt((U(4) + p + U(1))**2 - U(2)**2*gamma_up(1)-&
           2.0d0 * U(2) * U(3) * gamma_up(2) -&
-          U(3)**2 * gamma_up(4))
+          U(3)**2 * gamma_up(5))
 
       f = (gamma - 1.0d0) * sq / (U(4) + p + U(1)) * &
           (sq - p * (U(4) + p + U(1)) / sq - U(1)) - p

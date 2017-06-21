@@ -67,7 +67,7 @@ subroutine advect(time, lo, hi, &
   do    j = lo(2)-3,hi(2)+3
      do i = lo(1)-3,hi(1)+3
         u1(i,j,:) = uin(i,j,:) + &
-             (flxx(i,j,:)  * dtdx(1) + flxy(i,j,:)  * dtdx(2) )
+             flxx(i,j,:)  * dtdx(1) + flxy(i,j,:)  * dtdx(2)
      enddo
   enddo
 

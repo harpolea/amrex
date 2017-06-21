@@ -18,7 +18,7 @@ AmrAdv::ErrorEst (int lev, TagBoxArray& tags, Real time, int /*ngrow*/)
     {
     	first = false;
     	ParmParse pp("adv");
-        if (ncomp < 4) {
+        if (ncomp < 5) {
             int n = pp.countval("swe_phierr");
         	if (n > 0) {
         	    pp.getarr("swe_phierr", phierr, 0, n);

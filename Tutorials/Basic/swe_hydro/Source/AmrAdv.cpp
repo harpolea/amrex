@@ -6,6 +6,7 @@
 
 #include <AmrAdv.H>
 #include <AmrAdvBC.H>
+#include <AmrAdvMesh.H>
 
 using namespace amrex;
 
@@ -73,6 +74,23 @@ AmrAdv::ReadParameters ()
 
         pp.query("max_swe_level", max_swe_level);
     }
+
+    {
+    	ParmParse pp("swe");
+
+        pp.query("max_swe_level", max_swe_level);
+        pp.query("nlayers", nlayers);
+
+        int n = pp.countval("rho");
+        if (n > 0) {
+            pp.getarr("rho", rho, 0, n);
+        }
+        n = pp.countval("p");
+        if (n > 0) {
+            pp.getarr("p", p, 0, n);
+        }
+    }
+
 }
 
 void
@@ -83,7 +101,7 @@ AmrAdv::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     const int nghost = phi_new[lev-1]->nGrow();
 
     if (lev > max_swe_level) {
-        ncomp = 4;
+        ncomp = 5;
     } else {
         ncomp = 3;
     }
@@ -141,6 +159,12 @@ AmrAdv::ClearLevel (int lev)
     phi_new[lev].reset(nullptr);
     phi_old[lev].reset(nullptr);
     flux_reg[lev].reset(nullptr);
+}
+
+void
+AmrAdv::InitFromScratch (Real time)
+{
+    MakeNewGrids(time);
 }
 
 void

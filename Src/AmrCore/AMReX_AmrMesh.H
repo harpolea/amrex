@@ -52,9 +52,9 @@ public:
     Geometry& Geom (int lev) { return geom[lev]; }
 
     void SetMaxGridSize (int new_mgs) { max_grid_size.assign(max_level+1, new_mgs); }
-    void SetMaxGridSize (const Array<int>& new_mgs) { 
+    void SetMaxGridSize (const Array<int>& new_mgs) {
         BL_ASSERT(new_mgs.size() >= max_level+1);
-        max_grid_size = new_mgs; 
+        max_grid_size = new_mgs;
     }
     void SetBlockingFactor (int new_bf) { blocking_factor.assign(max_level+1, new_bf); }
     void SetBlockingFactor (const Array<int>& new_bf) {
@@ -79,7 +79,7 @@ public:
     //! Return the minimum allowable grid efficiency.
     Real gridEff () const { return grid_eff; }
 
-    //! Return the number of cells to define proper nesting 
+    //! Return the number of cells to define proper nesting
     int nProper () const { return n_proper; }
 
     //! Return the blocking factor at level lev
@@ -138,7 +138,7 @@ public:
     static void Finalize ();
 
 protected:
-    
+
     int              verbose;
     int              max_level;    // Maximum allowed level.
     Array<IntVect>   ref_ratio;    // Refinement ratios [0:finest_level-1]
@@ -157,16 +157,17 @@ protected:
 
     Array<Geometry>            geom;
     Array<DistributionMapping> dmap;
-    Array<BoxArray>            grids;    
+    Array<BoxArray>            grids;
 
-private:
-  void InitAmrMesh (int max_level_in, const Array<int>& n_cell_in,
-                    std::vector<int> refrat = std::vector<int>());
+
 
     static void ProjPeriodic (BoxList& bd, const Geometry& geom);
+
+    void InitAmrMesh (int max_level_in, const Array<int>& n_cell_in,
+                        std::vector<int> refrat = std::vector<int>());
+
 };
 
 }
 
 #endif
-

@@ -49,9 +49,15 @@ subroutine state_error(tag,tag_lo,tag_hi, &
         do    j = lo(2), hi(2)
            do i = lo(1), hi(1)
                ! NOTE: changed to be less than for gr swe
-              if ((Ncomp < 4 .and. state(i,j,k,1) .le. phierr) .or. (Ncomp >= 4 .and. state(i,j,k,1) .ge. phierr)) then
-                 tag(i,j,k) = set
-              endif
+               if (dim == 2) then
+                  if ((Ncomp < 4 .and. state(i,j,k,1) .le. phierr) .or. (Ncomp >= 4 .and. state(i,j,k,1) .ge. phierr)) then
+                     tag(i,j,k) = set
+                  endif
+              else
+                  if ((Ncomp < 5 .and. state(i,j,k,1) .le. phierr) .or. (Ncomp >= 5 .and. state(i,j,k,1) .ge. phierr)) then
+                     tag(i,j,k) = set
+                  endif
+              end if
            enddo
         enddo
      enddo

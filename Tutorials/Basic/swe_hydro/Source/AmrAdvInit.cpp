@@ -30,7 +30,7 @@ void AmrAdv::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     const int nghost = 1;
 
     if (lev > max_swe_level) {
-        ncomp = 4;
+        ncomp = 5;
     } else {
         ncomp = 3;
     }

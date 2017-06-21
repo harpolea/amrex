@@ -10,278 +10,680 @@ contains
 
   subroutine compute_flux_3d(lo, hi, dt, dx, &
                              phi,ph_lo,ph_hi, &
-                             umac,  u_lo,  u_hi, &
-                             vmac,  v_lo,  v_hi, &
-                             wmac,  w_lo,  w_hi, &
                              flxx, fx_lo, fx_hi, &
                              flxy, fy_lo, fy_hi, &
                              flxz, fz_lo, fz_hi, &
-                             phix, phix_y, phix_z, &
-                             phiy, phiy_x, phiy_z, &
-                             phiz, phiz_x, phiz_y, &
-                             slope, glo, ghi, Ncomp)
+                             phi_p, phi_m, fp, fm, &
+                             slope, glo, ghi, Ncomp, gr)
 
     use slope_module, only: slopex, slopey, slopez
 
     integer, intent(in) :: lo(3), hi(3), glo(3), ghi(3), Ncomp
     double precision, intent(in) :: dt, dx(3)
     integer, intent(in) :: ph_lo(3), ph_hi(3)
-    integer, intent(in) ::  u_lo(3),  u_hi(3)
-    integer, intent(in) ::  v_lo(3),  v_hi(3)
-    integer, intent(in) ::  w_lo(3),  w_hi(3)
     integer, intent(in) :: fx_lo(3), fx_hi(3)
     integer, intent(in) :: fy_lo(3), fy_hi(3)
     integer, intent(in) :: fz_lo(3), fz_hi(3)
-    double precision, intent(in   ) :: phi (ph_lo(1):ph_hi(1),ph_lo(2):ph_hi(2),ph_lo(3):ph_hi(3))
-    double precision, intent(in   ) :: umac( u_lo(1): u_hi(1), u_lo(2): u_hi(2), u_lo(3): u_hi(3))
-    double precision, intent(in   ) :: vmac( v_lo(1): v_hi(1), v_lo(2): v_hi(2), v_lo(3): v_hi(3))
-    double precision, intent(in   ) :: wmac( w_lo(1): w_hi(1), w_lo(2): w_hi(2), w_lo(3): w_hi(3))
+    double precision, intent(in   ) :: phi (ph_lo(1):ph_hi(1),ph_lo(2):ph_hi(2),ph_lo(3):ph_hi(3), Ncomp)
     double precision, intent(  out) :: flxx(fx_lo(1):fx_hi(1),fx_lo(2):fx_hi(2),fx_lo(3):fx_hi(3),Ncomp)
     double precision, intent(  out) :: flxy(fy_lo(1):fy_hi(1),fy_lo(2):fy_hi(2),fy_lo(3):fy_hi(3),Ncomp)
     double precision, intent(  out) :: flxz(fz_lo(1):fz_hi(1),fz_lo(2):fz_hi(2),fz_lo(3):fz_hi(3),Ncomp)
-    double precision, dimension(glo(1):ghi(1),glo(2):ghi(2),glo(3):ghi(3)) :: &
-         phix, phix_y, phix_z, phiy, phiy_x, phiy_z, phiz, phiz_x, phiz_y, slope
+    double precision, dimension(glo(1):ghi(1),glo(2):ghi(2),glo(3):ghi(3), Ncomp) :: &
+         phi_p, phi_m, fp, fm, slope
+    logical, intent(in) :: gr
 
     integer :: i, j, k
-    double precision :: hdtdx(3), tdtdx(3)
+    double precision :: dxdt(3), f_p(Ncomp), f_m(Ncomp)
+    double precision, parameter :: g = 1.0d-3, gamma = 5.0d0/3.0d0, alph = 0.5d0
+    double precision :: alpha(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3))
 
-    hdtdx = 0.5*(dt/dx)
-    tdtdx = (1.d0/3.d0)*(dt/dx)
+    dxdt = dx/dt
 
-    call slopex(glo, ghi, &
+    call slopex(lo-1, hi+1, &
                 phi, ph_lo, ph_hi, &
-                slope, glo, ghi)
+                slope, glo, ghi, Ncomp)
 
     ! compute phi on x faces using umac to upwind; ignore transverse terms
     do       k = lo(3)-1, hi(3)+1
        do    j = lo(2)-1, hi(2)+1
-          do i = lo(1)  , hi(1)+1
-
-             if (umac(i,j,k) .lt. 0.d0) then
-                phix(i,j,k) = phi(i  ,j,k) - (0.5d0 + hdtdx(1)*umac(i,j,k))*slope(i  ,j,k)
-             else
-                phix(i,j,k) = phi(i-1,j,k) + (0.5d0 - hdtdx(1)*umac(i,j,k))*slope(i-1,j,k)
-             end if
-
+          do i = lo(1)-1, hi(1)+1
+              phi_p(i,j,k,:) = phi(i,j,k,:) + 0.5d0 * slope(i,j,k,:)
+              phi_m(i,j,k,:) = phi(i,j,k,:) - 0.5d0 * slope(i,j,k,:)
           end do
        end do
     end do
 
-    call slopey(glo, ghi, &
+    if (Ncomp < 5) then
+        if (gr) then
+            call gr_swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, 0, alpha)
+            call gr_swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, 0, alpha)
+        else
+            call swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, g, 0)
+            call swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, g, 0)
+        end if
+    else
+        if (gr) then
+            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 0, gamma, glo, ghi, alpha)
+            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 0, gamma, glo, ghi, alpha)
+        else
+            call comp_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, gamma, 0)
+            call comp_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, gamma, 0)
+        end if
+    end if
+
+    do        k = lo(3), hi(3)
+        do    j = lo(2), hi(2)
+           do i = lo(1), hi(1)
+              f_p = 0.5d0 * (fp(i,j,k,:) + fm(i+1,j,k,:) + alph * dxdt(1) * (phi_p(i,j,k,:) - phi_m(i+1,j,k,:)))
+              f_m = 0.5d0 * (fp(i-1,j,k,:) + fm(i,j,k,:) + alph * dxdt(1) * (phi_p(i-1,j,k,:) - phi_m(i,j,k,:)))
+
+              flxx(i,j,k,:) = -(f_p - f_m)
+
+              if (gr) then
+                  flxx(i,j,k,:) = flxx(i,j,k,:) * alpha(i,j,k)
+              end if
+           end do
+        end do
+    end do
+
+    call slopey(lo-1, hi+1, &
                 phi, ph_lo, ph_hi, &
-                slope, glo, ghi)
+                slope, glo, ghi, Ncomp)
 
     ! compute phi on y faces using vmac to upwind; ignore transverse terms
-    do       k = lo(3)-1, hi(3)+1
-       do    j = lo(2)  , hi(2)+1
-          do i = lo(1)-1, hi(1)+1
+    do       k = lo(3), hi(3)
+       do    j = lo(2)-1  , hi(2)+1
+          do i = lo(1), hi(1)
 
-             if (vmac(i,j,k) .lt. 0.d0) then
-                phiy(i,j,k) = phi(i,j  ,k) - (0.5d0 + hdtdx(2)*vmac(i,j,k))*slope(i,j  ,k)
-             else
-                phiy(i,j,k) = phi(i,j-1,k) + (0.5d0 - hdtdx(2)*vmac(i,j,k))*slope(i,j-1,k)
-             end if
+              phi_p(i,j,k,:) = phi(i,j,k,:) + 0.5d0 * slope(i,j,k,:)
+              phi_m(i,j,k,:) = phi(i,j,k,:) - 0.5d0 * slope(i,j,k,:)
 
           end do
        end do
     end do
 
-    call slopez(glo, ghi, &
+    if (Ncomp < 5) then
+        if (gr) then
+            call gr_swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, 1, alpha)
+            call gr_swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, 1, alpha)
+        else
+            call swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, g, 1)
+            call swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, g, 1)
+        end if
+    else
+        if (gr) then
+            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 1, gamma, glo, ghi, alpha)
+            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 1, gamma, glo, ghi, alpha)
+        else
+            call comp_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, gamma, 1)
+            call comp_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, gamma, 1)
+        end if
+    end if
+
+    do        k = lo(3), hi(3)
+        do    j = lo(2), hi(2)
+           do i = lo(1), hi(1)
+              f_p = 0.5d0 * (fp(i,j,k,:) + fm(i,j+1,k,:) + alph * dxdt(2) * (phi_p(i,j,k,:) - phi_m(i,j+1,k,:)))
+              f_m = 0.5d0 * (fp(i,j-1,k,:) + fm(i,j,k,:) + alph * dxdt(2) * (phi_p(i,j-1,k,:) - phi_m(i,j,k,:)))
+
+              flxy(i,j,k,:) = -(f_p - f_m)
+
+              if (gr) then
+                  flxy(i,j,k,:) = flxy(i,j,k,:) * alpha(i,j,k)
+              end if
+           end do
+        end do
+    end do
+
+    call slopez(lo-1, hi+1, &
                 phi, ph_lo, ph_hi, &
-                slope, glo, ghi)
+                slope, glo, ghi, Ncomp)
 
     ! compute phi on z faces using wmac to upwind; ignore transverse terms
-    do       k = lo(3)  , hi(3)+1
-       do    j = lo(2)-1, hi(2)+1
-          do i = lo(1)-1, hi(1)+1
-
-             if (wmac(i,j,k) .lt. 0.d0) then
-                phiz(i,j,k) = phi(i,j,k  ) - (0.5d0 + hdtdx(3)*wmac(i,j,k))*slope(i,j,k  )
-             else
-                phiz(i,j,k) = phi(i,j,k-1) + (0.5d0 - hdtdx(3)*wmac(i,j,k))*slope(i,j,k-1)
-             end if
-
-          end do
-       end do
-    end do
-
-    !!!!!!!!!!!!!!!!!!!!
-    ! transverse terms
-    !!!!!!!!!!!!!!!!!!!!
-
-    ! update phi on x faces by adding in y-transverse terms
-    do       k=lo(3)-1, hi(3)+1
-       do    j=lo(2)  , hi(2)
-          do i=lo(1)  , hi(1)+1
-
-             if (umac(i,j,k) .lt. 0.d0) then
-                phix_y(i,j,k) = phix(i,j,k) &
-                     - tdtdx(2) * (0.5d0*(vmac(i  ,j+1,k)+vmac(i  ,j,k)) * (phiy(i  ,j+1,k)-phiy(i  ,j,k)) )
-             else
-                phix_y(i,j,k) = phix(i,j,k) &
-                     - tdtdx(2) * (0.5d0*(vmac(i-1,j+1,k)+vmac(i-1,j,k)) * (phiy(i-1,j+1,k)-phiy(i-1,j,k)) )
-             end if
-
-          end do
-       end do
-    end do
-
-    ! update phi on x faces by adding in z-transverse terms
-    do       k=lo(3)  , hi(3)
-       do    j=lo(2)-1, hi(2)+1
-          do i=lo(1)  , hi(1)+1
-
-             if (umac(i,j,k) .lt. 0.d0) then
-                phix_z(i,j,k) = phix(i,j,k) &
-                     - tdtdx(3) * (0.5d0*(wmac(i  ,j,k+1)+wmac(i  ,j,k)) * (phiz(i  ,j,k+1)-phiz(i  ,j,k)) )
-             else
-                phix_z(i,j,k) = phix(i,j,k) &
-                     - tdtdx(3) * (0.5d0*(wmac(i-1,j,k+1)+wmac(i-1,j,k)) * (phiz(i-1,j,k+1)-phiz(i-1,j,k)) )
-             end if
-
-          end do
-       end do
-    end do
-
-    ! update phi on y faces by adding in x-transverse terms
     do       k = lo(3)-1, hi(3)+1
-       do    j = lo(2)  , hi(2)+1
-          do i = lo(1)  , hi(1)
-
-             if (vmac(i,j,k) .lt. 0.d0) then
-                phiy_x(i,j,k) = phiy(i,j,k) &
-                     - tdtdx(1) * (0.5d0*(umac(i+1,j  ,k)+umac(i,j  ,k)) * (phix(i+1,j  ,k)-phix(i,j  ,k)) )
-             else
-                phiy_x(i,j,k) = phiy(i,j,k) &
-                     - tdtdx(1) * (0.5d0*(umac(i+1,j-1,k)+umac(i,j-1,k)) * (phix(i+1,j-1,k)-phix(i,j-1,k)) )
-             end if
-
-          end do
-       end do
-    end do
-
-    ! update phi on y faces by adding in z-transverse terms
-    do       k = lo(3)  , hi(3)
-       do    j = lo(2)  , hi(2)+1
-          do i = lo(1)-1, hi(1)+1
-
-             if (vmac(i,j,k) .lt. 0.d0) then
-                phiy_z(i,j,k) = phiy(i,j,k) &
-                     - tdtdx(3) * (0.5d0*(wmac(i,j  ,k+1)+wmac(i,j  ,k)) * (phiz(i,j  ,k+1)-phiz(i,j  ,k)) )
-             else
-                phiy_z(i,j,k) = phiy(i,j,k) &
-                     - tdtdx(3) * (0.5d0*(wmac(i,j-1,k+1)+wmac(i,j-1,k)) * (phiz(i,j-1,k+1)-phiz(i,j-1,k)) )
-             end if
-
-          end do
-       end do
-    end do
-
-    ! update phi on z faces by adding in x-transverse terms
-    do       k = lo(3)  , hi(3)+1
-       do    j = lo(2)-1, hi(2)+1
-          do i = lo(1)  , hi(1)
-
-             if (wmac(i,j,k) .lt. 0.d0) then
-                phiz_x(i,j,k) = phiz(i,j,k) &
-                     - tdtdx(1) * (0.5d0*(umac(i+1,j,k  )+umac(i,j,k  )) * (phix(i+1,j,k  )-phix(i,j,k  )) )
-             else
-                phiz_x(i,j,k) = phiz(i,j,k) &
-                     - tdtdx(1) * (0.5d0*(umac(i+1,j,k-1)+umac(i,j,k-1)) * (phix(i+1,j,k-1)-phix(i,j,k-1)) )
-             end if
-
-          end do
-       end do
-    end do
-
-    ! update phi on z faces by adding in y-transverse terms
-    do       k = lo(3)  , hi(3)+1
-       do    j = lo(2)  , hi(2)
-          do i = lo(1)-1, hi(1)+1
-
-             if (wmac(i,j,k) .lt. 0.d0) then
-                phiz_y(i,j,k) = phiz(i,j,k) &
-                     - tdtdx(2) * (0.5d0*(vmac(i,j+1,k  )+vmac(i,j,k  )) * (phiy(i,j+1,k  )-phiy(i,j,k  )) )
-             else
-                phiz_y(i,j,k) = phiz(i,j,k) &
-                     - tdtdx(2) * (0.5d0*(vmac(i,j+1,k-1)+vmac(i,j,k-1)) * (phiy(i,j+1,k-1)-phiy(i,j,k-1)) )
-             end if
-
-          end do
-       end do
-    end do
-
-    !!!!!!!!!!!!!!!!!!!!
-    ! final edge states
-    !!!!!!!!!!!!!!!!!!!!
-
-    ! update phi on x faces by adding in yz and zy transverse terms
-    do       k = lo(3), hi(3)
-       do    j = lo(2), hi(2)
-          do i = lo(1), hi(1)+1
-
-             if (umac(i,j,k) .lt. 0.d0) then
-                phix(i,j,k) = phix(i,j,k) &
-                     - hdtdx(2)*( 0.5d0*(vmac(i  ,j+1,k  )+vmac(i  ,j,k)) * (phiy_z(i  ,j+1,k  )-phiy_z(i  ,j,k)) ) &
-                     - hdtdx(3)*( 0.5d0*(wmac(i  ,j  ,k+1)+wmac(i  ,j,k)) * (phiz_y(i  ,j  ,k+1)-phiz_y(i  ,j,k)) )
-             else
-                phix(i,j,k) = phix(i,j,k) &
-                     - hdtdx(2)*( 0.5d0*(vmac(i-1,j+1,k  )+vmac(i-1,j,k)) * (phiy_z(i-1,j+1,k  )-phiy_z(i-1,j,k)) ) &
-                     - hdtdx(3)*( 0.5d0*(wmac(i-1,j  ,k+1)+wmac(i-1,j,k)) * (phiz_y(i-1,j  ,k+1)-phiz_y(i-1,j,k)) )
-             end if
-
-             ! compute final x-fluxes
-             flxx(i,j,k) = umac(i,j,k)*phix(i,j,k)
-
-          end do
-       end do
-    end do
-
-    ! update phi on y faces by adding in xz and zx transverse terms
-    do       k = lo(3), hi(3)
-       do    j = lo(2), hi(2)+1
-          do i = lo(1), hi(1)
-
-             if (vmac(i,j,k) .lt. 0.d0) then
-                phiy(i,j,k) = phiy(i,j,k) &
-                     - hdtdx(1)*( 0.5d0*(umac(i+1,j  ,k  )+umac(i,j  ,k)) * (phix_z(i+1,j  ,k  )-phix_z(i,j  ,k)) ) &
-                     - hdtdx(3)*( 0.5d0*(wmac(i  ,j  ,k+1)+wmac(i,j  ,k)) * (phiz_x(i  ,j  ,k+1)-phiz_x(i,j  ,k)) )
-             else
-                phiy(i,j,k) = phiy(i,j,k) &
-                     - hdtdx(1)*( 0.5d0*(umac(i+1,j-1,k  )+umac(i,j-1,k)) * (phix_z(i+1,j-1,k  )-phix_z(i,j-1,k)) ) &
-                     - hdtdx(3)*( 0.5d0*(wmac(i  ,j-1,k+1)+wmac(i,j-1,k)) * (phiz_x(i  ,j-1,k+1)-phiz_x(i,j-1,k)) )
-             end if
-
-             ! compute final y-fluxes
-             flxy(i,j,k) = vmac(i,j,k)*phiy(i,j,k)
-
-          end do
-       end do
-    end do
-
-    ! update phi on z faces by adding in xy and yx transverse terms
-    do       k = lo(3), hi(3)+1
        do    j = lo(2), hi(2)
           do i = lo(1), hi(1)
 
-             if (wmac(i,j,k) .lt. 0.d0) then
-                phiz(i,j,k) = phiz(i,j,k) &
-                     - hdtdx(1)*( 0.5d0*(umac(i+1,j  ,k  )+umac(i  ,j,k)) * (phix_y(i+1,j  ,k  )-phix_y(i,j,k  )) ) &
-                     - hdtdx(2)*( 0.5d0*(vmac(i  ,j+1,k  )+vmac(i  ,j,k)) * (phiy_x(i  ,j+1,k  )-phiy_x(i,j,k  )) )
-             else
-                phiz(i,j,k) = phiz(i,j,k) &
-                     - hdtdx(1)*( 0.5d0*(umac(i+1,j  ,k-1)+umac(i,j,k-1)) * (phix_y(i+1,j  ,k-1)-phix_y(i,j,k-1)) ) &
-                     - hdtdx(2)*( 0.5d0*(vmac(i  ,j+1,k-1)+vmac(i,j,k-1)) * (phiy_x(i  ,j+1,k-1)-phiy_x(i,j,k-1)) )
-             end if
-
-             ! compute final z-fluxes
-             flxz(i,j,k) = wmac(i,j,k)*phiz(i,j,k)
+              phi_p(i,j,k,:) = phi(i,j,k,:) + 0.5d0 * slope(i,j,k,:)
+              phi_m(i,j,k,:) = phi(i,j,k,:) - 0.5d0 * slope(i,j,k,:)
 
           end do
        end do
     end do
 
+    if (Ncomp < 5) then
+        if (gr) then
+            call gr_swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, 2, alpha)
+            call gr_swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, 2, alpha)
+        else
+            call swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, g, 2)
+            call swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, g, 2)
+        end if
+    else
+        if (gr) then
+            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 2, gamma, glo, ghi, alpha)
+            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 2, gamma, glo, ghi, alpha)
+        else
+            call comp_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, gamma, 2)
+            call comp_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, gamma, 2)
+        end if
+    end if
+
+    do        k = lo(3), hi(3)
+        do    j = lo(2), hi(2)
+           do i = lo(1), hi(1)
+              f_p = 0.5d0 * (fp(i,j,k,:) + fm(i,j,k+1,:) + alph * dxdt(3) * (phi_p(i,j,k,:) - phi_m(i,j,k+1,:)))
+              f_m = 0.5d0 * (fp(i,j,k-1,:) + fm(i,j,k,:) + alph * dxdt(3) * (phi_p(i,j,k-1,:) - phi_m(i,j,k,:)))
+
+              flxz(i,j,k,:) = -(f_p - f_m)
+
+              if (gr) then
+                  flxz(i,j,k,:) = flxz(i,j,k,:) * alpha(i,j,k)
+              end if
+           end do
+        end do
+    end do
 
   end subroutine compute_flux_3d
+
+  subroutine swe_flux(U, f, glo, ghi, lo, hi, Ncomp, g, x_dir)
+      implicit none
+
+      integer, intent(in) :: Ncomp
+      double precision, intent(in) :: g
+      integer, intent(in) :: glo(3), ghi(3), lo(3), hi(3)
+      double precision, intent(in)  :: U(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
+      double precision, intent(out) :: f(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
+      integer, intent(in) :: x_dir
+
+      integer i, j, k
+
+      f = 0.0d0
+
+      if (x_dir == 0) then
+          do k = lo(3), hi(3)
+              do    j = lo(2), hi(2)
+                 do i = lo(1)-1, hi(1)+1
+                    f(i,j,k,1) =  U(i,j,k,2)
+                    f(i,j,k,2) = U(i,j,k,2)**2/U(i,j,k,1) + 0.5d0 * g * U(i,j,k,1)**2
+                    f(i,j,k,3) =  U(i,j,k,2) * U(i,j,k,3) / U(i,j,k,1)
+                 end do
+              end do
+          end do
+      else if (x_dir == 1) then
+          do k = lo(3), hi(3)
+              do    j = lo(2)-1, hi(2)+1
+                 do i = lo(1), hi(1)
+                    f(i,j,k,1) =  U(i,j,k,3)
+                    f(i,j,k,2) = U(i,j,k,2) * U(i,j,k,3) / U(i,j,k,1)
+                    f(i,j,k,3) =  U(i,j,k,3)**2/U(i,j,k,1) + 0.5d0 * g * U(i,j,k,1)**2
+                 end do
+              end do
+          end do
+      end if
+
+  end subroutine swe_flux
+
+  subroutine W_swe(q, lo, hi, Ncomp, gamma_up, glo, ghi, W)
+      ! Calculate lorentz factor
+      implicit none
+
+      integer, intent(in) :: lo(3), hi(3), Ncomp, glo(3), ghi(3)
+      double precision, intent(in) :: q(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
+      double precision, intent(in) :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
+      double precision, intent(out) :: W(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3))
+
+      integer i, j, k
+
+      do k = lo(3), hi(3)
+          do j = lo(2), hi(2)
+              do i = lo(1), hi(1)
+                  W(i,j,k) = sqrt((q(i,j,k,2)**2 * gamma_up(i,j,k,1)+ &
+                        2.0d0 * q(i,j,k,2) * q(i,j,k,3) * gamma_up(i,j,k,2) + &
+                        q(i,j,k,3)**2 * gamma_up(i,j,k,5)) / q(i,j,k,1)**2 + 1.0d0)
+                  ! nan check
+                  if (W(i,j,k) /= W(i,j,k)) then
+                      W(i,j,k) = 1.0d0
+                  end if
+            end do
+        end do
+    end do
+
+  end subroutine W_swe
+
+  subroutine gr_swe_flux(U, f, glo, ghi, lo, hi, Ncomp, x_dir, alpha)
+      implicit none
+
+      integer, intent(in) :: Ncomp
+      integer, intent(in) :: glo(3), ghi(3), lo(3), hi(3)
+      double precision, intent(in)  :: U(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
+      double precision, intent(out) :: f(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
+      integer, intent(in) :: x_dir
+      double precision, intent(out) :: alpha(glo(1):ghi(1),glo(2):ghi(2), glo(3):ghi(3))
+
+      integer :: i, j, k
+      double precision :: v(2), W(glo(1):ghi(1),glo(2):ghi(2), glo(3):ghi(3))
+      double precision :: beta(glo(1):ghi(1),glo(2):ghi(2), glo(3):ghi(3),3)
+      double precision :: gamma_up(glo(1):ghi(1),glo(2):ghi(2), glo(3):ghi(3),9)
+
+      alpha = exp(-U(:,:,:,1))
+      beta = 0.0d0
+
+      gamma_up = 0.0d0
+      gamma_up(:,:,:,1) = 1.0d0
+      gamma_up(:,:,:,5) = 1.0d0
+
+      call W_swe(U, lo-1, hi+1, Ncomp, gamma_up, glo, ghi, W)
+
+      f = 0.0d0
+
+      if (x_dir == 0) then
+          do k = lo(3), hi(3)
+              do    j = lo(2), hi(2)
+                 do i = lo(1)-1, hi(1)+1
+                    v(1) = U(i,j,k,2) / (U(i,j,k,1) * W(i,j,k))
+                    v(2) = U(i,j,k,3) / (U(i,j,k,1) * W(i,j,k))
+
+                    f(i,j,k,1) =  U(i,j,k,1) * &
+                          (v(1)*gamma_up(i,j,k,1) + v(2)*gamma_up(i,j,k,2) -&
+                           beta(i,j,k,1) / alpha(i,j,k))
+                    f(i,j,k,2) = U(i,j,k,2) * &
+                          (v(1)*gamma_up(i,j,k,1) + v(2)*gamma_up(i,j,k,2) -&
+                           beta(i,j,k,1) / alpha(i,j,k)) + 0.5d0 * U(i,j,k,1)**2 / W(i,j,k)**2
+                    f(i,j,k,3) =  U(i,j,k,3) * &
+                          (v(1)*gamma_up(i,j,k,1) + v(2)*gamma_up(i,j,k,2) -&
+                           beta(i,j,k,1) / alpha(i,j,k))
+
+                    f(i,j,k,:) = f(i,j,k,:)
+                 end do
+              end do
+          end do
+      else if (x_dir == 1) then
+          do k = lo(3), hi(3)
+              do    j = lo(2)-1, hi(2)+1
+                 do i = lo(1), hi(1)
+                    v(1) = U(i,j,k,2) / (U(i,j,k,1) * W(i,j,k))
+                    v(2) = U(i,j,k,3) / (U(i,j,k,1) * W(i,j,k))
+
+                    f(i,j,k,1) = U(i,j,k,1) * &
+                          (v(1)*gamma_up(i,j,k,2) + v(2)*gamma_up(i,j,k,5) -&
+                           beta(i,j,k,2) / alpha(i,j,k))
+                    f(i,j,k,2) = U(i,j,k,2) * &
+                          (v(1)*gamma_up(i,j,k,2) + v(2)*gamma_up(i,j,k,5) -&
+                           beta(i,j,k,2) / alpha(i,j,k))
+                    f(i,j,k,3) =  U(i,j,k,3) * &
+                          (v(1)*gamma_up(i,j,k,2) + v(2)*gamma_up(i,j,k,5) -&
+                           beta(i,j,k,2) / alpha(i,j,k)) +  0.5d0 * U(i,j,k,1)**2 / W(i,j,k)**2
+
+                    f(i,j,k,:) = f(i,j,k,:)
+                 end do
+              end do
+          end do
+      end if
+
+  end subroutine gr_swe_flux
+
+  subroutine comp_flux(U, f, glo, ghi, lo, hi, Ncomp, gamma, x_dir)
+      implicit none
+
+      integer, intent(in) :: Ncomp
+      double precision, intent(in) :: gamma
+      integer, intent(in) :: glo(3), ghi(3), lo(3), hi(3)
+      double precision, intent(in)  :: U(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
+      double precision, intent(out) :: f(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
+      integer, intent(in) :: x_dir
+
+      integer i, j, k
+      double precision :: p(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3))
+
+      p = (gamma - 1.d0) * (U(:,:,:,5) - 0.5d0 * (U(:,:,:,2)**2 + U(:,:,:,3)**2 + U(:,:,:,4)**2) / U(:,:,:,1))
+
+      if (x_dir == 0) then
+          do k = lo(3), hi(3)
+              do    j = lo(2), hi(2)
+                 do i = lo(1)-1, hi(1)+1
+                    f(i,j,k,1) =  U(i,j,k,2)
+                    f(i,j,k,2) = U(i,j,k,2)**2 / U(i,j,k,1) + p(i,j,k)
+                    f(i,j,k,3) =  U(i,j,k,2) * U(i,j,k,3) / U(i,j,k,1)
+                    f(i,j,k,4) =  U(i,j,k,2) * U(i,j,k,4) / U(i,j,k,1)
+                    f(i,j,k,5) = (U(i,j,k,5) + p(i,j,k)) * U(i,j,k,2) / U(i,j,k,1)
+                 end do
+              end do
+          end do
+      else if (x_dir == 1) then
+          do k = lo(3), hi(3)
+              do    j = lo(2)-1, hi(2)+1
+                 do i = lo(1), hi(1)
+                    f(i,j,k,1) =  U(i,j,k,3)
+                    f(i,j,k,2) = U(i,j,k,3) * U(i,j,k,2) / U(i,j,k,1)
+                    f(i,j,k,3) =  U(i,j,k,3)**2 / U(i,j,k,1) + p(i,j,k)
+                    f(i,j,k,4) = U(i,j,k,3) * U(i,j,k,2) / U(i,j,k,1)
+                    f(i,j,k,5) = (U(i,j,k,5) + p(i,j,k)) * U(i,j,k,3) / U(i,j,k,1)
+                 end do
+              end do
+          end do
+      else
+          do k = lo(3)-1, hi(3)+1
+              do    j = lo(2), hi(2)
+                 do i = lo(1), hi(1)
+                    f(i,j,k,1) =  U(i,j,k,4)
+                    f(i,j,k,2) = U(i,j,k,4) * U(i,j,k,2) / U(i,j,k,1)
+                    f(i,j,k,3) = U(i,j,k,4) * U(i,j,k,3) / U(i,j,k,1)
+                    f(i,j,k,4) = U(i,j,k,4)**2 / U(i,j,k,1) + p(i,j,k)
+                    f(i,j,k,5) = (U(i,j,k,5) + p(i,j,k)) * U(i,j,k,4) / U(i,j,k,1)
+                 end do
+              end do
+          end do
+      end if
+
+  end subroutine comp_flux
+
+  subroutine f_of_p(f, p, U, Ncomp, gamma, gamma_up)
+      implicit none
+
+      integer, intent(in) :: Ncomp
+      double precision, intent(in)  :: U(Ncomp), p, gamma, gamma_up(9)
+      double precision, intent(out) :: f
+
+      double precision :: sq
+
+      sq = sqrt((U(5) + p + U(1))**2 - U(2)**2*gamma_up(1)- &
+          2.0d0 * U(2) * U(3) * gamma_up(2) - &
+          2.0d0 * U(2) * U(4) * gamma_up(3) - &
+          U(3)**2 * gamma_up(5) - &
+          2.0d0 * U(3) * U(4) * gamma_up(6) -&
+          U(4)**2 * gamma_up(9))
+
+      f = (gamma - 1.0d0) * sq / (U(5) + p + U(1)) * &
+          (sq - p * (U(5) + p + U(1)) / sq - U(1)) - p
+
+  end subroutine f_of_p
+
+  subroutine zbrent(p, x1, b, U, Ncomp, gamma, gamma_up)
+      ! route finder using brent's method
+      implicit none
+
+      integer, intent(in) :: Ncomp
+      double precision, intent(out) :: p
+      double precision, intent(in)  :: U(Ncomp), gamma, gamma_up(9), x1
+      double precision, intent(inout) :: b
+
+      double precision, parameter :: TOL = 1.0d-12
+      integer, parameter :: ITMAX = 100
+
+      double precision a, c, d, fa, fb, fc, fs, s
+      logical mflag, con1, con2, con3, con4, con5
+      integer i
+
+      a = x1
+      c = 0.0d0
+      d = 0.0d0
+      call f_of_p(fa, a, U, Ncomp, gamma, gamma_up)
+      call f_of_p(fb, b, U, Ncomp, gamma, gamma_up)
+      fc = 0.0d0
+
+      if (fa * fb >= 0.0d0) then
+          p = b
+          return
+      end if
+
+      if (abs(fa) < abs(fb)) then
+          d = a
+          a = b
+          b = d
+
+          d = fa
+          fa = fb
+          fb = d
+      end if
+
+      c = a
+      fc = fa
+
+      mflag = .true.
+
+      do i = 1, ITMAX
+          if (fa /= fc .and. fb /= fc) then
+              s = a*fb*fc / ((fa-fb) * (fa-fc)) + b*fa*fc / ((fb-fa)*(fb-fc)) +&
+                  c*fa*fb / ((fc-fa)*(fc-fb))
+          else
+              s = b - fb * (b-a) / (fb-fa)
+          end if
+
+          con1 = .false.
+
+          if (0.25d0 * (3.0d0 * a + b) < b) then
+              if ( s < 0.25d0 * (3.0d0 * a + b) .or. s > b) then
+                  con1 = .true.
+              end if
+          else if (s < b .or. s > 0.25d0  * (3.0d0 * a + b)) then
+              con1 = .true.
+          end if
+
+          con2 = mflag .and. abs(s - b) >= 0.5d0 * abs(b-c)
+
+          con3 = (.not. mflag) .and. abs(s-b) >= 0.5d0 * abs(c-d)
+
+          con4 = mflag .and. abs(b-c) < TOL
+
+          con5 = (.not. mflag) .and. abs(c-d) < TOL
+
+          if (con1 .or. con2 .or. con3 .or. con4 .or. con5) then
+              s = 0.5d0 * (a + b)
+              mflag = .true.
+          else
+              mflag = .false.
+          end if
+
+          call f_of_p(fs, s, U, Ncomp, gamma, gamma_up)
+
+          if (abs(fa) < abs(fb)) then
+              d = a
+              a = b
+              b = d
+
+              d = fa
+              fa = fb
+              fb = d
+          end if
+
+          d = c
+          c = b
+          fc = fb
+
+          if (fa * fs < 0.0d0) then
+              b = s
+              fb = fs
+          else
+              a = s
+              fa = fs
+          end if
+
+          if (fb == 0.0d0 .or. fs == 0.0d0 .or. abs(b-a) < TOL) then
+              p = b
+              return
+          end if
+
+      end do
+
+      p = x1
+
+  end subroutine zbrent
+
+  subroutine cons_to_prim(U, U_prim, p, lo, hi, Ncomp, gamma, gamma_up, glo, ghi)
+      ! convert from conserved variables (D, Sx, Sy, tau) to primitive variables (rho, v^x, v^y, eps). Also outputs the pressure
+      implicit none
+
+      integer, intent(in) :: Ncomp
+      integer, intent(in) :: lo(3), hi(3), glo(3), ghi(3)
+      double precision, intent(in)  :: U(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
+      double precision, intent(out) :: U_prim(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), Ncomp)
+      double precision, intent(out) :: p(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+      double precision, intent(in)  :: gamma
+      double precision, intent(in)  :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
+
+      double precision :: pmin, pmax, ssq, q(Ncomp), fmin, fmax, sq, h, W2
+      integer :: i, j, k
+
+      do k = lo(3), hi(3)
+      do j = lo(2), hi(2)
+          do i = lo(1), hi(1)
+              q = U(i,j,k,:)
+              ssq = q(2)**2 * gamma_up(i,j,k,1) + &
+                  2.0d0 * q(2) * q(3) * gamma_up(i,j,k,2) + &
+                  2.0d0 * q(2) * q(4) * gamma_up(i,j,k,3) + &
+                  q(3)**2 * gamma_up(i,j,k,5) + &
+                  2.0d0 * q(3) * q(4) * gamma_up(i,j,k,6) + &
+                  q(4)**2 * gamma_up(i,j,k,9)
+
+              pmin = (1.0d0 - ssq)**2 * q(5) * (gamma - 1.0d0)
+              pmax = (gamma - 1.0d0) * (q(45) + q(1)) / (2.0d0 - gamma)
+
+              if (pmin < 0.0d0) then
+                  pmin = 0.d0
+              end if
+
+              if (pmax < 0.d0 .or. pmax < pmin) then
+                  pmax = 1.0d0
+              end if
+
+              call f_of_p(fmin, pmin, q, Ncomp, gamma, gamma_up(i,j,k,:))
+              call f_of_p(fmax, pmax, q, Ncomp, gamma, gamma_up(i,j,k,:))
+
+              if (fmin * fmax > 0.0d0) then
+                  pmin = 0.d0
+              end if
+
+              call f_of_p(fmin, pmin, q, Ncomp, gamma, gamma_up(i,j,k,:))
+
+              if (fmin * fmax > 0.0d0) then
+                  pmax = pmax * 10.d0
+              end if
+
+              call zbrent(p(i,j,k), pmin, pmax, q, Ncomp, gamma, gamma_up(i,j,k,:))
+
+              if (p(i,j,k) /= p(i,j,k) .or. p(i,j,k) < 0.0d0 .or. p(i,j,k) > 1.0d0) then
+                  p(i,j,k) = abs((gamma - 1.0d0) * (q(5) + q(1)) / (2.0d0 - gamma))
+
+                  if (p(i,j,k) > 1.0d0) then
+                      p(i,j,k) = 1.0d0
+                  end if
+              end if
+
+              sq = sqrt((q(5) + p(i,j,k) + q(1))**2 - ssq)
+
+              if (sq /= sq) then
+                  sq = q(5) + p(i,j,k) + q(1)
+              end if
+
+              h = 1.0d0 + gamma * (sq - p(i,j,k) * (q(5) + p(i,j,k) + q(1)) / sq - q(1)) / q(1)
+              W2 = 1.0d0 + ssq / (q(1) * h)**2
+
+              U_prim(i,j,k,1) = q(1) * sq / (q(5) + p(i,j,k) + q(1))
+              U_prim(i,j,k,2) = (gamma_up(i,j,k,1) * q(2) + &
+                  gamma_up(i,j,k,2) * q(3) + gamma_up(i,j,k,3) * q(4)) /&
+                  (W2 * h * U_prim(i,j,k,1))
+              U_prim(i,j,k,3) = (gamma_up(i,j,k,4) * q(2) + &
+                  gamma_up(i,j,k,5) * q(3) + gamma_up(i,j,k,6) * q(4)) /&
+                  (W2 * h * U_prim(i,j,k,1))
+              U_prim(i,j,k,4) = (gamma_up(i,j,k,3) * q(2) + &
+                  gamma_up(i,j,k,6) * q(3) + gamma_up(i,j,k,9) * q(4)) /&
+                  (W2 * h * U_prim(i,j,k,1))
+              U_prim(i,j,k,5) = (h - 1.0d0) / gamma
+
+          end do
+      end do
+  end do
+
+  end subroutine cons_to_prim
+
+  subroutine gr_comp_flux(U, f, lo, hi, Ncomp, dir, gamma, glo, ghi, alpha)
+      implicit none
+
+      integer, intent(in) :: Ncomp, dir
+      integer, intent(in) :: lo(3), hi(3), glo(3), ghi(3)
+      double precision, intent(in)  :: U(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
+      double precision, intent(out) :: f(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
+      double precision, intent(in)  :: gamma
+      double precision, intent(out) :: alpha(glo(1):ghi(1),glo(2):ghi(2), glo(3):ghi(3))
+
+      integer :: i,j,k
+      double precision :: p(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
+      double precision :: U_prim(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1, Ncomp)
+      double precision :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
+      double precision :: beta(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 3)
+      double precision, parameter :: M = 1.0d0, R = 100.0d0
+
+      alpha = sqrt(1.0d0 - 2.0d0 * M / (R+1.0))
+      beta = 0.0d0
+      gamma_up = 0.0d0
+      gamma_up(:,:,:,1) = 1.0d0
+      gamma_up(:,:,:,5) = 1.0d0
+      gamma_up(:,:,:,9) = alpha**2
+
+      call cons_to_prim(U, U_prim, p, lo-1, hi+1, Ncomp, gamma, gamma_up, glo, ghi)
+
+      if (dir == 0) then
+          do k = lo(3), hi(3)
+              do j = lo(2), hi(2)
+                  do i = lo(1)-1, hi(1)+1
+                      f(i,j,k,1) = U(i,j,k,1) * (U_prim(i,j,k,2) - &
+                           beta(i,j,k,1) / alpha(i,j,k))
+                      f(i,j,k,2) = U(i,j,k,2) * (U_prim(i,j,k,2) - &
+                           beta(i,j,k,1) / alpha(i,j,k)) + p(i,j,k)
+                      f(i,j,k,3) = U(i,j,k,3) * (U_prim(i,j,k,2) - &
+                           beta(i,j,k,1) / alpha(i,j,k))
+                      f(i,j,k,4) = U(i,j,k,4) * (U_prim(i,j,k,2) - &
+                           beta(i,j,k,1) / alpha(i,j,k))
+                      f(i,j,k,5) = U(i,j,k,5) * (U_prim(i,j,k,2) - &
+                           beta(i,j,k,1) / alpha(i,j,k)) + p(i,j,k) * U_prim(i,j,k,2)
+
+                      f(i,j,k,:) = f(i,j,k,:)
+                   end do
+               end do
+           end do
+      else if (dir == 1) then
+          do k = lo(3), hi(3)
+              do j = lo(2)-1, hi(2)+1
+                  do i = lo(1), hi(1)
+                      !write(*,*) "y, alpha", alpha(lo(1),lo(2),lo(3))
+                      f(i,j,k,1) = U(i,j,k,1) * (U_prim(i,j,k,3) - &
+                           beta(i,j,k,2) / alpha(i,j,k))
+                      f(i,j,k,2) = U(i,j,k,2) * (U_prim(i,j,k,3) - &
+                          beta(i,j,k,2) / alpha(i,j,k))
+                      f(i,j,k,3) = U(i,j,k,3) * (U_prim(i,j,k,3) - &
+                           beta(i,j,k,2) / alpha(i,j,k)) + p(i,j,k)
+                      f(i,j,k,4) = U(i,j,k,4) * (U_prim(i,j,k,3) - &
+                           beta(i,j,k,2) / alpha(i,j,k))
+                      f(i,j,k,5) = U(i,j,k,5) * (U_prim(i,j,k,3) - &
+                           beta(i,j,k,2) / alpha(i,j,k)) + p(i,j,k) * U_prim(i,j,k,3)
+
+                      f(i,j,k,:) = f(i,j,k,:)
+                   end do
+               end do
+           end do
+       else
+           do k = lo(3)-1, hi(3)+1
+               do j = lo(2), hi(2)
+                   do i = lo(1), hi(1)
+                       !write(*,*) "y, alpha", alpha(lo(1),lo(2),lo(3))
+                       f(i,j,k,1) = U(i,j,k,1) * (U_prim(i,j,k,4) - &
+                            beta(i,j,k,3) / alpha(i,j,k))
+                       f(i,j,k,2) = U(i,j,k,2) * (U_prim(i,j,k,4) - &
+                           beta(i,j,k,3) / alpha(i,j,k))
+                       f(i,j,k,3) = U(i,j,k,3) * (U_prim(i,j,k,4) - &
+                            beta(i,j,k,3) / alpha(i,j,k))
+                       f(i,j,k,4) = U(i,j,k,4) * (U_prim(i,j,k,4) - &
+                            beta(i,j,k,3) / alpha(i,j,k)) + p(i,j,k)
+                       f(i,j,k,5) = U(i,j,k,5) * (U_prim(i,j,k,4) - &
+                            beta(i,j,k,2) / alpha(i,j,k)) + p(i,j,k) * U_prim(i,j,k,4)
+
+                       f(i,j,k,:) = f(i,j,k,:)
+                    end do
+                end do
+            end do
+
+      end if
+  end subroutine gr_comp_flux
 
 end module compute_flux_module
