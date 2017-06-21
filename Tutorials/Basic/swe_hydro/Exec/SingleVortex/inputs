@@ -1,5 +1,5 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
-max_step = 100
+max_step = 10
 stop_time = 20.0
 
 # PROBLEM SIZE & GEOMETRY
@@ -7,7 +7,7 @@ geometry.is_periodic =  1  1  1
 geometry.coord_sys   =  0       # 0 => cart
 geometry.prob_lo     =  0.0  0.0  0.0
 geometry.prob_hi     =  1.0  1.0  1.0
-amr.n_cell           =  64   64   64
+amr.n_cell           =  20 20 20 #64   64   64
 
 # TIME STEP CONTROL
 adv.cfl            = 0.7     # cfl number for hyperbolic system

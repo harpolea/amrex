@@ -8,8 +8,8 @@ DEBUG      = TRUE
 
 USE_PARTICLES = TRUE
 
-DIM        = 2
-#DIM       = 3
+#DIM        = 2
+DIM       = 3
 
 COMP	   = g++
 

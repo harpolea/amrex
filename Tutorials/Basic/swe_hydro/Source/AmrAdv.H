@@ -51,6 +51,8 @@ private:
     void FillPatch (int lev, amrex::Real time, amrex::MultiFab& mf, int icomp, int ncomp);
     void FillCoarsePatch (int lev, amrex::Real time, amrex::MultiFab& mf, int icomp, int ncomp);
     void GetData (int lev, amrex::Real time, amrex::Array<amrex::MultiFab*>& data, amrex::Array<amrex::Real>& datatime);
+    void comp_from_swe_wrapper(int lev, amrex::MultiFab& swe_mf, amrex::MultiFab& comp_mf, amrex::MultiFab& gamma_up_mf);
+    void swe_from_comp_wrapper(int lev, amrex::MultiFab& swe_mf, amrex::MultiFab& comp_mf, amrex::MultiFab& gamma_up_mf);
 
     std::string PlotFileName (int lev) const;
     amrex::Array<const amrex::MultiFab*> PlotFileMF () const;
@@ -90,8 +92,10 @@ private:
     int max_swe_level = -1;
     int nlayers = 1;
 
-    amrex::Array<amrex::Real> rho;
-    amrex::Array<amrex::Real> p;
+    Real *rho;
+    Real *p;
+
+    amrex::Real alpha0, M, R, gamma;
 
 };
 

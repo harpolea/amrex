@@ -17,12 +17,6 @@ class AmrAdvMesh
 public:
     AmrAdvMesh();
 
-    void
-    MakeNewGrids (amrex::Real time);
-
-    void
-    MakeNewGrids (int lbase, amrex::Real time, int& new_finest, amrex::Array<amrex::BoxArray>& new_grids);
-
     void InitAmrMesh (int max_level_in,
             const amrex::Array<int>& n_cell_in,
             std::vector<int> refrat = std::vector<int>());

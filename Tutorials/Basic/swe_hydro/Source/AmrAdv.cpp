@@ -7,6 +7,7 @@
 #include <AmrAdv.H>
 #include <AmrAdvBC.H>
 #include <AmrAdvMesh.H>
+#include <AmrAdv_F.H>
 
 using namespace amrex;
 
@@ -39,7 +40,8 @@ AmrAdv::AmrAdv ()
 
 AmrAdv::~AmrAdv ()
 {
-
+    delete[] rho;
+    delete[] p;
 }
 
 void
@@ -81,13 +83,23 @@ AmrAdv::ReadParameters ()
         pp.query("max_swe_level", max_swe_level);
         pp.query("nlayers", nlayers);
 
+        Array<Real> rho_arr, p_arr;
+
         int n = pp.countval("rho");
         if (n > 0) {
-            pp.getarr("rho", rho, 0, n);
+            pp.getarr("rho", rho_arr, 0, n);
         }
         n = pp.countval("p");
         if (n > 0) {
-            pp.getarr("p", p, 0, n);
+            pp.getarr("p", p_arr, 0, n);
+        }
+
+        rho = new Real[nlayers];
+        p = new Real[nlayers];
+
+        for (int i = 0; i < nlayers; i++) {
+            rho[i] = rho_arr[i];
+            p[i] = p_arr[i];
         }
     }
 
@@ -261,6 +273,10 @@ AmrAdv::FillCoarsePatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
     amrex::InterpFromCoarseLevel(mf, time, *cmf[0], 0, icomp, ncomp, geom[lev-1], geom[lev],
 				 cphysbc, fphysbc, refRatio(lev-1),
 				 mapper, bcs);
+
+    if (lev-1 == max_swe_level) {
+        // do comp from swe conversion
+    }
 }
 
 void
@@ -287,5 +303,57 @@ AmrAdv::GetData (int lev, Real time, Array<MultiFab*>& data, Array<Real>& datati
     	data.push_back(phi_new[lev].get());
     	datatime.push_back(t_old[lev]);
     	datatime.push_back(t_new[lev]);
+    }
+}
+
+void AmrAdv::comp_from_swe_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf, MultiFab& gamma_up_mf) {
+
+    const int n_cons_comp = 5;
+    const int n_swe_comp = 3;
+    const Real* dx = geom[lev].CellSize();
+
+
+    for (MFIter mfi(swe_mf, true); mfi.isValid(); ++mfi) {
+        const Box& bx = mfi.tilebox();
+        const FArrayBox& U_swe      =   swe_mf[mfi];
+        FArrayBox& U_comp      =   comp_mf[mfi];
+        const FArrayBox& gamma_up      =   gamma_up_mf[mfi];
+
+        comp_from_swe(BL_TO_FORTRAN_3D(U_comp),
+            BL_TO_FORTRAN_3D(U_swe),
+            p, rho,
+            bx.loVect(), bx.hiVect(),
+            &n_cons_comp, &n_swe_comp,
+            &gamma,
+            BL_TO_FORTRAN_3D(gamma_up),
+            dx);
+    }
+}
+
+void AmrAdv::swe_from_comp_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf, MultiFab& gamma_up_mf) {
+
+    const int n_cons_comp = 5;
+    const int n_swe_comp = 3;
+    const Real* dx = geom[lev].CellSize();
+
+    for (MFIter mfi(swe_mf, true); mfi.isValid(); ++mfi) {
+        const Box& bx = mfi.tilebox();
+        const FArrayBox& U_swe      =   swe_mf[mfi];
+        FArrayBox& U_comp      =   comp_mf[mfi];
+        FArrayBox& U_prim      =   comp_mf[mfi];
+        FArrayBox& p_comp      =   comp_mf[mfi];
+        const FArrayBox& gamma_up      =   gamma_up_mf[mfi];
+
+        // do prim conversion
+
+        swe_from_comp(BL_TO_FORTRAN_3D(U_prim),
+            BL_TO_FORTRAN_3D(U_swe),
+            BL_TO_FORTRAN_3D(p_comp),
+            p,
+            bx.loVect(), bx.hiVect(),
+            &n_cons_comp, &n_swe_comp,
+            BL_TO_FORTRAN_3D(gamma_up),
+            &alpha0, &M, &R,
+            dx);
     }
 }

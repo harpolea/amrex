@@ -1,12 +1,11 @@
 subroutine W_swe(q, lo, hi, Ncomp, gamma_up, glo, ghi, W)
     ! Calculate lorentz factor
-    use amrex_fort_module, only : amrex_real
     implicit none
 
     integer, intent(in) :: lo(3), hi(3),Ncomp, glo(3), ghi(3)
-    real(amrex_real), intent(in) :: q(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), Ncomp)
-    real(amrex_real), intent(in) :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
-    real(amrex_real), intent(out) :: W(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision, intent(in) :: q(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), Ncomp)
+    double precision, intent(in) :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
+    double precision, intent(out) :: W(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
 
     integer i,j,l
 
@@ -27,26 +26,30 @@ subroutine W_swe(q, lo, hi, Ncomp, gamma_up, glo, ghi, W)
 
 end subroutine W_swe
 
-subroutine swe_from_comp(U_prim, prlo, prhi, U_swe, slo, shi, p_comp, pclo, pchi, p_swe, lo, hi, n_cons_comp, n_swe_comp, gamma_up, glo, ghi, alpha0, M, R, dz) bind(C, name="swe_from_comp")
+subroutine swe_from_comp(U_prim, prlo, prhi, U_swe, slo, shi, p_comp, &
+     pclo, pchi, p_swe, lo, hi, n_cons_comp, n_swe_comp, &
+     gamma_up, glo, ghi, alpha0, M, R, dx) bind(C, name="swe_from_comp")
     ! Assume nlayers = 1 as 2d
-    use amrex_fort_module, only : amrex_real
     implicit none
 
     integer, intent(in) :: n_cons_comp, n_swe_comp
     integer, intent(in) :: prlo(3), prhi(3), slo(3), shi(3), pclo(3), pchi(3), lo(3), hi(3), glo(3), ghi(3)
-    real(amrex_real), intent(inout)  :: U_swe(slo(1):shi(1), slo(2):shi(2), slo(3):shi(3), n_swe_comp)
-    real(amrex_real), intent(in) :: U_prim(prlo(1):prhi(1), prlo(2):prhi(2), prlo(3):prhi(3), n_cons_comp)
-    real(amrex_real), intent(in) :: p_comp(pclo(1):pchi(1), pclo(2):pchi(2), pclo(3):pchi(3))
-    real(amrex_real), intent(in) :: p_swe(slo(3):shi(3))
-    real(amrex_real), intent(in) :: alpha0, M, R, dz
-    real(amrex_real), intent(in) :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
+    double precision, intent(inout)  :: U_swe(slo(1):shi(1), slo(2):shi(2), slo(3):shi(3), n_swe_comp)
+    double precision, intent(in) :: U_prim(prlo(1):prhi(1), prlo(2):prhi(2), prlo(3):prhi(3), n_cons_comp)
+    double precision, intent(in) :: p_comp(pclo(1):pchi(1), pclo(2):pchi(2), pclo(3):pchi(3))
+    double precision, intent(in) :: p_swe(slo(3):shi(3))
+    double precision, intent(in) :: alpha0, M, R, dx(3)
+    double precision, intent(in) :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
 
-    real(amrex_real) h_comp(lo(3):hi(3)), ssq
-    real(amrex_real) h_swe(lo(1):hi(1), lo(2):hi(2), slo(3):shi(3))
+    double precision h_comp(lo(3):hi(3)), ssq
+    double precision h_swe(lo(1):hi(1), lo(2):hi(2), slo(3):shi(3))
     integer neighbour, minl(1)
-    real(amrex_real) zfrac
-    real(amrex_real) W(lo(1):hi(1), lo(2):hi(2), slo(3):shi(3))
+    double precision zfrac
+    double precision W(lo(1):hi(1), lo(2):hi(2), slo(3):shi(3))
     integer i, j, k
+    double precision dz
+
+    dz = dx(3)
 
     do k = lo(3), hi(3)
         h_comp(k) = (hi(3) - lo(3) - k) * dz
@@ -124,13 +127,12 @@ subroutine swe_from_comp(U_prim, prlo, prhi, U_swe, slo, shi, p_comp, pclo, pchi
 end subroutine swe_from_comp
 
 subroutine calc_gamma_up_swe(U, lo, hi, n_comp, gamma_up)
-    use amrex_fort_module, only : amrex_real
     implicit none
 
     integer, intent(in) :: n_comp
     integer, intent(in) :: lo(3), hi(3)
-    real(amrex_real), intent(in) :: U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), n_comp)
-    real(amrex_real), intent(out) :: gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 9)
+    double precision, intent(in) :: U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), n_comp)
+    double precision, intent(out) :: gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 9)
 
     gamma_up = 0.0d0
 
@@ -140,29 +142,31 @@ subroutine calc_gamma_up_swe(U, lo, hi, n_comp, gamma_up)
 
 end subroutine calc_gamma_up_swe
 
-subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_cons_comp, n_swe_comp, gamma, gamma_up, glo, ghi, dz) bind(C, name="comp_from_swe")
+subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_cons_comp, n_swe_comp, gamma, gamma_up, glo, ghi, dx) bind(C, name="comp_from_swe")
     ! TODO: what do I do about vertical velocity component????
-    use amrex_fort_module, only : amrex_real
     implicit none
 
     integer, intent(in) :: n_cons_comp, n_swe_comp
     integer, intent(in) :: clo(3), chi(3), slo(3), shi(3), lo(3), hi(3), glo(3), ghi(3)
-    real(amrex_real), intent(in)  :: U_swe(slo(1):shi(1), slo(2):shi(2), slo(3):shi(3), n_swe_comp)
-    real(amrex_real), intent(out) :: U_comp(clo(1):chi(1), clo(2):chi(2), clo(3):chi(3), n_cons_comp)
-    real(amrex_real), intent(in) :: p(slo(3):shi(3))
-    real(amrex_real), intent(in) :: rho(slo(3):shi(3))
-    real(amrex_real), intent(in)  :: gamma, dz
-    real(amrex_real), intent(in)  :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
+    double precision, intent(in)  :: U_swe(slo(1):shi(1), slo(2):shi(2), slo(3):shi(3), n_swe_comp)
+    double precision, intent(out) :: U_comp(clo(1):chi(1), clo(2):chi(2), clo(3):chi(3), n_cons_comp)
+    double precision, intent(in) :: p(slo(3):shi(3))
+    double precision, intent(in) :: rho(slo(3):shi(3))
+    double precision, intent(in)  :: gamma, dx(3)
+    double precision, intent(in)  :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
 
-    real(amrex_real) h_swe(lo(1):hi(1), lo(2):hi(2), slo(3):shi(3))
-    real(amrex_real) v_swe(lo(1):hi(1), lo(2):hi(2), slo(3):shi(3), 2)
-    real(amrex_real) h_comp(lo(3):hi(3))
-    real(amrex_real) zfrac
+    double precision h_swe(lo(1):hi(1), lo(2):hi(2), slo(3):shi(3))
+    double precision v_swe(lo(1):hi(1), lo(2):hi(2), slo(3):shi(3), 2)
+    double precision h_comp(lo(3):hi(3))
+    double precision zfrac
     integer neighbour, minl(1)
     integer i, j, k
-    real(amrex_real) W(lo(1):hi(1), lo(2):hi(2), max(shi(3)-slo(3), hi(3)-lo(3)))
-    real(amrex_real) rhoh(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
-    real(amrex_real) gamma_up_swe(lo(1):hi(1), lo(2):hi(2), slo(3):shi(3), 9)
+    double precision W(lo(1):hi(1), lo(2):hi(2), max(shi(3)-slo(3), hi(3)-lo(3)))
+    double precision rhoh(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision gamma_up_swe(lo(1):hi(1), lo(2):hi(2), slo(3):shi(3), 9)
+    double precision dz
+
+    dz = dx(3)
 
     call calc_gamma_up_swe(U_swe, lo, hi, n_swe_comp, gamma_up_swe)
 
@@ -225,14 +229,13 @@ subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_co
 end subroutine comp_from_swe
 
 subroutine rhoh_from_p(rhoh, p, rho, gamma, lo, hi)
-    use amrex_fort_module, only : amrex_real
     implicit none
 
     integer, intent(in) :: lo(3), hi(3)
-    real(amrex_real), intent(in)  :: p(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
-    real(amrex_real), intent(in)  :: rho(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
-    real(amrex_real), intent(in)  :: gamma
-    real(amrex_real), intent(out)  :: rhoh(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision, intent(in)  :: p(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision, intent(in)  :: rho(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision, intent(in)  :: gamma
+    double precision, intent(out)  :: rhoh(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
 
     rhoh = rho + gamma * p / (gamma - 1.0d0)
 
@@ -240,28 +243,26 @@ end subroutine rhoh_from_p
 
 
 subroutine p_from_rhoh(rhoh, p, rho, gamma, lo, hi)
-    use amrex_fort_module, only : amrex_real
     implicit none
 
     integer, intent(in) :: lo(3), hi(3)
-    real(amrex_real), intent(out)  :: p(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
-    real(amrex_real), intent(in)  :: rho(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
-    real(amrex_real), intent(in)  :: gamma
-    real(amrex_real), intent(in)  :: rhoh(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision, intent(out)  :: p(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision, intent(in)  :: rho(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision, intent(in)  :: gamma
+    double precision, intent(in)  :: rhoh(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
 
     p = (rhoh - rho) * (gamma - 1.0d0) / gamma
 
 end subroutine p_from_rhoh
 
 subroutine p_from_rho_eps(rho, eps, p, gamma, lo, hi)
-    use amrex_fort_module, only : amrex_real
     implicit none
 
     integer, intent(in) :: lo(3), hi(3)
-    real(amrex_real), intent(out)  :: p(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
-    real(amrex_real), intent(in)  :: rho(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
-    real(amrex_real), intent(in)  :: gamma
-    real(amrex_real), intent(in)  :: eps(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision, intent(out)  :: p(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision, intent(in)  :: rho(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision, intent(in)  :: gamma
+    double precision, intent(in)  :: eps(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
 
     p = (gamma - 1.0d0) * rho * eps
 

@@ -9,7 +9,7 @@ module compute_flux_module
 contains
 
   subroutine compute_flux_3d(lo, hi, dt, dx, &
-                             phi,ph_lo,ph_hi, &
+                             phi, ph_lo, ph_hi, &
                              flxx, fx_lo, fx_hi, &
                              flxy, fy_lo, fy_hi, &
                              flxz, fz_lo, fz_hi, &
@@ -537,7 +537,7 @@ contains
                   q(4)**2 * gamma_up(i,j,k,9)
 
               pmin = (1.0d0 - ssq)**2 * q(5) * (gamma - 1.0d0)
-              pmax = (gamma - 1.0d0) * (q(45) + q(1)) / (2.0d0 - gamma)
+              pmax = (gamma - 1.0d0) * (q(5) + q(1)) / (2.0d0 - gamma)
 
               if (pmin < 0.0d0) then
                   pmin = 0.d0

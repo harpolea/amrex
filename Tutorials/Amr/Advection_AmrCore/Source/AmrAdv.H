@@ -87,7 +87,8 @@ private:
     void GetData (int lev, amrex::Real time, amrex::Array<amrex::MultiFab*>& data,
                   amrex::Array<amrex::Real>& datatime);
 
-    // in AmrAdvEvolve.cpp
+    // advance a level by dt
+    // includes a recursive call for finer levels
     void timeStep (int lev, amrex::Real time, int iteration);
 
     // advance a single level for a single time step, updates flux registers
@@ -129,6 +130,11 @@ private:
     amrex::Array<std::unique_ptr<amrex::MultiFab> > phi_old;
 
     // stores fluxes at coarse-fine interface for synchronization
+    // this will be sized "nlevs_max+1"
+    // NOTE: the flux register associated with flux_reg[lev] is associated
+    // with the lev/lev-1 interface (and has grid spacing associated with lev-1)
+    // therefore flux_reg[0] and flux_reg[nlevs_max] are never actually 
+    // used in the reflux operation
     amrex::Array<std::unique_ptr<amrex::FluxRegister> > flux_reg; 
     
     ////////////////

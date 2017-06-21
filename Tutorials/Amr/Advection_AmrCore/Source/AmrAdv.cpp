@@ -37,6 +37,12 @@ AmrAdv::AmrAdv ()
     phi_new.resize(nlevs_max);
     phi_old.resize(nlevs_max);
 
+    // stores fluxes at coarse-fine interface for synchronization
+    // this will be sized "nlevs_max+1"
+    // NOTE: the flux register associated with flux_reg[lev] is associated
+    // with the lev/lev-1 interface (and has grid spacing associated with lev-1)
+    // therefore flux_reg[0] and flux_reg[nlevs_max] are never actually 
+    // used in the reflux operation
     flux_reg.resize(nlevs_max+1);
 }
 
@@ -54,9 +60,7 @@ AmrAdv::Evolve ()
 
     for (int step = istep[0]; step < max_step && cur_time < stop_time; ++step)
     {
-	if (ParallelDescriptor::IOProcessor()) {
-	    std::cout << "\nCoarse STEP " << step+1 << " starts ..." << std::endl;
-	}
+        amrex::Print() << "\nCoarse STEP " << step+1 << " starts ..." << std::endl;
 
 	ComputeDt();
 
@@ -66,10 +70,8 @@ AmrAdv::Evolve ()
 
 	cur_time += dt[0];
 
-	if (ParallelDescriptor::IOProcessor()) {
-	    std::cout << "Coarse STEP " << step+1 << " ends." << " TIME = " << cur_time << " DT = " << dt[0]
-		      << std::endl;
-	}
+        amrex::Print() << "Coarse STEP " << step+1 << " ends." << " TIME = " << cur_time
+                       << " DT = " << dt[0]  << std::endl;
 
 	// sync up time
 	for (int lev = 0; lev <= finest_level; ++lev) {
@@ -210,9 +212,15 @@ AmrAdv::ErrorEst (int lev, TagBoxArray& tags, Real time, int ngrow)
     static bool first = true;
     static Array<Real> phierr;
 
+    // only do this during the first call to ErrorEst
     if (first)
     {
 	first = false;
+        // read in an array of "phierr", which is the tagging threshold
+        // in this example, we tag values of "phi" which are greater than phierr
+        // for that particular level
+        // in subroutine state_error, you could use more elaborate tagging, such
+        // as more advanced logical expressions, or gradients, etc.
 	ParmParse pp("adv");
 	int n = pp.countval("phierr");
 	if (n > 0) {
@@ -238,28 +246,32 @@ AmrAdv::ErrorEst (int lev, TagBoxArray& tags, Real time, int ngrow)
 	
 	for (MFIter mfi(state,true); mfi.isValid(); ++mfi)
 	{
-	    const Box&  tilebx  = mfi.tilebox();
+	    const Box& tilebox  = mfi.tilebox();
 
             TagBox&     tagfab  = tags[mfi];
 	    
 	    // We cannot pass tagfab to Fortran becuase it is BaseFab<char>.
 	    // So we are going to get a temporary integer array.
-	    tagfab.get_itags(itags, tilebx);
+            // set itags initially to 'untagged' everywhere
+            // we define itags over the tilebox region
+	    tagfab.get_itags(itags, tilebox);
 	    
             // data pointer and index space
 	    int*        tptr    = itags.dataPtr();
-	    const int*  tlo     = tilebx.loVect();
-	    const int*  thi     = tilebx.hiVect();
+	    const int*  tlo     = tilebox.loVect();
+	    const int*  thi     = tilebox.hiVect();
 
+            // tag cells for refinement
 	    state_error(tptr,  ARLIM_3D(tlo), ARLIM_3D(thi),
 			BL_TO_FORTRAN_3D(state[mfi]),
 			&tagval, &clearval, 
-			ARLIM_3D(tilebx.loVect()), ARLIM_3D(tilebx.hiVect()), 
+			ARLIM_3D(tilebox.loVect()), ARLIM_3D(tilebox.hiVect()), 
 			ZFILL(dx), ZFILL(prob_lo), &time, &phierr[lev]);
 	    //
-	    // Now update the tags in the TagBox.
+	    // Now update the tags in the TagBox in the tilebox region
+            // to be equal to itags
 	    //
-	    tagfab.tags_and_untags(itags, tilebx);
+	    tagfab.tags_and_untags(itags, tilebox);
 	}
     }
 }
@@ -421,28 +433,25 @@ AmrAdv::GetData (int lev, Real time, Array<MultiFab*>& data, Array<Real>& datati
     }
 }
 
-// in AmrAdvEvolve.cpp
+
+// advance a level by dt
+// includes a recursive call for finer levels
 void
 AmrAdv::timeStep (int lev, Real time, int iteration)
 {
     if (regrid_int > 0)  // We may need to regrid
     {
-        static Array<int> last_regrid_step(max_level+1, 0);
-
         // regrid changes level "lev+1" so we don't regrid on max_level
-        if (lev < max_level && istep[lev] > last_regrid_step[lev])
+        if (lev < max_level && istep[lev])
         {
             if (istep[lev] % regrid_int == 0)
             {
-                // regrid could change finest_level if finest_level < max_level
+                // regrid could add newly refine levels (if finest_level < max_level)
                 // so we save the previous finest level index
 		int old_finest = finest_level; 
 		regrid(lev, time);
 
-		for (int k = lev; k <= finest_level; ++k) {
-		    last_regrid_step[k] = istep[k];
-		}
-
+                // if there are newly created levels, set the time step
 		for (int k = old_finest+1; k <= finest_level; ++k) {
 		    dt[k] = dt[k-1] / MaxRefRatio(k-1);
 		}
@@ -450,30 +459,25 @@ AmrAdv::timeStep (int lev, Real time, int iteration)
 	}
     }
 
-    if (Verbose() && ParallelDescriptor::IOProcessor()) {
-	std::cout << "[Level " << lev 
-		  << " step " << istep[lev]+1 << "] ";
-	std::cout << "ADVANCE with dt = "
-		  << dt[lev]
-		  << std::endl;
+    if (Verbose()) {
+	amrex::Print() << "[Level " << lev << " step " << istep[lev]+1 << "] ";
+	amrex::Print() << "ADVANCE with dt = " << dt[lev] << std::endl;
     }
 
+    // advance a single level for a single time step, updates flux registers
     Advance(lev, time, dt[lev], iteration, nsubsteps[lev]);
 
     ++istep[lev];
 
-    if (Verbose() && ParallelDescriptor::IOProcessor())
+    if (Verbose())
     {
-	std::cout << "[Level " << lev
-		  << " step " << istep[lev] << "] ";
-        std::cout << "Advanced "
-                  << CountCells(lev)
-                  << " cells"
-                  << std::endl;
+	amrex::Print() << "[Level " << lev << " step " << istep[lev] << "] ";
+        amrex::Print() << "Advanced " << CountCells(lev) << " cells" << std::endl;
     }
 
     if (lev < finest_level)
     {
+        // recursive call for next-finer level
 	for (int i = 1; i <= nsubsteps[lev+1]; ++i)
 	{
 	    timeStep(lev+1, time+(i-1)*dt[lev+1], i);
@@ -582,18 +586,20 @@ AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
     if (do_reflux) { 
 	if (flux_reg[lev+1]) {
 	    for (int i = 0; i < BL_SPACEDIM; ++i) {
-		flux_reg[lev+1]->CrseInit(fluxes[i],i,0,0,fluxes[i].nComp(), -1.0);
+	        // update the lev+1/lev flux register (index lev+1)   
+	        flux_reg[lev+1]->CrseInit(fluxes[i],i,0,0,fluxes[i].nComp(), -1.0);
 	    }	    
 	}
 	if (flux_reg[lev]) {
 	    for (int i = 0; i < BL_SPACEDIM; ++i) {
+	        // update the lev/lev-1 flux register (index lev) 
 		flux_reg[lev]->FineAdd(fluxes[i],i,0,0,fluxes[i].nComp(), 1.0);
 	    }
 	}
     }
 }
 
-// a wrapper for EstTimeStep(0
+// a wrapper for EstTimeStep
 void
 AmrAdv::ComputeDt ()
 {
