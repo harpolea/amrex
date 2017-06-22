@@ -182,20 +182,55 @@ AmrAdv::InitFromScratch (Real time)
 void
 AmrAdv::AverageDown ()
 {
+
     for (int lev = finest_level-1; lev >= 0; --lev)
     {
-	       amrex::average_down(*phi_new[lev+1], *phi_new[lev],
-			     geom[lev+1], geom[lev],
-			     0, phi_new[lev]->nComp(), refRatio(lev));
+        // first check to see if we're in the danger zone
+        if (lev == max_swe_level) {
+            // convert first
+            int n_swe_comp = phi_new[lev]->nComp();
+            int nghost = phi_new[lev]->nGrow();
+            BoxArray ba = grids[lev+1];
+            std::unique_ptr<MultiFab> phi_swe(new MultiFab(ba, dmap[lev+1], n_swe_comp, nghost));
+
+            // TODO: this doesn't work as haven't defined gamma_up_mf
+
+            swe_from_comp_wrapper(lev+1, *phi_swe, *phi_new[lev+1]);
+
+            amrex::average_down(*phi_swe, *phi_new[lev],
+ 			     geom[lev+1], geom[lev],
+ 			     0, n_swe_comp, refRatio(lev));
+
+        } else {
+            amrex::average_down(*phi_new[lev+1], *phi_new[lev],
+ 			     geom[lev+1], geom[lev],
+ 			     0, phi_new[lev]->nComp(), refRatio(lev));
+        }
     }
 }
 
 void
 AmrAdv::AverageDownTo (int crse_lev)
 {
-    amrex::average_down(*phi_new[crse_lev+1], *phi_new[crse_lev],
-			 geom[crse_lev+1], geom[crse_lev],
-			 0, phi_new[crse_lev]->nComp(), refRatio(crse_lev));
+
+    if (crse_lev == max_swe_level) {
+        // convert first
+        int n_swe_comp = phi_new[crse_lev]->nComp();
+        int nghost = phi_new[crse_lev]->nGrow();
+        BoxArray ba = grids[crse_lev+1];
+        std::unique_ptr<MultiFab> phi_swe(new MultiFab(ba, dmap[crse_lev+1], n_swe_comp, nghost));
+
+        swe_from_comp_wrapper(crse_lev+1, *phi_swe, *phi_new[crse_lev+1]);
+
+        amrex::average_down(*phi_swe, *phi_new[crse_lev],
+             geom[crse_lev+1], geom[crse_lev],
+             0, n_swe_comp, refRatio(crse_lev));
+    } else {
+        amrex::average_down(*phi_new[crse_lev+1], *phi_new[crse_lev],
+    			 geom[crse_lev+1], geom[crse_lev],
+    			 0, phi_new[crse_lev]->nComp(), refRatio(crse_lev));
+    }
+
 }
 
 long
@@ -239,14 +274,31 @@ AmrAdv::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
     	AmrAdvPhysBC cphysbc, fphysbc;
     	Interpolater* mapper = &cell_cons_interp;
 
-    	int lo_bc[] = {INT_DIR, INT_DIR, INT_DIR}; // periodic boundaryies
+    	int lo_bc[] = {INT_DIR, INT_DIR, INT_DIR}; // periodic boundaries
     	int hi_bc[] = {INT_DIR, INT_DIR, INT_DIR};
     	Array<BCRec> bcs(1, BCRec(lo_bc, hi_bc));
 
-    	amrex::FillPatchTwoLevels(mf, time, cmf, ctime, fmf, ftime,
-    				   0, icomp, ncomp, geom[lev-1], geom[lev],
-    				   cphysbc, fphysbc, refRatio(lev-1),
-    				   mapper, bcs);
+        if (lev-1 == max_swe_level) {
+            // do comp from swe conversion
+            BoxArray ba = grids[lev-1];
+            Array<MultiFab*> comp_mf;
+
+            for (int i = 0; i< cmf.size(); i++) {
+                comp_mf.push_back(new MultiFab(ba, dmap[lev-1], 5, phi_new[lev]->nGrow()));
+                comp_from_swe_wrapper(lev-1, *cmf[i], *comp_mf[i]);
+            }
+
+        	amrex::FillPatchTwoLevels(mf, time, comp_mf, ctime,
+                           fmf, ftime,
+        				   0, icomp, ncomp, geom[lev-1], geom[lev],
+        				   cphysbc, fphysbc, refRatio(lev-1),
+        				   mapper, bcs);
+        } else {
+            amrex::FillPatchTwoLevels(mf, time, cmf, ctime, fmf, ftime,
+        				   0, icomp, ncomp, geom[lev-1], geom[lev],
+        				   cphysbc, fphysbc, refRatio(lev-1),
+        				   mapper, bcs);
+        }
     }
 }
 
@@ -270,12 +322,16 @@ AmrAdv::FillCoarsePatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
     int hi_bc[] = {INT_DIR, INT_DIR, INT_DIR};
     Array<BCRec> bcs(1, BCRec(lo_bc, hi_bc));
 
+    // NOTE: 0 index here as getdata using the vector push_back operation, so it puts the data from lev-1 into index 0 element of multifab array.
     amrex::InterpFromCoarseLevel(mf, time, *cmf[0], 0, icomp, ncomp, geom[lev-1], geom[lev],
 				 cphysbc, fphysbc, refRatio(lev-1),
 				 mapper, bcs);
 
     if (lev-1 == max_swe_level) {
+        Array<MultiFab*> swe_mf;
+        GetData(lev, time, swe_mf, ctime);
         // do comp from swe conversion
+        comp_from_swe_wrapper(lev, *swe_mf[0], mf);
     }
 }
 
@@ -306,7 +362,7 @@ AmrAdv::GetData (int lev, Real time, Array<MultiFab*>& data, Array<Real>& datati
     }
 }
 
-void AmrAdv::comp_from_swe_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf, MultiFab& gamma_up_mf) {
+void AmrAdv::comp_from_swe_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf) {
 
     const int n_cons_comp = 5;
     const int n_swe_comp = 3;
@@ -317,20 +373,17 @@ void AmrAdv::comp_from_swe_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf,
         const Box& bx = mfi.tilebox();
         const FArrayBox& U_swe      =   swe_mf[mfi];
         FArrayBox& U_comp      =   comp_mf[mfi];
-        const FArrayBox& gamma_up      =   gamma_up_mf[mfi];
 
         comp_from_swe(BL_TO_FORTRAN_3D(U_comp),
             BL_TO_FORTRAN_3D(U_swe),
             p, rho,
             bx.loVect(), bx.hiVect(),
             &n_cons_comp, &n_swe_comp,
-            &gamma,
-            BL_TO_FORTRAN_3D(gamma_up),
-            dx);
+            &gamma, dx, &alpha0, &M, &R);
     }
 }
 
-void AmrAdv::swe_from_comp_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf, MultiFab& gamma_up_mf) {
+void AmrAdv::swe_from_comp_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf) {
 
     const int n_cons_comp = 5;
     const int n_swe_comp = 3;
@@ -342,17 +395,21 @@ void AmrAdv::swe_from_comp_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf,
         FArrayBox& U_comp      =   comp_mf[mfi];
         FArrayBox& U_prim      =   comp_mf[mfi];
         FArrayBox& p_comp      =   comp_mf[mfi];
-        const FArrayBox& gamma_up      =   gamma_up_mf[mfi];
 
-        // do prim conversion
+        // do prim conversion here first
+        cons_to_prim(BL_TO_FORTRAN_3D(U_comp),
+            BL_TO_FORTRAN_3D(U_prim),
+            BL_TO_FORTRAN_3D(p_comp),
+            bx.loVect(), bx.hiVect(),
+            &n_cons_comp, &gamma, &alpha0, &M, &R, dx);
 
+        // then calculate swe
         swe_from_comp(BL_TO_FORTRAN_3D(U_prim),
             BL_TO_FORTRAN_3D(U_swe),
             BL_TO_FORTRAN_3D(p_comp),
             p,
             bx.loVect(), bx.hiVect(),
             &n_cons_comp, &n_swe_comp,
-            BL_TO_FORTRAN_3D(gamma_up),
             &alpha0, &M, &R,
             dx);
     }

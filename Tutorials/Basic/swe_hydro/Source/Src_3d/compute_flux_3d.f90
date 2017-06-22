@@ -63,8 +63,8 @@ contains
         end if
     else
         if (gr) then
-            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 0, gamma, glo, ghi, alpha)
-            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 0, gamma, glo, ghi, alpha)
+            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 0, gamma, glo, ghi, alpha, dx)
+            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 0, gamma, glo, ghi, alpha, dx)
         else
             call comp_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, gamma, 0)
             call comp_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, gamma, 0)
@@ -112,8 +112,8 @@ contains
         end if
     else
         if (gr) then
-            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 1, gamma, glo, ghi, alpha)
-            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 1, gamma, glo, ghi, alpha)
+            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 1, gamma, glo, ghi, alpha, dx)
+            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 1, gamma, glo, ghi, alpha, dx)
         else
             call comp_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, gamma, 1)
             call comp_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, gamma, 1)
@@ -161,8 +161,8 @@ contains
         end if
     else
         if (gr) then
-            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 2, gamma, glo, ghi, alpha)
-            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 2, gamma, glo, ghi, alpha)
+            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 2, gamma, glo, ghi, alpha, dx)
+            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 2, gamma, glo, ghi, alpha, dx)
         else
             call comp_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, gamma, 2)
             call comp_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, gamma, 2)
@@ -510,20 +510,22 @@ contains
 
   end subroutine zbrent
 
-  subroutine cons_to_prim(U, U_prim, p, lo, hi, Ncomp, gamma, gamma_up, glo, ghi)
+  subroutine cons_to_prim(U, clo, chi, U_prim, prlo, prhi, p, plo, phi, lo, hi, Ncomp, gamma, alpha0, M, R, dx) bind(C, name="cons_to_prim")
       ! convert from conserved variables (D, Sx, Sy, tau) to primitive variables (rho, v^x, v^y, eps). Also outputs the pressure
       implicit none
 
       integer, intent(in) :: Ncomp
-      integer, intent(in) :: lo(3), hi(3), glo(3), ghi(3)
-      double precision, intent(in)  :: U(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
-      double precision, intent(out) :: U_prim(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), Ncomp)
-      double precision, intent(out) :: p(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
-      double precision, intent(in)  :: gamma
-      double precision, intent(in)  :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
+      integer, intent(in) :: clo(3), chi(3), prlo(3), prhi(3), plo(3), phi(3), lo(3), hi(3)
+      double precision, intent(in)  :: U(clo(1):chi(1), clo(2):chi(2), clo(3):chi(3), Ncomp)
+      double precision, intent(out) :: U_prim(prlo(1):prhi(1), prlo(2):prhi(2), prlo(3):prhi(3), Ncomp)
+      double precision, intent(out) :: p(plo(1):phi(1), plo(2):phi(2), plo(3):phi(3))
+      double precision, intent(in)  :: gamma, alpha0, M, R, dx(3)
 
+      double precision gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 9)
       double precision :: pmin, pmax, ssq, q(Ncomp), fmin, fmax, sq, h, W2
       integer :: i, j, k
+
+      call calc_gamma_up(gamma_up, lo, hi, lo, hi, alpha0, M, R, dx)
 
       do k = lo(3), hi(3)
       do j = lo(2), hi(2)
@@ -597,14 +599,14 @@ contains
 
   end subroutine cons_to_prim
 
-  subroutine gr_comp_flux(U, f, lo, hi, Ncomp, dir, gamma, glo, ghi, alpha)
+  subroutine gr_comp_flux(U, f, lo, hi, Ncomp, dir, gamma, glo, ghi, alpha, dx)
       implicit none
 
       integer, intent(in) :: Ncomp, dir
       integer, intent(in) :: lo(3), hi(3), glo(3), ghi(3)
       double precision, intent(in)  :: U(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
       double precision, intent(out) :: f(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
-      double precision, intent(in)  :: gamma
+      double precision, intent(in)  :: gamma, dx(3)
       double precision, intent(out) :: alpha(glo(1):ghi(1),glo(2):ghi(2), glo(3):ghi(3))
 
       integer :: i,j,k
@@ -613,6 +615,7 @@ contains
       double precision :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
       double precision :: beta(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 3)
       double precision, parameter :: M = 1.0d0, R = 100.0d0
+      double precision alpha0
 
       alpha = sqrt(1.0d0 - 2.0d0 * M / (R+1.0))
       beta = 0.0d0
@@ -621,7 +624,9 @@ contains
       gamma_up(:,:,:,5) = 1.0d0
       gamma_up(:,:,:,9) = alpha**2
 
-      call cons_to_prim(U, U_prim, p, lo-1, hi+1, Ncomp, gamma, gamma_up, glo, ghi)
+      alpha0 = sqrt(1.0d0 - 2.0d0 * M / R)
+
+      call cons_to_prim(U, glo, ghi, U_prim, lo-1, hi+1, p, lo-1, hi+1, lo-1, hi+1, Ncomp, gamma, alpha0, M, R, dx)
 
       if (dir == 0) then
           do k = lo(3), hi(3)

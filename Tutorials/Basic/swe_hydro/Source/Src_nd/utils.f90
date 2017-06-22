@@ -28,26 +28,27 @@ end subroutine W_swe
 
 subroutine swe_from_comp(U_prim, prlo, prhi, U_swe, slo, shi, p_comp, &
      pclo, pchi, p_swe, lo, hi, n_cons_comp, n_swe_comp, &
-     gamma_up, glo, ghi, alpha0, M, R, dx) bind(C, name="swe_from_comp")
+     alpha0, M, R, dx) bind(C, name="swe_from_comp")
     ! Assume nlayers = 1 as 2d
     implicit none
 
     integer, intent(in) :: n_cons_comp, n_swe_comp
-    integer, intent(in) :: prlo(3), prhi(3), slo(3), shi(3), pclo(3), pchi(3), lo(3), hi(3), glo(3), ghi(3)
+    integer, intent(in) :: prlo(3), prhi(3), slo(3), shi(3), pclo(3), pchi(3), lo(3), hi(3)
     double precision, intent(inout)  :: U_swe(slo(1):shi(1), slo(2):shi(2), slo(3):shi(3), n_swe_comp)
     double precision, intent(in) :: U_prim(prlo(1):prhi(1), prlo(2):prhi(2), prlo(3):prhi(3), n_cons_comp)
     double precision, intent(in) :: p_comp(pclo(1):pchi(1), pclo(2):pchi(2), pclo(3):pchi(3))
     double precision, intent(in) :: p_swe(slo(3):shi(3))
     double precision, intent(in) :: alpha0, M, R, dx(3)
-    double precision, intent(in) :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
 
+    double precision gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 9)
     double precision h_comp(lo(3):hi(3)), ssq
     double precision h_swe(lo(1):hi(1), lo(2):hi(2), slo(3):shi(3))
     integer neighbour, minl(1)
-    double precision zfrac
-    double precision W(lo(1):hi(1), lo(2):hi(2), slo(3):shi(3))
+    double precision zfrac, W
     integer i, j, k
-    double precision dz
+    double precision dz, h
+
+    call calc_gamma_up(gamma_up, lo, hi, lo, hi, alpha0, M, R, dx)
 
     dz = dx(3)
 
@@ -61,9 +62,10 @@ subroutine swe_from_comp(U_prim, prlo, prhi, U_swe, slo, shi, p_comp, &
         do j = lo(2), hi(2)
             do i = lo(1), hi(1)
                 ! find nearest layer
-                minl = minloc(abs(p_comp(i,j,:) - p_swe(k)))
-                neighbour = minl(1)
-                if (p_comp(i,j,neighbour) > p_swe(k)) then
+                minl = minloc(abs(p_comp(i,j,lo(3):hi(3)) - p_swe(k)))
+                neighbour = minl(1) + lo(3) - 1
+
+                if (p_comp(i,j,neighbour) > p_swe(k) .and. neighbour > lo(3)) then
                     neighbour = neighbour - 1
                 end if
             zfrac = 1.0d0 - (p_swe(k) - p_comp(i,j,neighbour)) / (p_comp(i,j,neighbour+1) - p_comp(i,j,neighbour))
@@ -74,8 +76,11 @@ subroutine swe_from_comp(U_prim, prlo, prhi, U_swe, slo, shi, p_comp, &
                 h_comp(neighbour+1) * (1.d0 - zfrac)
             U_swe(i,j,k,2:3) = U_prim(i,j,neighbour,2:3) * zfrac + &
                 U_prim(i,j,neighbour+1,2:3) * (1.d0 - zfrac)
-            U_swe(i,j,k,4) = h_comp(neighbour) * zfrac + &
+            h = h_comp(neighbour) * zfrac + &
                 h_comp(neighbour+1) * (1.d0 - zfrac)
+            if (n_swe_comp == 4) then
+                U_swe(i,j,k,4) = h
+            end if
 
             ! interpolate W
             ! NOTE: do I interpolate the primitive velocities then calculate W
@@ -92,8 +97,7 @@ subroutine swe_from_comp(U_prim, prlo, prhi, U_swe, slo, shi, p_comp, &
 
             ssq = 1.0d0 / sqrt(1.0d0 - ssq)
 
-            W(i,j,k) = &
-                U_prim(i,j,neighbour+1,2)**2 * gamma_up(i,j,neighbour+1,1) + &
+            W = U_prim(i,j,neighbour+1,2)**2 * gamma_up(i,j,neighbour+1,1) + &
                 2.0d0 * U_swe(i,j,neighbour+1,2) * U_prim(i,j,neighbour+1,3) *&
                     gamma_up(i,j,neighbour+1,2) + &
                 2.0d0 * U_swe(i,j,neighbour+1,2) * U_prim(i,j,neighbour+1,4) *&
@@ -103,7 +107,11 @@ subroutine swe_from_comp(U_prim, prlo, prhi, U_swe, slo, shi, p_comp, &
                     gamma_up(i,j,neighbour+1,6) + &
                 U_prim(i,j,neighbour+1,4)**2 * gamma_up(i,j,neighbour+1,9)
 
-            W(i,j,k) = ssq * zfrac + (1.0d0 - zfrac) / sqrt(W(i,j,k))
+            W = ssq * zfrac + (1.0d0 - zfrac) / sqrt(W)
+
+            U_swe(i,j,k,1) = -log(alpha0 + M * h / (R**2 * alpha0)) * W
+            U_swe(i,j,k,2) = U_swe(i,j,k,1) * W * U_swe(i,j,k,2)
+            U_swe(i,j,k,3) = U_swe(i,j,k,1) * W * U_swe(i,j,k,3)
             end do
         end do
     end do
@@ -119,10 +127,6 @@ subroutine swe_from_comp(U_prim, prlo, prhi, U_swe, slo, shi, p_comp, &
     !    2.0d0 * U_swe(:,:,:,2) * U_swe(:,:,:,3) * gamma_down(:,:,:,2) + &
     !    U_swe(:,:,:,3)**2 * gamma_down(:,:,:,5)
     !W = 1.0d0 / sqrt (1.0d0 - W)
-
-    U_swe(:,:,:,1) = -log(alpha0 + M * U_swe(:,:,:,4) / (R**2 * alpha0)) * W
-    U_swe(:,:,:,2) = U_swe(:,:,:,1) * W * U_swe(:,:,:,2)
-    U_swe(:,:,:,3) = U_swe(:,:,:,1) * W * U_swe(:,:,:,3)
 
 end subroutine swe_from_comp
 
@@ -142,18 +146,17 @@ subroutine calc_gamma_up_swe(U, lo, hi, n_comp, gamma_up)
 
 end subroutine calc_gamma_up_swe
 
-subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_cons_comp, n_swe_comp, gamma, gamma_up, glo, ghi, dx) bind(C, name="comp_from_swe")
+subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_cons_comp, n_swe_comp, gamma, dx, alpha0, M, R) bind(C, name="comp_from_swe")
     ! TODO: what do I do about vertical velocity component????
     implicit none
 
     integer, intent(in) :: n_cons_comp, n_swe_comp
-    integer, intent(in) :: clo(3), chi(3), slo(3), shi(3), lo(3), hi(3), glo(3), ghi(3)
+    integer, intent(in) :: clo(3), chi(3), slo(3), shi(3), lo(3), hi(3)
     double precision, intent(in)  :: U_swe(slo(1):shi(1), slo(2):shi(2), slo(3):shi(3), n_swe_comp)
     double precision, intent(out) :: U_comp(clo(1):chi(1), clo(2):chi(2), clo(3):chi(3), n_cons_comp)
     double precision, intent(in) :: p(slo(3):shi(3))
     double precision, intent(in) :: rho(slo(3):shi(3))
-    double precision, intent(in)  :: gamma, dx(3)
-    double precision, intent(in)  :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
+    double precision, intent(in)  :: gamma, dx(3), alpha0, M, R
 
     double precision h_swe(lo(1):hi(1), lo(2):hi(2), slo(3):shi(3))
     double precision v_swe(lo(1):hi(1), lo(2):hi(2), slo(3):shi(3), 2)
@@ -161,14 +164,16 @@ subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_co
     double precision zfrac
     integer neighbour, minl(1)
     integer i, j, k
-    double precision W(lo(1):hi(1), lo(2):hi(2), max(shi(3)-slo(3), hi(3)-lo(3)))
+    double precision W(lo(1):hi(1), lo(2):hi(2), min(slo(3),lo(3)):max(shi(3),hi(3)))
     double precision rhoh(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
     double precision gamma_up_swe(lo(1):hi(1), lo(2):hi(2), slo(3):shi(3), 9)
+    double precision gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 9)
     double precision dz
 
     dz = dx(3)
 
     call calc_gamma_up_swe(U_swe, lo, hi, n_swe_comp, gamma_up_swe)
+    call calc_gamma_up(gamma_up, lo, hi, lo, hi, alpha0, M, R, dx)
 
     call W_swe(U_swe, lo, hi, n_swe_comp, gamma_up_swe, lo, hi, W(:,:,slo(3):shi(3)))
 
@@ -176,9 +181,13 @@ subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_co
         h_comp(k) = (hi(3) - lo(3) - k) * dz
     end do
 
-    h_swe = U_swe(:,:,:,4)
-    v_swe(:,:,:,1) = U_swe(:,:,:,2) / (W(:,:,slo(3):shi(3)) * U_swe(:,:,:,1))
-    v_swe(:,:,:,2) = U_swe(:,:,:,3) / (W(:,:,slo(3):shi(3)) * U_swe(:,:,:,1))
+    if (n_swe_comp > 3) then
+        h_swe = U_swe(lo(1):hi(1),lo(2):hi(2),slo(3):shi(3),4)
+    else
+        h_swe = alpha0 * R**2 / M * (exp(-2.0d0 * U_swe(lo(1):hi(1), lo(2):hi(2),slo(3):shi(3),1)) - alpha0)
+    end if
+    v_swe(:,:,:,1) = U_swe(lo(1):hi(1),lo(2):hi(2),slo(3):shi(3),2) / (W(:,:,slo(3):shi(3)) * U_swe(lo(1):hi(1),lo(2):hi(2),slo(3):shi(3),1))
+    v_swe(:,:,:,2) = U_swe(lo(1):hi(1),lo(2):hi(2),slo(3):shi(3),3) / (W(:,:,slo(3):shi(3)) * U_swe(lo(1):hi(1),lo(2):hi(2),slo(3):shi(3),1))
 
     ! calculate layer fracs and interpolate
     do k = lo(3), hi(3)
@@ -188,8 +197,8 @@ subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_co
             do i = lo(1), hi(1)
                 ! find nearest layer
                 minl = minloc(abs(h_swe(i,j,:) - h_comp(k)))
-                neighbour = minl(1)
-                if (h_swe(i,j,neighbour) < h_comp(k)) then
+                neighbour = minl(1) + slo(3) - 1
+                if (h_swe(i,j,neighbour) < h_comp(k) .and. neighbour > lo(3)) then
                     neighbour = neighbour - 1
                 end if
             zfrac = 1.0d0 - (h_swe(i,j,neighbour) - h_comp(k)) / dz
@@ -202,29 +211,35 @@ subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_co
                 v_swe(i,j,neighbour+1,:) * (1.0d0 - zfrac)
             U_comp(i,j,k,5) = p(neighbour) * zfrac + &
                 p(neighbour+1) * (1.0d0 - zfrac)
+
+            W(i,j,k) = U_comp(i,j,k,2)**2*gamma_up(i,j,k,1) + &
+                2.0d0 * U_comp(i,j,k,2) * U_comp(i,j,k,3) * &
+                    gamma_up(i,j,k,2) + &
+                2.0d0 * U_comp(i,j,k,2) * U_comp(i,j,k,4) * &
+                    gamma_up(i,j,k,3) + &
+                U_comp(i,j,k,3)**2 * gamma_up(i,j,k,5) + &
+                2.0d0 * U_comp(i,j,k,3) * U_comp(i,j,k,4) * &
+                    gamma_up(i,j,k,6) + &
+                U_comp(i,j,k,4)**2 * gamma_up(i,j,k,9)
+            W(i,j,k) = 1.0d0 / sqrt(1.0d0 - W(i,j,k))
             end do
         end do
-
-        W(:,:,k) = U_comp(:,:,k,2)**2*gamma_up(lo(1):hi(1),lo(2):hi(2),k,1) + &
-            2.0d0 * U_comp(:,:,k,2) * U_comp(:,:,k,3) * &
-                gamma_up(lo(1):hi(1),lo(2):hi(2),k,2) + &
-            2.0d0 * U_comp(:,:,k,2) * U_comp(:,:,k,4) * &
-                gamma_up(lo(1):hi(1),lo(2):hi(2),k,3) + &
-            U_comp(:,:,k,3)**2 * gamma_up(lo(1):hi(1),lo(2):hi(2),k,5) + &
-            2.0d0 * U_comp(:,:,k,3) * U_comp(:,:,k,4) * &
-                gamma_up(lo(1):hi(1),lo(2):hi(2),k,6) + &
-            U_comp(:,:,k,4)**2 * gamma_up(lo(1):hi(1),lo(2):hi(2),k,9)
-        W(:,:,k) = 1.0d0 / sqrt(1.0d0 - W(:,:,k))
     end do
 
     call rhoh_from_p(rhoh, U_comp(:,:,:,5), U_comp(:,:,:,1), gamma, lo, hi)
 
-    U_comp(:,:,:,1) = U_comp(:,:,:,1) * W(:,:,lo(3):hi(3))
-    U_comp(:,:,:,2) = rhoh * W(:,:,lo(3):hi(3))**2 * U_comp(:,:,:,2)
-    U_comp(:,:,:,3) = rhoh * W(:,:,lo(3):hi(3))**2 * U_comp(:,:,:,3)
-    U_comp(:,:,:,4) = rhoh * W(:,:,lo(3):hi(3))**2 * U_comp(:,:,:,4)
-    U_comp(:,:,:,5) = rhoh * W(:,:,lo(3):hi(3))**2 - U_comp(:,:,:,5) - &
-                      U_comp(:,:,:,1)
+    do k = lo(3), hi(3)
+        do j = lo(2), hi(2)
+            do i = lo(1), hi(1)
+                U_comp(i,j,k,1) = U_comp(i,j,k,1) * W(i,j,k)
+                U_comp(i,j,k,2) = rhoh(i,j,k) * W(i,j,k)**2 * U_comp(i,j,k,2)
+                U_comp(i,j,k,3) = rhoh(i,j,k) * W(i,j,k)**2 * U_comp(i,j,k,3)
+                U_comp(i,j,k,4) = rhoh(i,j,k) * W(i,j,k)**2 * U_comp(i,j,k,4)
+                U_comp(i,j,k,5) = rhoh(i,j,k) * W(i,j,k)**2 - &
+                                    U_comp(i,j,k,5) - U_comp(i,j,k,1)
+            end do
+        end do
+    end do
 
 end subroutine comp_from_swe
 
@@ -267,3 +282,22 @@ subroutine p_from_rho_eps(rho, eps, p, gamma, lo, hi)
     p = (gamma - 1.0d0) * rho * eps
 
 end subroutine p_from_rho_eps
+
+subroutine calc_gamma_up(gamma_up, glo, ghi, lo, hi, alpha0, M, R, dx)
+    implicit none
+
+    integer, intent(in) :: glo(3), ghi(3), lo(3), hi(3)
+    double precision, intent(out)  :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
+    double precision, intent(in)  :: alpha0, M, R
+    double precision, intent(in)  :: dx(3)
+
+    integer k
+
+    gamma_up(:,:,:,:) = 0.0d0
+    gamma_up(:,:,:,1) = 1.0d0
+    gamma_up(:,:,:,5) = 1.0d0
+
+    do k = lo(3), hi(3)
+        gamma_up(:,:,k,:) = (alpha0 + M * k * dx(3) / (R**2 * alpha0))**2
+    end do
+end subroutine calc_gamma_up

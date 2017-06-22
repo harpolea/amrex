@@ -58,7 +58,8 @@ void AmrAdv::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
         const int* hi  = box.hiVect();
 
     	initdata(lev, cur_time, ARLIM_3D(lo), ARLIM_3D(hi),
-    		 BL_TO_FORTRAN_3D(state[mfi]), ZFILL(dx),
+             BL_TO_FORTRAN_3D(state[mfi]),
+             ZFILL(dx),
     		 ZFILL(prob_lo), &ncomp);
     }
 }

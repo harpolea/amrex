@@ -51,8 +51,11 @@ private:
     void FillPatch (int lev, amrex::Real time, amrex::MultiFab& mf, int icomp, int ncomp);
     void FillCoarsePatch (int lev, amrex::Real time, amrex::MultiFab& mf, int icomp, int ncomp);
     void GetData (int lev, amrex::Real time, amrex::Array<amrex::MultiFab*>& data, amrex::Array<amrex::Real>& datatime);
-    void comp_from_swe_wrapper(int lev, amrex::MultiFab& swe_mf, amrex::MultiFab& comp_mf, amrex::MultiFab& gamma_up_mf);
-    void swe_from_comp_wrapper(int lev, amrex::MultiFab& swe_mf, amrex::MultiFab& comp_mf, amrex::MultiFab& gamma_up_mf);
+    void comp_from_swe_wrapper(int lev, amrex::MultiFab& swe_mf, amrex::MultiFab& comp_mf);
+    void swe_from_comp_wrapper(int lev, amrex::MultiFab& swe_mf, amrex::MultiFab& comp_mf);
+
+    void average_down(const amrex::MultiFab& S_fine, amrex::MultiFab& S_crse,
+                       int scomp, int ncomp, const amrex::IntVect& ratio);
 
     std::string PlotFileName (int lev) const;
     amrex::Array<const amrex::MultiFab*> PlotFileMF () const;
