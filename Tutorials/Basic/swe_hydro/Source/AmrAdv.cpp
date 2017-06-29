@@ -4,10 +4,10 @@
 #include <AMReX_MultiFabUtil.H>
 #include <AMReX_FillPatchUtil.H>
 
-#include <AmrAdv.H>
-#include <AmrAdvBC.H>
+#include "AmrAdv.H"
+#include "AmrAdvBC.H"
 //#include <AmrAdvMesh.H>
-#include <AmrAdv_F.H>
+#include "AmrAdv_F.H"
 
 using namespace amrex;
 
@@ -456,23 +456,34 @@ void AmrAdv::InitAmrMesh (int max_level_in,
 	}
 	else
 	{
-	    for (int i = 0; i < BL_SPACEDIM; i++) n_cell[i] = n_cell_in[i];
+	    for (int i = 0; i < BL_SPACEDIM; i++) {
+            n_cell[i] = n_cell_in[i];
+        }
 	}
 
+    for (int i = 0; i < BL_SPACEDIM-1; i++) {
+        n_cell_swe[i] = n_cell[i];
+    }
+
     std::cout << "nlayers: " << nlayers << '\n';
-    n_cell_swe[2] = nlayers;
-    IntVect lo(IntVect::TheZeroVector()), hi(n_cell);
+    if (0 <= max_swe_level) {
+        n_cell_swe[2] = nlayers;
+    }
+    IntVect lo(IntVect::TheZeroVector()), hi(n_cell_swe);
+    hi -= IntVect::TheUnitVector();
+    Box index_domain(lo,hi);
 
     for (int i = 0; i <= max_level; i++)
     {
-        if (i <= max_swe_level) {
-            hi = IntVect(n_cell_swe);
-        }
+        //if (i <= max_swe_level) {
+        //    hi = IntVect(n_cell_swe);
+        //}
 
-        hi -= IntVect::TheUnitVector();
-        Box index_domain(lo,hi);
+
         geom[i].define(index_domain);
         if (i < max_level) index_domain.refine(ref_ratio[i]);
+
+            std::cout << "index domain " << index_domain << '\n';
     }
 
     Real offset[BL_SPACEDIM];
@@ -482,6 +493,21 @@ void AmrAdv::InitAmrMesh (int max_level_in,
         offset[i]        = Geometry::ProbLo(i) + delta*lo[i];
     }
     CoordSys::SetOffset(offset);
+
+    {
+	// chop up grids to have more grids than the number of procs
+	pp.query("refine_grid_layout", refine_grid_layout);
+    }
+
+    for (int i = 0; i < BL_SPACEDIM; i++) {
+        std::cout << "n_cell " << i << ' ' << n_cell[i] << '\n';
+        std::cout << "n_cell_swe " << i << ' ' << n_cell_swe[i] << '\n';
+    }
+
+    std::cout << "printing geometry " << geom[0] << '\n';
+    std::cout << "printing geometry domain " << geom[0].Domain() << '\n';
+
+
 }
 
 /*BoxArray

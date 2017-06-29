@@ -238,7 +238,7 @@ Box::grow (Orientation face,
 long
 Box::numPts () const
 {
-    return AMREX_D_TERM( static_cast<long>(length(0)), 
+    return AMREX_D_TERM( static_cast<long>(length(0)),
                   *static_cast<long>(length(1)),
                   *static_cast<long>(length(2)));
 }
@@ -254,7 +254,7 @@ Box::d_numPts () const
 long
 Box::volume () const
 {
-    return AMREX_D_TERM( static_cast<long>(length(0)-btype[0]), 
+    return AMREX_D_TERM( static_cast<long>(length(0)-btype[0]),
                   *static_cast<long>(length(1)-btype[1]),
                   *static_cast<long>(length(2)-btype[2]));
 }
