@@ -152,13 +152,14 @@ contains
     end do
 
     if (Ncomp < 5) then
-        if (gr) then
-            call gr_swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, 2, alpha)
-            call gr_swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, 2, alpha)
-        else
-            call swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, g, 2)
-            call swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, g, 2)
-        end if
+        !if (gr) then
+        !    call gr_swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, 2, alpha)
+        !    call gr_swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, 2, alpha)
+        !else
+        !    call swe_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, g, 2)
+        !    call swe_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, g, 2)
+        !end if
+        flxz(:,:,:,:) = 0.0d0
     else
         if (gr) then
             call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 2, gamma, glo, ghi, alpha, dx)
@@ -167,22 +168,24 @@ contains
             call comp_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, gamma, 2)
             call comp_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, gamma, 2)
         end if
+
+        do        k = lo(3), hi(3)
+            do    j = lo(2), hi(2)
+               do i = lo(1), hi(1)
+                  f_p = 0.5d0 * (fp(i,j,k,:) + fm(i,j,k+1,:) + alph * dxdt(3) * (phi_p(i,j,k,:) - phi_m(i,j,k+1,:)))
+                  f_m = 0.5d0 * (fp(i,j,k-1,:) + fm(i,j,k,:) + alph * dxdt(3) * (phi_p(i,j,k-1,:) - phi_m(i,j,k,:)))
+
+                  flxz(i,j,k,:) = -(f_p - f_m)
+
+                  if (gr) then
+                      flxz(i,j,k,:) = flxz(i,j,k,:) * alpha(i,j,k)
+                  end if
+               end do
+            end do
+        end do
     end if
 
-    do        k = lo(3), hi(3)
-        do    j = lo(2), hi(2)
-           do i = lo(1), hi(1)
-              f_p = 0.5d0 * (fp(i,j,k,:) + fm(i,j,k+1,:) + alph * dxdt(3) * (phi_p(i,j,k,:) - phi_m(i,j,k+1,:)))
-              f_m = 0.5d0 * (fp(i,j,k-1,:) + fm(i,j,k,:) + alph * dxdt(3) * (phi_p(i,j,k-1,:) - phi_m(i,j,k,:)))
 
-              flxz(i,j,k,:) = -(f_p - f_m)
-
-              if (gr) then
-                  flxz(i,j,k,:) = flxz(i,j,k,:) * alpha(i,j,k)
-              end if
-           end do
-        end do
-    end do
 
   end subroutine compute_flux_3d
 

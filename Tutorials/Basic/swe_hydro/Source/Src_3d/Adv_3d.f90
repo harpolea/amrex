@@ -75,6 +75,12 @@ subroutine advect(time, lo, hi, &
      enddo
   enddo
 
+  !write(*,*) "uin:  ", uin(lo(1)+1, lo(2)+1,lo(3)+1,:)
+  !write(*,*) "flxx: ", flxx(lo(1)+1, lo(2)+1,lo(3)+1,:)
+  !write(*,*) "flxy: ", flxy(lo(1)+1, lo(2)+1,lo(3)+1,:)
+  !write(*,*) "flxz: ", flxz(lo(1)+1, lo(2)+1,lo(3)+1,:)
+  !write(*,*) "u1:   ", u1(lo(1)+1, lo(2)+1,lo(3)+1,:)
+
   call compute_flux_3d(lo, hi, dt, dx, &
                        u1, glo, ghi, &
                        flxx, fx_lo, fx_hi, &
@@ -92,6 +98,11 @@ subroutine advect(time, lo, hi, &
          enddo
       enddo
    enddo
+
+   !write(*,*) "flxx: ", flxx(lo(1)+1, lo(2)+1,lo(3)+1,:)
+   !write(*,*) "flxy: ", flxy(lo(1)+1, lo(2)+1,lo(3)+1,:)
+   !write(*,*) "flxz: ", flxz(lo(1)+1, lo(2)+1,lo(3)+1,:)
+   !write(*,*) "uout: ", uout(lo(1)+1, lo(2)+1,lo(3)+1,:)
 
   ! Scale by face area in order to correctly reflx
   !do       k = lo(3), hi(3)
