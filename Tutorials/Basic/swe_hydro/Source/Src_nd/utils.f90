@@ -42,7 +42,6 @@ subroutine swe_from_comp(U_prim, prlo, prhi, U_swe, slo, shi, p_comp, &
 
     double precision gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 9)
     double precision h_comp(lo(3):hi(3)), ssq
-    double precision h_swe(lo(1):hi(1), lo(2):hi(2), slo(3):shi(3))
     integer neighbour, minl(1)
     double precision zfrac, W
     integer i, j, k
@@ -184,7 +183,7 @@ subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_co
     if (n_swe_comp > 3) then
         h_swe = U_swe(lo(1):hi(1),lo(2):hi(2),slo(3):shi(3),4)
     else
-        h_swe = alpha0 * R**2 / M * (exp(-2.0d0 * U_swe(lo(1):hi(1), lo(2):hi(2),slo(3):shi(3),1)) - alpha0)
+        h_swe = alpha0 * R**2 / M * (exp(-U_swe(lo(1):hi(1), lo(2):hi(2),slo(3):shi(3),1)) - alpha0)
     end if
     v_swe(:,:,:,1) = U_swe(lo(1):hi(1),lo(2):hi(2),slo(3):shi(3),2) / (W(:,:,slo(3):shi(3)) * U_swe(lo(1):hi(1),lo(2):hi(2),slo(3):shi(3),1))
     v_swe(:,:,:,2) = U_swe(lo(1):hi(1),lo(2):hi(2),slo(3):shi(3),3) / (W(:,:,slo(3):shi(3)) * U_swe(lo(1):hi(1),lo(2):hi(2),slo(3):shi(3),1))

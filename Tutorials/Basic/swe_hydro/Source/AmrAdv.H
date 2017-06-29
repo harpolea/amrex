@@ -11,6 +11,7 @@
 
 #include <AMReX_AmrCore.H>
 #include <AMReX_FluxRegister.H>
+#include <AMReX_BoxArray.H>
 
 class AmrAdv
     : public amrex::AmrCore
@@ -31,7 +32,15 @@ public:
     virtual void ClearLevel (int lev) override;
     virtual void ErrorEst (int lev, amrex::TagBoxArray& tags, amrex::Real time, int /*ngrow*/) override;
 
-    void InitFromScratch (amrex::Real time);
+    virtual void InitFromScratch (amrex::Real time) override;
+    //virtual amrex::BoxArray MakeBaseGrids () const override;
+
+
+protected:
+
+    virtual void InitAmrMesh (int max_level_in,
+                const amrex::Array<int>& n_cell_in,
+                std::vector<int> refrat = std::vector<int>()) override;
 
 private:
 

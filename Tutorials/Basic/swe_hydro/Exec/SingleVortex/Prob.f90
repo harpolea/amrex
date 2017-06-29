@@ -50,13 +50,13 @@ subroutine initdata(level, time, lo, hi, &
            else
               r2 = ((x-0.5d0)**2 + (y-0.75d0)**2 + (z-0.5d0)**2) / 0.01d0
            end if
-           alpha = sqrt(1.0d0 - 2.0d0 * M / (1.0d0 + exp(-r2) + R)) !alpha0 + M * (1.0d0 + exp(-r2)) / (R**2 * alpha0)
+           alpha = sqrt(1.0d0 - 2.0d0 * M / (1.0d0 + R))!exp(-r2) + R)) !alpha0 + M * (1.0d0 + exp(-r2)) / (R**2 * alpha0)
            !phi(i,j,k,1) = 1.d0 + exp(-r2)
            if (Ncomp == 4 .and. dm == 2) then ! compressible
-               phi(i,j,k,1) = 1.d0 + exp(-r2)
+               phi(i,j,k,1) = 1.d0! + exp(-r2)
                phi(i,j,k,4) = phi(i,j,k,1)
            else if (Ncomp == 5) then
-               phi(i,j,k,1) = 1.d0 + exp(-r2)
+               phi(i,j,k,1) = 1.d0! + exp(-r2)
                phi(i,j,k,5) = phi(i,j,k,1)
            else
                phi(i,j,k,1) = -log(alpha)
@@ -65,5 +65,7 @@ subroutine initdata(level, time, lo, hi, &
      end do
   end do
   !$omp end parallel do
+
+  !write(*,*) phi(lo(1), lo(2), lo(3), :)
 
 end subroutine initdata

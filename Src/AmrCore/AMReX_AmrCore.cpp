@@ -37,7 +37,7 @@ AmrCore::AmrCore ()
     : AmrMesh()
 {
     Initialize();
-    InitAmrCore();
+    //InitAmrCore();
 }
 
 AmrCore::AmrCore (const RealBox* rb, int max_level_in, const Array<int>& n_cell_in, int coord)
@@ -55,10 +55,14 @@ AmrCore::~AmrCore ()
 void
 AmrCore::InitAmrCore ()
 {
+
+    int max_level_in = -1;
+    Array<int> n_cell_in(BL_SPACEDIM, -1);
+    InitAmrMesh(max_level_in, n_cell_in);
     verbose   = 0;
     ParmParse pp("amr");
     pp.query("v",verbose);
-    
+
 #ifdef USE_PARTICLES
     m_gdb.reset(new AmrParGDB(this));
 #endif
@@ -67,6 +71,8 @@ AmrCore::InitAmrCore ()
 void
 AmrCore::InitFromScratch (Real time)
 {
+
+    std::cout << "InitFromScratch\n";
     MakeNewGrids(time);
 }
 
@@ -140,7 +146,7 @@ AmrCore::printGridSummary (std::ostream& os, int min_lev, int max_lev) const
 	    int imax, imin;
 #ifdef _OPENMP
 #pragma omp parallel
-#endif	    
+#endif
 	    {
 		long vmin_this = std::numeric_limits<long>::max();
 		long vmax_this = -1;
@@ -149,7 +155,7 @@ AmrCore::printGridSummary (std::ostream& os, int min_lev, int max_lev) const
 		int imax_this, imin_this;
 #ifdef _OPENMP
 #pragma omp for
-#endif	    	    
+#endif
 		for (int k = 0; k < numgrid; k++) {
 		    const Box& bx = bs[k];
 		    long v = bx.volume();
@@ -168,7 +174,7 @@ AmrCore::printGridSummary (std::ostream& os, int min_lev, int max_lev) const
 		}
 #ifdef _OPENMP
 #pragma omp critical (amr_prtgs)
-#endif	    	    
+#endif
 		{
 		    if (vmin_this < vmin || (vmin_this == vmin && smin_this < smin)) {
 			vmin = vmin_this;

@@ -6,14 +6,26 @@
 
 #include <AmrAdv.H>
 #include <AmrAdvBC.H>
-#include <AmrAdvMesh.H>
+//#include <AmrAdvMesh.H>
 #include <AmrAdv_F.H>
 
 using namespace amrex;
 
 AmrAdv::AmrAdv ()
 {
+
+    std::cout << "already called parents\n";
+
     ReadParameters();
+
+    std::cout << "read parameters\n";
+
+    //Initialize();
+
+    std::cout << "set up geometry\n";
+    InitAmrCore();
+
+    std::cout << "init'd core\n";
 
     // Geometry on all levels has been defined already.
 
@@ -82,6 +94,8 @@ AmrAdv::ReadParameters ()
 
         pp.query("max_swe_level", max_swe_level);
         pp.query("nlayers", nlayers);
+
+        std::cout << "nlayers are: " << nlayers << '\n';
 
         Array<Real> rho_arr, p_arr;
 
@@ -284,13 +298,13 @@ AmrAdv::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
             Array<MultiFab*> comp_mf;
 
             for (int i = 0; i< cmf.size(); i++) {
-                comp_mf.push_back(new MultiFab(ba, dmap[lev-1], 5, phi_new[lev]->nGrow()));
+                comp_mf.push_back(new MultiFab(ba, dmap[lev-1],phi_new[lev]->nComp(), phi_new[lev]->nGrow()));
                 comp_from_swe_wrapper(lev-1, *cmf[i], *comp_mf[i]);
             }
 
         	amrex::FillPatchTwoLevels(mf, time, comp_mf, ctime,
                            fmf, ftime,
-        				   0, icomp, ncomp, geom[lev-1], geom[lev],
+        				   0, icomp, phi_new[lev]->nComp(), geom[lev-1], geom[lev],
         				   cphysbc, fphysbc, refRatio(lev-1),
         				   mapper, bcs);
         } else {
@@ -414,3 +428,77 @@ void AmrAdv::swe_from_comp_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf)
             dx);
     }
 }
+
+void AmrAdv::InitAmrMesh (int max_level_in,
+        const Array<int>& n_cell_in,
+        std::vector<int> refrat) {
+
+    AmrCore::InitAmrMesh(max_level_in, n_cell_in, refrat);
+
+    std::cout << "Hi I'm here\n";
+
+    std::cout << ref_ratio.size() << '\n';
+
+    // rehack ref ratios of swe layers
+    for (int i = 0; i < max_level && i <= max_swe_level; i++) {
+        ref_ratio[i][2] = 1;
+    }
+
+    std::cout << "I'm now here\n";
+
+    ParmParse pp("amr");
+
+    Array<int> n_cell(BL_SPACEDIM);
+    Array<int> n_cell_swe(BL_SPACEDIM);
+	if (n_cell_in[0] == -1)
+	{
+	    pp.getarr("n_cell",n_cell,0,BL_SPACEDIM);
+	}
+	else
+	{
+	    for (int i = 0; i < BL_SPACEDIM; i++) n_cell[i] = n_cell_in[i];
+	}
+
+    std::cout << "nlayers: " << nlayers << '\n';
+    n_cell_swe[2] = nlayers;
+    IntVect lo(IntVect::TheZeroVector()), hi(n_cell);
+
+    for (int i = 0; i <= max_level; i++)
+    {
+        if (i <= max_swe_level) {
+            hi = IntVect(n_cell_swe);
+        }
+
+        hi -= IntVect::TheUnitVector();
+        Box index_domain(lo,hi);
+        geom[i].define(index_domain);
+        if (i < max_level) index_domain.refine(ref_ratio[i]);
+    }
+
+    Real offset[BL_SPACEDIM];
+    for (int i = 0; i < BL_SPACEDIM; i++)
+    {
+        const Real delta = Geometry::ProbLength(i)/(Real)n_cell[i];
+        offset[i]        = Geometry::ProbLo(i) + delta*lo[i];
+    }
+    CoordSys::SetOffset(offset);
+}
+
+/*BoxArray
+AmrAdv::MakeBaseGrids () const
+{
+    std::cout << "hello?\n";
+    BoxArray ba(amrex::coarsen(geom[0].Domain(),2));
+    std::cout << "boo\n";
+    ba.maxSize(max_grid_size[0]/2);
+    std::cout << ref_ratio[0] << '\n';
+    ba.refine(2);//ref_ratio[0]);
+    std::cout << "refined\n";
+    if (refine_grid_layout) {
+	       ChopGrids(0, ba, ParallelDescriptor::NProcs());
+    }
+    if (ba == grids[0]) {
+	       ba = grids[0];  // to avoid dupliates
+    }
+    return ba;
+}*/

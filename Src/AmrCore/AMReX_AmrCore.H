@@ -43,7 +43,7 @@ public:
      * to allocate and intialize data.
      * Also note usually one needs to average the fine data down to coarse level after this.
      */
-    void InitFromScratch (Real time);
+    virtual void InitFromScratch (Real time);
 
     //! Rebuild levels finer than lbase
     virtual void regrid (int lbase, Real time, bool initial=false);
@@ -71,6 +71,8 @@ protected:
     //! Delete level data
     virtual void ClearLevel (int lev) = 0;
 
+    void InitAmrCore ();
+
     int              verbose;
 
 #ifdef USE_PARTICLES
@@ -78,7 +80,6 @@ protected:
 #endif
 
 private:
-    void InitAmrCore ();
 };
 
 }

@@ -122,7 +122,7 @@ public:
     void ChopGrids (int lev, BoxArray& ba, int target_size) const;
 
     //! Make a level 0 grids covering the whole domain.  It does NOT install the new grids.
-    BoxArray MakeBaseGrids () const;
+    virtual BoxArray MakeBaseGrids () const;
 
     /**
     * \brief Make new grids based on error estimates.  This functin
@@ -185,7 +185,7 @@ protected:
 
     static void ProjPeriodic (BoxList& bd, const Geometry& geom);
 
-    void InitAmrMesh (int max_level_in, const Array<int>& n_cell_in,
+    virtual void InitAmrMesh (int max_level_in, const Array<int>& n_cell_in,
                         std::vector<int> refrat = std::vector<int>());
 
 };

@@ -275,7 +275,7 @@ contains
 
       call W_swe(U, lo-1, hi+1, Ncomp, gamma_up, glo, ghi, W)
 
-      f = 0.0d0
+      f(:,:,:,:) = 0.0d0
 
       if (x_dir == 0) then
           do k = lo(3), hi(3)

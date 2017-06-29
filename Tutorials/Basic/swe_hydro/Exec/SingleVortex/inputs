@@ -3,11 +3,11 @@ max_step = 1
 stop_time = 20.0
 
 # PROBLEM SIZE & GEOMETRY
-geometry.is_periodic =  1  1  1
+geometry.is_periodic =  1  1  0
 geometry.coord_sys   =  0       # 0 => cart
 geometry.prob_lo     =  0.0  0.0  0.0
 geometry.prob_hi     =  1.0  1.0  1.0
-amr.n_cell           =  20 20 20 #64   64   64
+amr.n_cell           =  20 20 3 #64   64   64
 
 # TIME STEP CONTROL
 adv.cfl            = 0.7     # cfl number for hyperbolic system
@@ -40,14 +40,14 @@ amr.plot_file         = plt    # root name of plot file
 amr.plot_int          = 5    # number of timesteps between plot files
 
 # Tagging
-adv.phierr = 1.01  1.1  1.5
-adv.swe_phierr = 0.00999 0.00995 0.00992
+adv.phierr = 1.05  1.2  1.5
+adv.swe_phierr = 1.05  1.2  1.5# 0.00999 0.00995 0.00992
 
 # PROBIN FILENAME
 amr.probin_file = probin
 
 # SWE / COMP
-swe.max_swe_level = 1 # highest index of swe level
+swe.max_swe_level = 5 # highest index of swe level
 swe.nlayers = 3
 swe.rho = 1.0 1.0 1.0
-swe.p = 0.0 0.1 0.2
+swe.p = 0.2 0.1 0.0

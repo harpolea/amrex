@@ -28,47 +28,47 @@ namespace {
     const int bl_ignore_max = 100000;
 }
 
-BARef::BARef () 
-{ 
+BARef::BARef ()
+{
 #ifdef BL_MEM_PROFILING
     updateMemoryUsage_box(1);
-#endif	    
+#endif
 }
 
-BARef::BARef (size_t size) 
-    : m_abox(size) 
-{ 
+BARef::BARef (size_t size)
+    : m_abox(size)
+{
 #ifdef BL_MEM_PROFILING
     updateMemoryUsage_box(1);
-#endif	    
+#endif
 }
- 
+
 BARef::BARef (const Box& b)
-{ 
-    define(b); 
+{
+    define(b);
 }
 
 BARef::BARef (const BoxList& bl)
     : m_abox(bl.data())
-{ 
+{
 }
 
 BARef::BARef (BoxList&& bl) noexcept
     : m_abox(std::move(bl.data()))
-{ 
+{
 }
 
 BARef::BARef (std::istream& is)
-{ 
-    define(is); 
+{
+    define(is);
 }
 
-BARef::BARef (const BARef& rhs) 
+BARef::BARef (const BARef& rhs)
     : m_abox(rhs.m_abox) // don't copy hash
 {
 #ifdef BL_MEM_PROFILING
     updateMemoryUsage_box(1);
-#endif	    
+#endif
 }
 
 BARef::~BARef ()
@@ -76,7 +76,7 @@ BARef::~BARef ()
 #ifdef BL_MEM_PROFILING
     updateMemoryUsage_box(-1);
     updateMemoryUsage_hash(-1);
-#endif	    
+#endif
 }
 
 void
@@ -122,7 +122,7 @@ BARef::define (BoxList&& bl) noexcept
     m_abox = std::move(bl.data());
 }
 
-void 
+void
 BARef::resize (long n) {
 #ifdef BL_MEM_PROFILING
     updateMemoryUsage_box(-1);
@@ -499,6 +499,7 @@ BoxArray::refine (const IntVect& iv)
 #pragma omp parallel for
 #endif
     for (int i = 0; i < N; i++) {
+        std::cout << "mabox: " << m_ref->m_abox[i] << '\n';
 	BL_ASSERT(m_ref->m_abox[i].ok());
         m_ref->m_abox[i].refine(iv);
     }
@@ -583,7 +584,7 @@ BoxArray::grow (int dir,
 BoxArray&
 BoxArray::surroundingNodes ()
 {
-    
+
     return this->convert(IndexType::TheNodeType());
 }
 
@@ -693,7 +694,7 @@ BoxArray::operator[] (int index) const
     if (m_simple) {
         return amrex::convert(amrex::coarsen(m_ref->m_abox[index],m_crse_ratio), m_typ);
     } else {
-        return (*m_transformer)(m_ref->m_abox[index]); 
+        return (*m_transformer)(m_ref->m_abox[index]);
     }
 }
 
@@ -900,7 +901,7 @@ BoxArray::intersections (const Box&                         bx,
 
 	gbx.setSmall(glo - doihi).setBig(ghi + doilo);
         gbx.refine(m_crse_ratio).coarsen(m_ref->crsn);
-	
+
         const IntVect& sm = amrex::max(gbx.smallEnd()-1, m_ref->bbox.smallEnd());
         const IntVect& bg = amrex::min(gbx.bigEnd(),     m_ref->bbox.bigEnd());
 
@@ -936,7 +937,7 @@ BoxArray::complementIn (const Box& bx) const
 {
     BoxList bl(bx);
 
-    if (!empty()) 
+    if (!empty())
     {
 	BARef::HashType& BoxHashMap = getHashMap();
 
@@ -951,7 +952,7 @@ BoxArray::complementIn (const Box& bx) const
 
 	gbx.setSmall(glo - doihi).setBig(ghi + doilo);
         gbx.refine(m_crse_ratio).coarsen(m_ref->crsn);
-	
+
         const IntVect& sm = amrex::max(gbx.smallEnd()-1, m_ref->bbox.smallEnd());
         const IntVect& bg = amrex::min(gbx.bigEnd(),     m_ref->bbox.bigEnd());
 
@@ -963,8 +964,8 @@ BoxArray::complementIn (const Box& bx) const
 
         BoxList newbl(bl.ixType());
 
-	for (IntVect iv = cbx.smallEnd(), End = cbx.bigEnd(); 
-	     iv <= End && bl.isNotEmpty(); 
+	for (IntVect iv = cbx.smallEnd(), End = cbx.bigEnd();
+	     iv <= End && bl.isNotEmpty();
 	     cbx.next(iv))
         {
             auto it = BoxHashMap.find(iv);
@@ -1069,7 +1070,7 @@ BoxArray::removeOverlap (bool simplify)
             bl.push_back(b);
         }
     }
-    
+
     if (simplify) {
         bl.simplify();
     }
@@ -1166,14 +1167,14 @@ BoxArray::getHashMap () const
 
             for (int i = 0; i < N; i++)
             {
-                const IntVect& crsnsmlend 
+                const IntVect& crsnsmlend
 		    = amrex::coarsen(m_ref->m_abox[i].smallEnd(),maxext);
                 BoxHashMap[crsnsmlend].push_back(i);
             }
 
             m_ref->crsn = maxext;
             m_ref->bbox =boundingbox.coarsen(maxext);
-	    
+
 #ifdef BL_MEM_PROFILING
 	    m_ref->updateMemoryUsage_hash(1);
 #endif

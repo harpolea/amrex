@@ -32,7 +32,7 @@ subroutine advect(time, lo, hi, &
 
   ! Some compiler may not support 'contiguous'.  Remove it in that case.
   double precision, dimension(:,:,:,:), pointer, contiguous :: &
-       phi_p, phi_m, fp, fm, phiz_y, slope, u1
+       phi_p, phi_m, fp, fm, slope, u1
 
   dtdx = dt/dx
 
@@ -94,27 +94,27 @@ subroutine advect(time, lo, hi, &
    enddo
 
   ! Scale by face area in order to correctly reflx
-  do       k = lo(3), hi(3)
-     do    j = lo(2), hi(2)
-        do i = lo(1), hi(1)+1
-           flxx(i,j,k,:) = flxx(i,j,k,:) * (dt * dx(2)*dx(3))
-        enddo
-     enddo
-  enddo
-  do       k = lo(3), hi(3)
-     do    j = lo(2), hi(2)+1
-        do i = lo(1), hi(1)
-           flxy(i,j,k,:) = flxy(i,j,k,:) * (dt * dx(1)*dx(3))
-        enddo
-     enddo
-  enddo
-  do       k = lo(3), hi(3)+1
-     do    j = lo(2), hi(2)
-        do i = lo(1), hi(1)
-           flxz(i,j,k,:) = flxz(i,j,k,:) * (dt * dx(1)*dx(2))
-        enddo
-     enddo
-  enddo
+  !do       k = lo(3), hi(3)
+    ! do    j = lo(2), hi(2)
+    !    do i = lo(1), hi(1)+1
+    !       flxx(i,j,k,:) = flxx(i,j,k,:) * (dt * dx(2)*dx(3))
+    !    enddo
+     !enddo
+  !enddo
+  !do       k = lo(3), hi(3)
+    ! do    j = lo(2), hi(2)+1
+    !    do i = lo(1), hi(1)
+    !       flxy(i,j,k,:) = flxy(i,j,k,:) * (dt * dx(1)*dx(3))
+    !    enddo
+     !enddo
+  !enddo
+  !do       k = lo(3), hi(3)+1
+    ! do    j = lo(2), hi(2)
+    !    do i = lo(1), hi(1)
+    !       flxz(i,j,k,:) = flxz(i,j,k,:) * (dt * dx(1)*dx(2))
+    !    enddo
+     !enddo
+  !enddo
 
   call bl_deallocate(phi_p)
   call bl_deallocate(phi_m)
