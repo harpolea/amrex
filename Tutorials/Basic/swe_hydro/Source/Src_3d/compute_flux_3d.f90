@@ -185,8 +185,6 @@ contains
         end do
     end if
 
-
-
   end subroutine compute_flux_3d
 
   subroutine swe_flux(U, f, glo, ghi, lo, hi, Ncomp, g, x_dir)
@@ -201,7 +199,7 @@ contains
 
       integer i, j, k
 
-      f = 0.0d0
+      f(:,:,:,:) = 0.0d0
 
       if (x_dir == 0) then
           do k = lo(3), hi(3)
