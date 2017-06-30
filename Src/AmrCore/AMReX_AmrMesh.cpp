@@ -323,15 +323,13 @@ AmrMesh::InitAmrMesh (int max_level_in, const Array<int>& n_cell_in, std::vector
 
     finest_level = -1;
 
-<<<<<<< HEAD
     std::cout << "printing geometry " << geom[0] << '\n';
     for (int i = 0; i < nlev; i++) {
     std::cout << "printing geometry domain for level " << i << ": " << geom[i].Domain() << '\n';
 }
     std::cout << "finest level " << finest_level << '\n';
-=======
+
     checkInput();
->>>>>>> 5277d6962045881c3a76c737c234eb61df648ad0
 }
 
 int
@@ -877,7 +875,7 @@ AmrMesh::checkInput ()
         amrex::Error("checkInput: max_level not set");
 
     //
-    // Check level dependent values. 
+    // Check level dependent values.
     //
     for (int i = 0; i < max_level; i++)
     {
@@ -909,14 +907,14 @@ AmrMesh::checkInput ()
     {
         for (int idim = 0; idim < BL_SPACEDIM; ++idim) {
            if (blocking_factor[i][idim] <= max_grid_size[i][idim])
-              if (max_grid_size[i][idim]%blocking_factor[i][idim] != 0) { 
+              if (max_grid_size[i][idim]%blocking_factor[i][idim] != 0) {
                  amrex::Error("max_grid_size not divisible by blocking_factor");
             }
         }
     }
 
     if( ! Geometry::ProbDomain().ok()) {
-        amrex::Error("Amr::checkInput: bad physical problem size"); 
+        amrex::Error("Amr::checkInput: bad physical problem size");
     }
 
     if(verbose > 0) {
@@ -926,4 +924,3 @@ AmrMesh::checkInput ()
 
 
 }
-
