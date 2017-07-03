@@ -39,6 +39,8 @@ contains
 
     dxdt = dx/dt
 
+    !write(*,*) "phi: ", phi(lo(1), lo(2), lo(3), :)
+
     call slopex(lo-1, hi+1, &
                 phi, ph_lo, ph_hi, &
                 slope, glo, ghi, Ncomp)
@@ -183,6 +185,13 @@ contains
                end do
             end do
         end do
+
+        !write(*,*) "slope", slope(lo(1), lo(2), lo(3), :)
+        !write(*,*) "phi", phi(lo(1), lo(2), lo(3), :)
+        !write(*,*) "phi_p", phi_p(lo(1), lo(2), lo(3), :)
+        !write(*,*) "phi_m", phi_m(lo(1), lo(2), lo(3), :)
+        !write(*,*) "fp", fp(lo(1), lo(2), lo(3), :)
+        !write(*,*) "fm", fm(lo(1), lo(2), lo(3), :)
     end if
 
   end subroutine compute_flux_3d
@@ -597,6 +606,11 @@ contains
           end do
       end do
   end do
+
+  !write(*,*) "U_comp", U(lo(1), lo(2), lo(3), :)
+  !write(*,*) "U_prim", U_prim(lo(1), lo(2), lo(3), :)
+  !write(*,*) "gamma_up", gamma_up(lo(1), lo(2), lo(3), 7:9)
+  !write(*,*) "alpha0, R, M", alpha0, M, R
 
   end subroutine cons_to_prim
 

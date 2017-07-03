@@ -6,26 +6,16 @@
 
 #include "AmrAdv.H"
 #include "AmrAdvBC.H"
-//#include <AmrAdvMesh.H>
 #include "AmrAdv_F.H"
 
 using namespace amrex;
 
 AmrAdv::AmrAdv ()
 {
-
-    std::cout << "already called parents\n";
-
     ReadParameters();
 
-    std::cout << "read parameters\n";
-
     //Initialize();
-
-    std::cout << "set up geometry\n";
     InitAmrCore();
-
-    std::cout << "init'd core\n";
 
     // Geometry on all levels has been defined already.
 
@@ -115,6 +105,12 @@ AmrAdv::ReadParameters ()
             rho[i] = rho_arr[i];
             p[i] = p_arr[i];
         }
+
+        pp.query("gr", gr);
+        pp.query("M", M);
+        pp.query("R", R);
+        alpha0 = sqrt(1.0 - 2.0 * M / R);
+
     }
 
 }
@@ -203,11 +199,11 @@ AmrAdv::AverageDown ()
         if (lev == max_swe_level) {
             // convert first
             int n_swe_comp = phi_new[lev]->nComp();
-            int nghost = phi_new[lev]->nGrow();
+            int nghost = phi_new[lev+1]->nGrow();
             BoxArray ba = grids[lev+1];
             std::unique_ptr<MultiFab> phi_swe(new MultiFab(ba, dmap[lev+1], n_swe_comp, nghost));
 
-            // TODO: this doesn't work as haven't defined gamma_up_mf
+            std::cout << "averagedowning here \n\n\n";
 
             swe_from_comp_wrapper(lev+1, *phi_swe, *phi_new[lev+1]);
 
@@ -230,7 +226,7 @@ AmrAdv::AverageDownTo (int crse_lev)
     if (crse_lev == max_swe_level) {
         // convert first
         int n_swe_comp = phi_new[crse_lev]->nComp();
-        int nghost = phi_new[crse_lev]->nGrow();
+        int nghost = phi_new[crse_lev+1]->nGrow();
         BoxArray ba = grids[crse_lev+1];
         std::unique_ptr<MultiFab> phi_swe(new MultiFab(ba, dmap[crse_lev+1], n_swe_comp, nghost));
 
@@ -293,6 +289,7 @@ AmrAdv::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
     	Array<BCRec> bcs(1, BCRec(lo_bc, hi_bc));
 
         if (lev-1 == max_swe_level) {
+            std::cout << "y no comp from swe?\n";
             // do comp from swe conversion
             BoxArray ba = grids[lev-1];
             Array<MultiFab*> comp_mf;
@@ -319,6 +316,7 @@ AmrAdv::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
 void
 AmrAdv::FillCoarsePatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
 {
+    std::cout << "Filling coarse patch level " << lev << '\n';
     BL_ASSERT(lev > 0);
 
     Array<MultiFab*> cmf;
@@ -378,6 +376,8 @@ AmrAdv::GetData (int lev, Real time, Array<MultiFab*>& data, Array<Real>& datati
 
 void AmrAdv::comp_from_swe_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf) {
 
+    std::cout << "*********comp from swe*********\n\n";
+
     const int n_cons_comp = 5;
     const int n_swe_comp = 3;
     const Real* dx = geom[lev].CellSize();
@@ -399,16 +399,24 @@ void AmrAdv::comp_from_swe_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf)
 
 void AmrAdv::swe_from_comp_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf) {
 
+    std::cout << "*********swe from comp*********\n\n";
+
     const int n_cons_comp = 5;
     const int n_swe_comp = 3;
     const Real* dx = geom[lev].CellSize();
 
-    for (MFIter mfi(swe_mf, true); mfi.isValid(); ++mfi) {
+    int n_com_comp = comp_mf.nComp();
+    int nghost = comp_mf.nGrow();
+    BoxArray ba = grids[lev];
+    MultiFab U_prim_mf(ba, dmap[lev], n_com_comp, nghost);
+    MultiFab p_mf(ba, dmap[lev], 1, nghost);
+
+    for (MFIter mfi(comp_mf, true); mfi.isValid(); ++mfi) {
         const Box& bx = mfi.tilebox();
-        const FArrayBox& U_swe      =   swe_mf[mfi];
+        FArrayBox& U_swe      =   swe_mf[mfi];
         FArrayBox& U_comp      =   comp_mf[mfi];
-        FArrayBox& U_prim      =   comp_mf[mfi];
-        FArrayBox& p_comp      =   comp_mf[mfi];
+        FArrayBox& U_prim      =   U_prim_mf[mfi];
+        FArrayBox& p_comp      =   p_mf[mfi];
 
         // do prim conversion here first
         cons_to_prim(BL_TO_FORTRAN_3D(U_comp),
@@ -435,16 +443,19 @@ void AmrAdv::InitAmrMesh (int max_level_in,
 
     AmrCore::InitAmrMesh(max_level_in, n_cell_in, refrat);
 
-    std::cout << "Hi I'm here\n";
-
     std::cout << ref_ratio.size() << '\n';
 
+    //int m = maxLevel();
+    //int s = max_swe_level+1;
+    //int n_swe_layers = std::min(m, s);
     // rehack ref ratios of swe layers
-    for (int i = 0; i < max_level && i <= max_swe_level; i++) {
+    for (int i = 0; i < std::min(max_level, max_swe_level); i++) {
         ref_ratio[i][2] = 1;
     }
 
-    std::cout << "I'm now here\n";
+    for (int i = 0; i < max_level; i++) {
+        std::cout << "ref ratio 2: " << ref_ratio[i] << '\n';
+    }
 
     ParmParse pp("amr");
 
@@ -461,11 +472,11 @@ void AmrAdv::InitAmrMesh (int max_level_in,
         }
 	}
 
-    for (int i = 0; i < BL_SPACEDIM-1; i++) {
+    for (int i = 0; i < BL_SPACEDIM; i++) {
         n_cell_swe[i] = n_cell[i];
     }
 
-    std::cout << "nlayers: " << nlayers << '\n';
+    //std::cout << "nlayers: " << nlayers << '\n';
     if (0 <= max_swe_level) {
         n_cell_swe[2] = nlayers;
     }
@@ -475,15 +486,12 @@ void AmrAdv::InitAmrMesh (int max_level_in,
 
     for (int i = 0; i <= max_level; i++)
     {
-        //if (i <= max_swe_level) {
-        //    hi = IntVect(n_cell_swe);
-        //}
-
 
         geom[i].define(index_domain);
+        //std::cout << "index domain " << index_domain << '\n';
         if (i < max_level) index_domain.refine(ref_ratio[i]);
 
-            std::cout << "index domain " << index_domain << '\n';
+
     }
 
     Real offset[BL_SPACEDIM];
@@ -507,24 +515,4 @@ void AmrAdv::InitAmrMesh (int max_level_in,
     std::cout << "printing geometry " << geom[0] << '\n';
     std::cout << "printing geometry domain " << geom[0].Domain() << '\n';
 
-
 }
-
-/*BoxArray
-AmrAdv::MakeBaseGrids () const
-{
-    std::cout << "hello?\n";
-    BoxArray ba(amrex::coarsen(geom[0].Domain(),2));
-    std::cout << "boo\n";
-    ba.maxSize(max_grid_size[0]/2);
-    std::cout << ref_ratio[0] << '\n';
-    ba.refine(2);//ref_ratio[0]);
-    std::cout << "refined\n";
-    if (refine_grid_layout) {
-	       ChopGrids(0, ba, ParallelDescriptor::NProcs());
-    }
-    if (ba == grids[0]) {
-	       ba = grids[0];  // to avoid dupliates
-    }
-    return ba;
-}*/

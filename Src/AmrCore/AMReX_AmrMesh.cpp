@@ -1,5 +1,5 @@
 
-#include <AMReX.H>
+#include "AMReX.H"
 #include <AMReX_AmrMesh.H>
 #include <AMReX_Cluster.H>
 #include <AMReX_ParmParse.H>
@@ -30,7 +30,6 @@ AmrMesh::Finalize ()
 AmrMesh::AmrMesh ()
 {
 
-    std::cout << "hi from amr mesh constructor\n";
     Initialize();
     Geometry::Setup();
     /*int max_level_in = -1;
@@ -55,7 +54,6 @@ AmrMesh::~AmrMesh ()
 void
 AmrMesh::InitAmrMesh (int max_level_in, const Array<int>& n_cell_in, std::vector<int> a_refrat)
 {
-    std::cout << "initialising\n";
     verbose   = 0;
     grid_eff  = 0.7;
     n_proper  = 1;
@@ -310,10 +308,10 @@ AmrMesh::InitAmrMesh (int max_level_in, const Array<int>& n_cell_in, std::vector
 	}
 	CoordSys::SetOffset(offset);
 
-    for (int i = 0; i < BL_SPACEDIM; i++) {
-    std::cout << "n_cell " << i << ' ' << n_cell[i] << '\n';
-}
-    std::cout << "index domain " << index_domain << '\n';
+    //for (int i = 0; i < BL_SPACEDIM; i++) {
+    //std::cout << "n_cell " << i << ' ' << n_cell[i] << '\n';
+//}
+    //std::cout << "index domain " << index_domain << '\n';
     }
 
     {
@@ -323,11 +321,11 @@ AmrMesh::InitAmrMesh (int max_level_in, const Array<int>& n_cell_in, std::vector
 
     finest_level = -1;
 
-    std::cout << "printing geometry " << geom[0] << '\n';
-    for (int i = 0; i < nlev; i++) {
-    std::cout << "printing geometry domain for level " << i << ": " << geom[i].Domain() << '\n';
-}
-    std::cout << "finest level " << finest_level << '\n';
+    //std::cout << "printing geometry " << geom[0] << '\n';
+    //for (int i = 0; i < nlev; i++) {
+    //std::cout << "printing geometry domain for level " << i << ": " << geom[i].Domain() << '\n';
+//}
+    //std::cout << "finest level " << finest_level << '\n';
 
     checkInput();
 }
@@ -393,14 +391,14 @@ AmrMesh::ChopGrids (int lev, BoxArray& ba, int target_size) const
 BoxArray
 AmrMesh::MakeBaseGrids () const
 {
-    std::cout << "base class MakeBaseGrids\n";
+    //std::cout << "base class MakeBaseGrids\n";
     BoxArray ba(amrex::coarsen(geom[0].Domain(),2));
-    std::cout << "geom[0].Domain() " << geom[0].Domain() << '\n';
-    std::cout << "box array " << ba << '\n';
+    //std::cout << "geom[0].Domain() " << geom[0].Domain() << '\n';
+    //std::cout << "box array " << ba << '\n';
     ba.maxSize(max_grid_size[0]/2);
-    std::cout << "box array " << ba << '\n';
+    //std::cout << "box array " << ba << '\n';
     ba.refine(2);
-    std::cout << "refined box array " << ba << '\n';
+    //std::cout << "refined box array " << ba << '\n';
     if (refine_grid_layout) {
 	       ChopGrids(0, ba, ParallelDescriptor::NProcs());
     }
@@ -701,13 +699,13 @@ AmrMesh::MakeNewGrids (int lbase, Real time, int& new_finest, Array<BoxArray>& n
             //
             // Refine up to levf.
             //
-            std::cout << "new_bx unrefined, lev " << levf << ' ' << new_bx << '\n';
+            //std::cout << "new_bx unrefined, lev " << levf << ' ' << new_bx << '\n';
             new_bx.refine(ref_ratio[levc]);
             BL_ASSERT(new_bx.isDisjoint());
-            std::cout << "new_bx, lev " << levf << ' ' << new_bx << '\n';
+            //std::cout << "new_bx, lev " << levf << ' ' << new_bx << '\n';
             //new_grids[levf].define(new_bx);
-            std::cout << "new grids levf " << new_grids[levf]  << '\n';
-            std::cout << "geom 2 " << geom[2].Domain() << '\n';
+            //std::cout << "new grids levf " << new_grids[levf]  << '\n';
+            //std::cout << "geom 2 " << geom[2].Domain() << '\n';
             //break;
 
 	    if (new_bx.size()>0) {
@@ -722,9 +720,9 @@ AmrMesh::MakeNewGrids (int lbase, Real time, int& new_finest, Array<BoxArray>& n
         }
     }
 
-    std::cout << "new_finest " << new_finest << '\n';
+    //std::cout << "new_finest " << new_finest << '\n';
     for (int lev = lbase+1; lev <= new_finest; ++lev) {
-        std::cout << "level: " << lev << ' '<< new_grids[lev] << '\n';
+        //std::cout << "level: " << lev << ' '<< new_grids[lev] << '\n';
         if (new_grids[lev].empty())
         {
             if (!(useFixedCoarseGrids() && lev<useFixedUpToLevel()) ) {
@@ -745,7 +743,6 @@ void
 AmrMesh::MakeNewGrids (Real time)
 {
 
-    std::cout << "MakeNewGrids\n";
     // define coarse level BoxArray and DistributionMap
     {
 	finest_level = 0;
@@ -758,15 +755,12 @@ AmrMesh::MakeNewGrids (Real time)
 	SetBoxArray(0, ba);
 	SetDistributionMap(0, dm);
     }
-    std::cout << "finest level, max_level " << finest_level << ' ' << max_level << '\n';
 
     if (max_level > 0) // build fine levels
     {
 	Array<BoxArray> new_grids(max_level+1);
 	new_grids[0] = grids[0];
 
-
-    std::cout << "new grids 0 " << new_grids[0] << '\n';
 	do
 	{
 	    int new_finest;
@@ -895,6 +889,7 @@ AmrMesh::checkInput ()
     {
         int len = domain.length(idim);
         if (blocking_factor[0][idim] <= max_grid_size[0][idim])
+            //std::cout << "blocking factor, max_grid_size, domain size " <<  blocking_factor[0][idim] << ' ' << max_grid_size[0][idim] << ' ' << len << '\n';
            if (len%blocking_factor[0][idim] != 0)
               amrex::Error("domain size not divisible by blocking_factor");
     }

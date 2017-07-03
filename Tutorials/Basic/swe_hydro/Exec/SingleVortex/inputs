@@ -1,13 +1,13 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
-max_step = 50
+max_step = 1
 stop_time = 20.0
 
 # PROBLEM SIZE & GEOMETRY
-geometry.is_periodic =  1  1  0
+geometry.is_periodic =  1  1  1
 geometry.coord_sys   =  0       # 0 => cart
 geometry.prob_lo     =  0.0  0.0  0.0
 geometry.prob_hi     =  1.0  1.0  1.0
-amr.n_cell           =  20 20 3 #64   64   64
+amr.n_cell           =  20 20 20 #64   64   64
 
 # TIME STEP CONTROL
 adv.cfl            = 0.7     # cfl number for hyperbolic system
@@ -26,8 +26,8 @@ amr.v              = 1       # verbosity in Amr
 amr.max_level       = 2       # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
-amr.blocking_factor = 8       # block factor in grid generation
-amr.max_grid_size   = 16
+amr.blocking_factor = 5       # block factor in grid generation
+amr.max_grid_size   = 20
 
 # CHECKPOINT FILES
 amr.checkpoint_files_output = 0     # 0 will disable checkpoint files
@@ -37,7 +37,7 @@ amr.check_int               = 10    # number of timesteps between checkpoints
 # PLOTFILES
 amr.plot_files_output = 0      # 0 will disable plot files
 amr.plot_file         = plt    # root name of plot file
-amr.plot_int          = 5    # number of timesteps between plot files
+amr.plot_int          = -1    # number of timesteps between plot files
 
 # Tagging
 adv.phierr = 1.05  1.2  1.5
@@ -47,7 +47,10 @@ adv.swe_phierr = 1.05  1.2  1.5# 0.00999 0.00995 0.00992
 amr.probin_file = probin
 
 # SWE / COMP
-swe.max_swe_level = 5 # highest index of swe level
-swe.nlayers = 3
-swe.rho = 1.0 1.0 1.0
-swe.p = 0.2 0.1 0.0
+swe.max_swe_level = 1 # highest index of swe level
+swe.nlayers = 5
+swe.rho = 1.0 1.0 1.0 1.0 1.0
+swe.p = 1.0 1.0 1.0 1.0 1.0 # 0.2 0.15 0.1 0.05 0.0
+swe.gr = 1 # 0 for false
+swe.M = 1.0
+swe.R = 100.0

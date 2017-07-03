@@ -5,7 +5,7 @@ subroutine advect(time, lo, hi, &
      &            flxx, fx_lo, fx_hi, &
      &            flxy, fy_lo, fy_hi, &
      &            flxz, fz_lo, fz_hi, &
-     &            dx,dt,Ncomp,gr) bind(C, name="advect")
+     &            dx, dt, Ncomp,gr) bind(C, name="advect")
 
   use mempool_module, only : bl_allocate, bl_deallocate
   use compute_flux_module, only : compute_flux_3d
@@ -19,7 +19,7 @@ subroutine advect(time, lo, hi, &
   integer, intent(in) :: fx_lo(3), fx_hi(3)
   integer, intent(in) :: fy_lo(3), fy_hi(3)
   integer, intent(in) :: fz_lo(3), fz_hi(3)
-  double precision, intent(in   ) :: uin (ui_lo(1):ui_hi(1),ui_lo(2):ui_hi(2),ui_lo(3):ui_hi(3),Ncomp)
+  double precision, intent(inout) :: uin (ui_lo(1):ui_hi(1),ui_lo(2):ui_hi(2),ui_lo(3):ui_hi(3),Ncomp)
   double precision, intent(inout) :: uout(uo_lo(1):uo_hi(1),uo_lo(2):uo_hi(2),uo_lo(3):uo_hi(3),Ncomp)
   double precision, intent(  out) :: flxx(fx_lo(1):fx_hi(1),fx_lo(2):fx_hi(2),fx_lo(3):fx_hi(3), Ncomp)
   double precision, intent(  out) :: flxy(fy_lo(1):fy_hi(1),fy_lo(2):fy_hi(2),fy_lo(3):fy_hi(3), Ncomp)
@@ -56,13 +56,19 @@ subroutine advect(time, lo, hi, &
   ! allocate.  Bl_allocate is much faster than allocate inside OMP.
   ! Note that one MUST CALL BL_DEALLOCATE.
 
+  !write(*,*) "gr: ", gr
+  write(*,*) "lo, hi: ", lo, hi
+  write(*,*) "ui_lo, ui_hi: ", ui_lo, ui_hi
+  write(*,*) "uin:  ", uin(lo(1)-1, lo(2)-1,lo(3)-1,:)
+
   ! call a function to compute flux
   call compute_flux_3d(lo-3, hi+3, dt, dx, &
                        uin, ui_lo, ui_hi, &
                        flxx, fx_lo, fx_hi, &
                        flxy, fy_lo, fy_hi, &
                        flxz, fz_lo, fz_hi, &
-                       phi_p, phi_m, fp, fm, slope, glo, ghi, Ncomp, gr)
+                       phi_p, phi_m, fp, fm, &
+                       slope, glo, ghi, Ncomp, gr)
 
   ! Do a conservative update
   do       k = lo(3)-3, hi(3)+3
@@ -75,11 +81,11 @@ subroutine advect(time, lo, hi, &
      enddo
   enddo
 
-  !write(*,*) "uin:  ", uin(lo(1)+1, lo(2)+1,lo(3)+1,:)
-  !write(*,*) "flxx: ", flxx(lo(1)+1, lo(2)+1,lo(3)+1,:)
-  !write(*,*) "flxy: ", flxy(lo(1)+1, lo(2)+1,lo(3)+1,:)
-  !write(*,*) "flxz: ", flxz(lo(1)+1, lo(2)+1,lo(3)+1,:)
-  !write(*,*) "u1:   ", u1(lo(1)+1, lo(2)+1,lo(3)+1,:)
+
+  write(*,*) "flxx: ", flxx(lo(1)-1, lo(2)-1,lo(3)-1,:)
+  write(*,*) "flxy: ", flxy(lo(1)-1, lo(2)-1,lo(3)-1,:)
+  write(*,*) "flxz: ", flxz(lo(1)-1, lo(2)-1,lo(3)-1,:)
+  write(*,*) "u1:   ", u1(lo(1)+1, lo(2)+1,lo(3)+1,:)
 
   call compute_flux_3d(lo, hi, dt, dx, &
                        u1, glo, ghi, &
@@ -99,10 +105,10 @@ subroutine advect(time, lo, hi, &
       enddo
    enddo
 
-   !write(*,*) "flxx: ", flxx(lo(1)+1, lo(2)+1,lo(3)+1,:)
-   !write(*,*) "flxy: ", flxy(lo(1)+1, lo(2)+1,lo(3)+1,:)
-   !write(*,*) "flxz: ", flxz(lo(1)+1, lo(2)+1,lo(3)+1,:)
-   !write(*,*) "uout: ", uout(lo(1)+1, lo(2)+1,lo(3)+1,:)
+   write(*,*) "flxx: ", flxx(lo(1)+1, lo(2)+1,lo(3)+1,:)
+   write(*,*) "flxy: ", flxy(lo(1)+1, lo(2)+1,lo(3)+1,:)
+   write(*,*) "flxz: ", flxz(lo(1)+1, lo(2)+1,lo(3)+1,:)
+   write(*,*) "uout: ", uout(lo(1)+1, lo(2)+1,lo(3)+1,:)
 
   ! Scale by face area in order to correctly reflx
   !do       k = lo(3), hi(3)

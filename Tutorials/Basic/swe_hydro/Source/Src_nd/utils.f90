@@ -55,6 +55,8 @@ subroutine swe_from_comp(U_prim, prlo, prhi, U_swe, slo, shi, p_comp, &
         h_comp(k) = (hi(3) - lo(3) - k) * dz
     end do
 
+    !write(*,*) "p_swe = ", p_swe(slo(3))
+
     do k = slo(3), shi(3)
         ! neighbour is the comp layer above
         ! check if this layer is above or below
@@ -68,6 +70,10 @@ subroutine swe_from_comp(U_prim, prlo, prhi, U_swe, slo, shi, p_comp, &
                     neighbour = neighbour - 1
                 end if
             zfrac = 1.0d0 - (p_swe(k) - p_comp(i,j,neighbour)) / (p_comp(i,j,neighbour+1) - p_comp(i,j,neighbour))
+
+            if (abs(zfrac) > 1.e9 .or. zfrac /= zfrac) then
+                zfrac = 1.0d0
+            end if
 
             ! now interpolate and stick primitive compressible variables in U_comp
             ! TODO: slope limit here?
@@ -85,28 +91,28 @@ subroutine swe_from_comp(U_prim, prlo, prhi, U_swe, slo, shi, p_comp, &
             ! NOTE: do I interpolate the primitive velocities then calculate W
             ! or do as I've done here and calculate W then interpolate??
             ssq = U_prim(i,j,neighbour,2)**2 * gamma_up(i,j,neighbour,1) + &
-                2.0d0 * U_swe(i,j,neighbour,2) * U_prim(i,j,neighbour,3) * &
+                2.0d0 * U_prim(i,j,neighbour,2) * U_prim(i,j,neighbour,3) * &
                     gamma_up(i,j,neighbour,2) + &
-                2.0d0 * U_swe(i,j,neighbour,2) * U_prim(i,j,neighbour,4) * &
+                2.0d0 * U_prim(i,j,neighbour,2) * U_prim(i,j,neighbour,4) * &
                     gamma_up(i,j,neighbour,3) + &
                 U_prim(i,j,neighbour,3)**2 * gamma_up(i,j,neighbour,5) + &
-                2.0d0 * U_swe(i,j,neighbour,3) * U_prim(i,j,neighbour,4) * &
+                2.0d0 * U_prim(i,j,neighbour,3) * U_prim(i,j,neighbour,4) * &
                     gamma_up(i,j,neighbour,6) + &
                 U_prim(i,j,neighbour,4)**2 * gamma_up(i,j,neighbour,9)
 
             ssq = 1.0d0 / sqrt(1.0d0 - ssq)
 
             W = U_prim(i,j,neighbour+1,2)**2 * gamma_up(i,j,neighbour+1,1) + &
-                2.0d0 * U_swe(i,j,neighbour+1,2) * U_prim(i,j,neighbour+1,3) *&
+                2.0d0 * U_prim(i,j,neighbour+1,2) * U_prim(i,j,neighbour+1,3) *&
                     gamma_up(i,j,neighbour+1,2) + &
-                2.0d0 * U_swe(i,j,neighbour+1,2) * U_prim(i,j,neighbour+1,4) *&
+                2.0d0 * U_prim(i,j,neighbour+1,2) * U_prim(i,j,neighbour+1,4) *&
                     gamma_up(i,j,neighbour+1,3) + &
                 U_prim(i,j,neighbour+1,3)**2 * gamma_up(i,j,neighbour+1,5) + &
-                2.0d0 * U_swe(i,j,neighbour+1,3) * U_prim(i,j,neighbour+1,4) *&
+                2.0d0 * U_prim(i,j,neighbour+1,3) * U_prim(i,j,neighbour+1,4) *&
                     gamma_up(i,j,neighbour+1,6) + &
                 U_prim(i,j,neighbour+1,4)**2 * gamma_up(i,j,neighbour+1,9)
 
-            W = ssq * zfrac + (1.0d0 - zfrac) / sqrt(W)
+            W = ssq * zfrac + (1.0d0 - zfrac) / sqrt(1.0d0 - W)
 
             U_swe(i,j,k,1) = -log(alpha0 + M * h / (R**2 * alpha0)) * W
             U_swe(i,j,k,2) = U_swe(i,j,k,1) * W * U_swe(i,j,k,2)
@@ -114,6 +120,9 @@ subroutine swe_from_comp(U_prim, prlo, prhi, U_swe, slo, shi, p_comp, &
             end do
         end do
     end do
+
+    write(*,*) "U_swe", U_swe(lo(1), lo(2), lo(3), :)
+    write(*,*) "U_prim", U_prim(lo(1), lo(2), lo(3), :)
 
     ! calculate conserved variables
     !gamma_up = 0.0d0
@@ -297,6 +306,6 @@ subroutine calc_gamma_up(gamma_up, glo, ghi, lo, hi, alpha0, M, R, dx)
     gamma_up(:,:,:,5) = 1.0d0
 
     do k = lo(3), hi(3)
-        gamma_up(:,:,k,:) = (alpha0 + M * k * dx(3) / (R**2 * alpha0))**2
+        gamma_up(:,:,k,9) = (alpha0 + M * k * dx(3) / (R**2 * alpha0))**2
     end do
 end subroutine calc_gamma_up

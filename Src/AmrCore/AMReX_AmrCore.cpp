@@ -1,7 +1,7 @@
 
 #include <algorithm>
 
-#include <AMReX_AmrCore.H>
+#include "AMReX_AmrCore.H"
 #include <AMReX_ParmParse.H>
 #include <AMReX_Print.H>
 
@@ -71,8 +71,6 @@ AmrCore::InitAmrCore ()
 void
 AmrCore::InitFromScratch (Real time)
 {
-
-    std::cout << "InitFromScratch\n";
     MakeNewGrids(time);
 }
 

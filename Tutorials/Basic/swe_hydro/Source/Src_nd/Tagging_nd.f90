@@ -61,21 +61,21 @@ subroutine state_error(tag,tag_lo,tag_hi, &
            enddo
         enddo
      enddo
-     !tag = clear
+     tag = clear
 
-    ! do       k = lo(3), hi(3)
-    !    do    j = lo(2), hi(2)
-    !       az = problo(3) + (dble(k)+0.5d0) * dx(3)
-    !       ay = problo(2) + (dble(j)+0.5d0) * dx(2)
-    !       do i = lo(1), hi(1)
-    !           ax = problo(1) + (dble(i)+0.5d0) * dx(1)
-    !           r2 = ((ax-0.5d0)**2 + (ay-0.75d0)**2 + (az-0.5d0)**2) / 0.005d0
-    !           if ( 1.0d0 + exp(-r2) .ge. phierr) then
-    !               tag(i,j,k) = set
-    !           end if
-    !       enddo
-    !    enddo
-     !enddo
+     do       k = lo(3), hi(3)
+        do    j = lo(2), hi(2)
+           az = problo(3) + (dble(k)+0.5d0) * dx(3)
+           ay = problo(2) + (dble(j)+0.5d0) * dx(2)
+           do i = lo(1), hi(1)
+               ax = problo(1) + (dble(i)+0.5d0) * dx(1)
+               r2 = ((ax-0.5d0)**2 + (ay-0.75d0)**2 + (az-0.5d0)**2) / 0.005d0
+               if ( 1.0d0 + exp(-r2) .ge. phierr) then
+                   tag(i,j,k) = set
+               end if
+           enddo
+        enddo
+    enddo
 
 
 

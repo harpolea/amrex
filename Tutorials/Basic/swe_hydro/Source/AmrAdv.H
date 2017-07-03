@@ -109,6 +109,8 @@ private:
 
     amrex::Real alpha0, M, R, gamma;
 
+    bool gr = false;
+
 };
 
 #endif

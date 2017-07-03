@@ -181,15 +181,7 @@ protected:
     Array<DistributionMapping> dmap;
     Array<BoxArray>            grids;
 
-
-<<<<<<< HEAD
-=======
     void checkInput();
-
-private:
-  void InitAmrMesh (int max_level_in, const Array<int>& n_cell_in,
-                    std::vector<int> refrat = std::vector<int>());
->>>>>>> 5277d6962045881c3a76c737c234eb61df648ad0
 
     static void ProjPeriodic (BoxList& bd, const Geometry& geom);
 
