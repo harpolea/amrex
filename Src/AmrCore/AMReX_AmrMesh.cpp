@@ -61,6 +61,7 @@ AmrMesh::InitAmrMesh (int max_level_in, const Array<int>& n_cell_in, std::vector
     use_fixed_coarse_grids = false;
     use_fixed_upto_level   = 0;
     refine_grid_layout     = true;
+    check_input            = true;
 
     ParmParse pp("amr");
 
@@ -319,6 +320,8 @@ AmrMesh::InitAmrMesh (int max_level_in, const Array<int>& n_cell_in, std::vector
 	pp.query("refine_grid_layout", refine_grid_layout);
     }
 
+    pp.query("check_input", check_input);
+
     finest_level = -1;
 
     //std::cout << "printing geometry " << geom[0] << '\n';
@@ -327,7 +330,8 @@ AmrMesh::InitAmrMesh (int max_level_in, const Array<int>& n_cell_in, std::vector
 //}
     //std::cout << "finest level " << finest_level << '\n';
 
-    checkInput();
+    if (check_input) checkInput();
+
 }
 
 int
