@@ -75,8 +75,6 @@ AmrAdv::ReadParameters ()
     	pp.query("cfl", cfl);
 
     	pp.query("do_reflux", do_reflux);
-
-        pp.query("max_swe_level", max_swe_level);
     }
 
     {
@@ -110,7 +108,7 @@ AmrAdv::ReadParameters ()
         pp.query("M", M);
         pp.query("R", R);
         alpha0 = sqrt(1.0 - 2.0 * M / R);
-
+        pp.query("gamma", gamma);
     }
 
 }
@@ -201,7 +199,8 @@ AmrAdv::AverageDown ()
             int n_swe_comp = phi_new[lev]->nComp();
             int nghost = phi_new[lev+1]->nGrow();
             BoxArray ba = grids[lev+1];
-            std::unique_ptr<MultiFab> phi_swe(new MultiFab(ba, dmap[lev+1], n_swe_comp, nghost));
+            std::unique_ptr<MultiFab> phi_swe(new MultiFab(ba,
+                    dmap[lev+1], n_swe_comp, nghost));
 
             std::cout << "averagedowning here \n\n\n";
 
@@ -295,13 +294,20 @@ AmrAdv::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
             Array<MultiFab*> comp_mf;
 
             for (int i = 0; i< cmf.size(); i++) {
-                comp_mf.push_back(new MultiFab(ba, dmap[lev-1],phi_new[lev]->nComp(), phi_new[lev]->nGrow()));
+               //comp_mf.push_back(new MultiFab(grids[lev],
+                //    dmap[lev], phi_new[lev]->nComp(),
+                //    phi_new[lev]->nGrow()));
+                comp_mf.push_back(new MultiFab(ba,
+                     dmap[lev-1], phi_new[lev]->nComp(),
+                     phi_new[lev]->nGrow()));
                 comp_from_swe_wrapper(lev-1, *cmf[i], *comp_mf[i]);
+                comp_mf[i]->FillBoundary(0, 5, geom[lev].periodicity());
             }
 
         	amrex::FillPatchTwoLevels(mf, time, comp_mf, ctime,
                            fmf, ftime,
-        				   0, icomp, phi_new[lev]->nComp(), geom[lev-1], geom[lev],
+        				   0, icomp, phi_new[lev]->nComp(),
+                           geom[lev-1], geom[lev],
         				   cphysbc, fphysbc, refRatio(lev-1),
         				   mapper, bcs);
         } else {
@@ -380,6 +386,7 @@ void AmrAdv::comp_from_swe_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf)
 
     const int n_cons_comp = 5;
     const int n_swe_comp = 3;
+    int nghost = swe_mf.nGrow();
     const Real* dx = geom[lev].CellSize();
 
 
@@ -393,8 +400,10 @@ void AmrAdv::comp_from_swe_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf)
             p, rho,
             bx.loVect(), bx.hiVect(),
             &n_cons_comp, &n_swe_comp,
-            &gamma, dx, &alpha0, &M, &R);
+            &gamma, dx, &alpha0, &M, &R, &nghost);
     }
+
+    //comp_mf.FillBoundary(0, n_cons_comp, geom[lev].periodicity());
 }
 
 void AmrAdv::swe_from_comp_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf) {
@@ -435,6 +444,8 @@ void AmrAdv::swe_from_comp_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf)
             &alpha0, &M, &R,
             dx);
     }
+
+    //swe_mf.FillBoundary(0, n_swe_comp, geom[lev].periodicity());
 }
 
 void AmrAdv::InitAmrMesh (int max_level_in,

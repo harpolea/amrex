@@ -35,9 +35,9 @@ amr.check_file              = chk   # root name of checkpoint file
 amr.check_int               = 10    # number of timesteps between checkpoints
 
 # PLOTFILES
-amr.plot_files_output = 0      # 0 will disable plot files
+amr.plot_files_output = 1      # 0 will disable plot files
 amr.plot_file         = plt    # root name of plot file
-amr.plot_int          = -1    # number of timesteps between plot files
+amr.plot_int          = 1    # number of timesteps between plot files
 
 # Tagging
 adv.phierr = 1.05  1.2  1.5
@@ -53,4 +53,5 @@ swe.rho = 1.0 1.0 1.0 1.0 1.0
 swe.p = 1.0 1.0 1.0 1.0 1.0 # 0.2 0.15 0.1 0.05 0.0
 swe.gr = 1 # 0 for false
 swe.M = 1.0
-swe.R = 100.0
+swe.R = 10000000000000000000.0
+swe.gamma = 1.666666666666666666667

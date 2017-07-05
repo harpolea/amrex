@@ -39,7 +39,7 @@ contains
 
     dxdt = dx/dt
 
-    !write(*,*) "phi: ", phi(lo(1), lo(2), lo(3), :)
+    write(*,*) "phi: ", phi(lo(1)+3, lo(2)+3, lo(3)+3, :)
 
     call slopex(lo-1, hi+1, &
                 phi, ph_lo, ph_hi, &
@@ -291,8 +291,13 @@ contains
           do k = lo(3), hi(3)
               do    j = lo(2), hi(2)
                  do i = lo(1)-1, hi(1)+1
-                    v(1) = U(i,j,k,2) / (U(i,j,k,1) * W(i,j,k))
-                    v(2) = U(i,j,k,3) / (U(i,j,k,1) * W(i,j,k))
+                    if (U(i,j,k,1) < 1.d-20) then
+                        v(1) = U(i,j,k,2)
+                        v(2) = U(i,j,k,3)
+                    else
+                        v(1) = U(i,j,k,2) / (U(i,j,k,1) * W(i,j,k))
+                        v(2) = U(i,j,k,3) / (U(i,j,k,1) * W(i,j,k))
+                    end if
 
                     f(i,j,k,1) =  U(i,j,k,1) * &
                           (v(1)*gamma_up(i,j,k,1) + v(2)*gamma_up(i,j,k,2) -&
@@ -304,7 +309,7 @@ contains
                           (v(1)*gamma_up(i,j,k,1) + v(2)*gamma_up(i,j,k,2) -&
                            beta(i,j,k,1) / alpha(i,j,k))
 
-                    f(i,j,k,:) = f(i,j,k,:)
+                    !f(i,j,k,:) = f(i,j,k,:)
                  end do
               end do
           end do
@@ -312,8 +317,13 @@ contains
           do k = lo(3), hi(3)
               do    j = lo(2)-1, hi(2)+1
                  do i = lo(1), hi(1)
-                    v(1) = U(i,j,k,2) / (U(i,j,k,1) * W(i,j,k))
-                    v(2) = U(i,j,k,3) / (U(i,j,k,1) * W(i,j,k))
+                     if (U(i,j,k,1) < 1.d-20) then
+                         v(1) = U(i,j,k,2)
+                         v(2) = U(i,j,k,3)
+                     else
+                         v(1) = U(i,j,k,2) / (U(i,j,k,1) * W(i,j,k))
+                         v(2) = U(i,j,k,3) / (U(i,j,k,1) * W(i,j,k))
+                     end if
 
                     f(i,j,k,1) = U(i,j,k,1) * &
                           (v(1)*gamma_up(i,j,k,2) + v(2)*gamma_up(i,j,k,5) -&
@@ -325,7 +335,7 @@ contains
                           (v(1)*gamma_up(i,j,k,2) + v(2)*gamma_up(i,j,k,5) -&
                            beta(i,j,k,2) / alpha(i,j,k)) +  0.5d0 * U(i,j,k,1)**2 / W(i,j,k)**2
 
-                    f(i,j,k,:) = f(i,j,k,:)
+                    !f(i,j,k,:) = f(i,j,k,:)
                  end do
               end do
           end do
@@ -538,79 +548,82 @@ contains
       call calc_gamma_up(gamma_up, lo, hi, lo, hi, alpha0, M, R, dx)
 
       do k = lo(3), hi(3)
-      do j = lo(2), hi(2)
-          do i = lo(1), hi(1)
-              q = U(i,j,k,:)
-              ssq = q(2)**2 * gamma_up(i,j,k,1) + &
-                  2.0d0 * q(2) * q(3) * gamma_up(i,j,k,2) + &
-                  2.0d0 * q(2) * q(4) * gamma_up(i,j,k,3) + &
-                  q(3)**2 * gamma_up(i,j,k,5) + &
-                  2.0d0 * q(3) * q(4) * gamma_up(i,j,k,6) + &
-                  q(4)**2 * gamma_up(i,j,k,9)
+          do j = lo(2), hi(2)
+              do i = lo(1), hi(1)
+                  q = U(i,j,k,:)
+                  ssq = q(2)**2 * gamma_up(i,j,k,1) + &
+                      2.0d0 * q(2) * q(3) * gamma_up(i,j,k,2) + &
+                      2.0d0 * q(2) * q(4) * gamma_up(i,j,k,3) + &
+                      q(3)**2 * gamma_up(i,j,k,5) + &
+                      2.0d0 * q(3) * q(4) * gamma_up(i,j,k,6) + &
+                      q(4)**2 * gamma_up(i,j,k,9)
 
-              pmin = (1.0d0 - ssq)**2 * q(5) * (gamma - 1.0d0)
-              pmax = (gamma - 1.0d0) * (q(5) + q(1)) / (2.0d0 - gamma)
+                  pmin = (1.0d0 - ssq)**2 * q(5) * (gamma - 1.0d0)
+                  pmax = (gamma - 1.0d0) * (q(5) + q(1)) / (2.0d0 - gamma)
 
-              if (pmin < 0.0d0) then
-                  pmin = 0.d0
-              end if
-
-              if (pmax < 0.d0 .or. pmax < pmin) then
-                  pmax = 1.0d0
-              end if
-
-              call f_of_p(fmin, pmin, q, Ncomp, gamma, gamma_up(i,j,k,:))
-              call f_of_p(fmax, pmax, q, Ncomp, gamma, gamma_up(i,j,k,:))
-
-              if (fmin * fmax > 0.0d0) then
-                  pmin = 0.d0
-              end if
-
-              call f_of_p(fmin, pmin, q, Ncomp, gamma, gamma_up(i,j,k,:))
-
-              if (fmin * fmax > 0.0d0) then
-                  pmax = pmax * 10.d0
-              end if
-
-              call zbrent(p(i,j,k), pmin, pmax, q, Ncomp, gamma, gamma_up(i,j,k,:))
-
-              if (p(i,j,k) /= p(i,j,k) .or. p(i,j,k) < 0.0d0 .or. p(i,j,k) > 1.0d0) then
-                  p(i,j,k) = abs((gamma - 1.0d0) * (q(5) + q(1)) / (2.0d0 - gamma))
-
-                  if (p(i,j,k) > 1.0d0) then
-                      p(i,j,k) = 1.0d0
+                  if (pmin < 0.0d0) then
+                      pmin = 0.d0
                   end if
-              end if
 
-              sq = sqrt((q(5) + p(i,j,k) + q(1))**2 - ssq)
+                  if (pmax < 0.d0 .or. pmax < pmin) then
+                      pmax = 1.0d0
+                  end if
 
-              if (sq /= sq) then
-                  sq = q(5) + p(i,j,k) + q(1)
-              end if
+                  call f_of_p(fmin, pmin, q, Ncomp, gamma, gamma_up(i,j,k,:))
+                  call f_of_p(fmax, pmax, q, Ncomp, gamma, gamma_up(i,j,k,:))
 
-              h = 1.0d0 + gamma * (sq - p(i,j,k) * (q(5) + p(i,j,k) + q(1)) / sq - q(1)) / q(1)
-              W2 = 1.0d0 + ssq / (q(1) * h)**2
+                  if (fmin * fmax > 0.0d0) then
+                      pmin = 0.d0
+                  end if
 
-              U_prim(i,j,k,1) = q(1) * sq / (q(5) + p(i,j,k) + q(1))
-              U_prim(i,j,k,2) = (gamma_up(i,j,k,1) * q(2) + &
-                  gamma_up(i,j,k,2) * q(3) + gamma_up(i,j,k,3) * q(4)) /&
-                  (W2 * h * U_prim(i,j,k,1))
-              U_prim(i,j,k,3) = (gamma_up(i,j,k,4) * q(2) + &
-                  gamma_up(i,j,k,5) * q(3) + gamma_up(i,j,k,6) * q(4)) /&
-                  (W2 * h * U_prim(i,j,k,1))
-              U_prim(i,j,k,4) = (gamma_up(i,j,k,3) * q(2) + &
-                  gamma_up(i,j,k,6) * q(3) + gamma_up(i,j,k,9) * q(4)) /&
-                  (W2 * h * U_prim(i,j,k,1))
-              U_prim(i,j,k,5) = (h - 1.0d0) / gamma
+                  call f_of_p(fmin, pmin, q, Ncomp, gamma, gamma_up(i,j,k,:))
 
+                  if (fmin * fmax > 0.0d0) then
+                      pmax = pmax * 10.d0
+                  end if
+
+                  call zbrent(p(i,j,k), pmin, pmax, q, Ncomp, gamma, gamma_up(i,j,k,:))
+
+                  if (p(i,j,k) /= p(i,j,k) .or. p(i,j,k) < 0.0d0 .or. p(i,j,k) > 1.0d0) then
+                      p(i,j,k) = abs((gamma - 1.0d0) * (q(5) + q(1)) / (2.0d0 - gamma))
+
+                      if (p(i,j,k) > 1.0d0) then
+                          p(i,j,k) = 1.0d0
+                      end if
+                  end if
+
+                  sq = sqrt((q(5) + p(i,j,k) + q(1))**2 - ssq)
+
+                  if (sq /= sq) then
+                      sq = q(5) + p(i,j,k) + q(1)
+                  end if
+
+                  h = 1.0d0 + gamma * (sq - p(i,j,k) * (q(5) + p(i,j,k) + q(1)) / sq - q(1)) / q(1)
+                  W2 = 1.0d0 + ssq / (q(1) * h)**2
+
+                  !write(*,*) "h, W2, p", h, W2, p(i,j,k)
+
+                  U_prim(i,j,k,1) = q(1) * sq / (q(5) + p(i,j,k) + q(1))
+                  U_prim(i,j,k,2) = (gamma_up(i,j,k,1) * q(2) + &
+                      gamma_up(i,j,k,2) * q(3) + gamma_up(i,j,k,3) * q(4)) /&
+                      (W2 * h * U_prim(i,j,k,1))
+                  U_prim(i,j,k,3) = (gamma_up(i,j,k,4) * q(2) + &
+                      gamma_up(i,j,k,5) * q(3) + gamma_up(i,j,k,6) * q(4)) /&
+                      (W2 * h * U_prim(i,j,k,1))
+                  U_prim(i,j,k,4) = (gamma_up(i,j,k,3) * q(2) + &
+                      gamma_up(i,j,k,6) * q(3) + gamma_up(i,j,k,9) * q(4)) /&
+                      (W2 * h * U_prim(i,j,k,1))
+                  U_prim(i,j,k,5) = (h - 1.0d0) / gamma
+
+              end do
           end do
       end do
-  end do
 
-  !write(*,*) "U_comp", U(lo(1), lo(2), lo(3), :)
-  !write(*,*) "U_prim", U_prim(lo(1), lo(2), lo(3), :)
-  !write(*,*) "gamma_up", gamma_up(lo(1), lo(2), lo(3), 7:9)
-  !write(*,*) "alpha0, R, M", alpha0, M, R
+      write(*,*) "U_comp", U(lo(1)+4, lo(2)+4, lo(3)+4, :)
+      write(*,*) "U_prim", U_prim(lo(1)+4, lo(2)+4, lo(3)+4, :)
+      !write(*,*) "p", p(lo(1)+3, lo(2)+3, lo(3)+3)
+      !write(*,*) "gamma_up", gamma_up(lo(1), lo(2), lo(3), 7:9)
+      !write(*,*) "alpha0, R, M", alpha0, M, R
 
   end subroutine cons_to_prim
 
@@ -619,7 +632,7 @@ contains
 
       integer, intent(in) :: Ncomp, dir
       integer, intent(in) :: lo(3), hi(3), glo(3), ghi(3)
-      double precision, intent(in)  :: U(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
+      double precision, intent(inout)  :: U(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
       double precision, intent(out) :: f(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
       double precision, intent(in)  :: gamma, dx(3)
       double precision, intent(out) :: alpha(glo(1):ghi(1),glo(2):ghi(2), glo(3):ghi(3))
@@ -641,7 +654,27 @@ contains
 
       alpha0 = sqrt(1.0d0 - 2.0d0 * M / R)
 
+      write(*,*) "gr_comp_flux"
+      write(*,*) "U: ", U(lo(1)+3, lo(2)+3, lo(3)+3, :)
+
+      ! HACK: while the boundaries don't work
+      !do k = lo(3)-1, hi(3)+1
+        !  do j = lo(2)-1, hi(2)+1
+        !      do i = lo(1)-1, hi(1)+1
+        !          if (U(i,j,k,1) == 0.0d0) then
+        !              U(i,j,k,1) = 1.0d0
+        !          end if
+        !          if (U(i,j,k,5) == 0.0d0 .or. U(i,j,k,5) == 1.0d0) then
+        !              U(i,j,k,5) = 1.5d0
+        !          end if
+        !      end do
+         ! end do
+      !end do
+
+
       call cons_to_prim(U, glo, ghi, U_prim, lo-1, hi+1, p, lo-1, hi+1, lo-1, hi+1, Ncomp, gamma, alpha0, M, R, dx)
+
+      f(:,:,:,:) = 0.0d0
 
       if (dir == 0) then
           do k = lo(3), hi(3)
@@ -658,7 +691,7 @@ contains
                       f(i,j,k,5) = U(i,j,k,5) * (U_prim(i,j,k,2) - &
                            beta(i,j,k,1) / alpha(i,j,k)) + p(i,j,k) * U_prim(i,j,k,2)
 
-                      f(i,j,k,:) = f(i,j,k,:)
+                      !f(i,j,k,:) = f(i,j,k,:)
                    end do
                end do
            end do
@@ -678,7 +711,7 @@ contains
                       f(i,j,k,5) = U(i,j,k,5) * (U_prim(i,j,k,3) - &
                            beta(i,j,k,2) / alpha(i,j,k)) + p(i,j,k) * U_prim(i,j,k,3)
 
-                      f(i,j,k,:) = f(i,j,k,:)
+                      !f(i,j,k,:) = f(i,j,k,:)
                    end do
                end do
            end do
@@ -698,7 +731,7 @@ contains
                        f(i,j,k,5) = U(i,j,k,5) * (U_prim(i,j,k,4) - &
                             beta(i,j,k,2) / alpha(i,j,k)) + p(i,j,k) * U_prim(i,j,k,4)
 
-                       f(i,j,k,:) = f(i,j,k,:)
+                       !f(i,j,k,:) = f(i,j,k,:)
                     end do
                 end do
             end do

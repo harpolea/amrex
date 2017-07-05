@@ -169,6 +169,8 @@ AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
         		flux[i].resize(amrex::grow(bx,3),S_new.nComp());
     	    }
 
+
+
             advect(time, bx.loVect(), bx.hiVect(),
           		   BL_TO_FORTRAN_3D(statein),
           		   BL_TO_FORTRAN_3D(stateout),

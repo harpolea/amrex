@@ -14,7 +14,7 @@ end subroutine amrex_probinit
 
 subroutine initdata(level, time, lo, hi, &
      phi, phi_lo, phi_hi, &
-     dx, prob_lo, Ncomp) bind(C, name="initdata")
+     dx, prob_lo, Ncomp, alpha0, M, R) bind(C, name="initdata")
 
   implicit none
   integer, intent(in) :: level, lo(3), hi(3), phi_lo(3), phi_hi(3), Ncomp
@@ -22,12 +22,11 @@ subroutine initdata(level, time, lo, hi, &
   double precision, intent(inout) :: phi(phi_lo(1):phi_hi(1), &
                                         phi_lo(2):phi_hi(2), &
                                         phi_lo(3):phi_hi(3), Ncomp)
-  double precision, intent(in) :: dx(3), prob_lo(3)
+  double precision, intent(in) :: dx(3), prob_lo(3), alpha0, M, R
 
   integer          :: dm
   integer          :: i,j,k
   double precision :: x,y,z,r2,alpha
-  double precision, parameter ::  alpha0 = 0.9899494937d0, M = 1.0d0, R = 100.0d0
 
   if (phi_lo(3) .eq. 0 .and. phi_hi(3) .eq. 0) then
      dm = 2

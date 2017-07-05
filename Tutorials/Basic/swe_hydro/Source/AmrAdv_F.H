@@ -10,7 +10,9 @@ extern "C"
     void initdata(const int& level, const amrex_real& time,
 		  const int* lo, const int* hi,
 		  BL_FORT_FAB_ARG_3D(state),
-		  const amrex_real* dx, const amrex_real* problo, const int* Ncomp);
+		  const amrex_real* dx, const amrex_real* problo,
+          const int* Ncomp, const amrex_real* alpha0,
+          const amrex_real* M, const amrex_real* R);
 
     void get_face_velocity(const int& level, const amrex_real& time,
                const BL_FORT_FAB_ARG_3D(state),
@@ -42,7 +44,7 @@ extern "C"
         const int* n_cons_comp, const int* n_swe_comp,
         amrex_real* gamma,
         const amrex_real* dx, const amrex_real* alpha0,
-        const amrex_real* M, const amrex_real* R);
+        const amrex_real* M, const amrex_real* R, const int * nghost);
 
     void swe_from_comp(BL_FORT_FAB_ARG_3D(U_prim),
         const BL_FORT_FAB_ARG_3D(U_swe),

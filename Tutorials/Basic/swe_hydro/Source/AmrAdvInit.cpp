@@ -60,6 +60,6 @@ void AmrAdv::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     	initdata(lev, cur_time, ARLIM_3D(lo), ARLIM_3D(hi),
              BL_TO_FORTRAN_3D(state[mfi]),
              ZFILL(dx),
-    		 ZFILL(prob_lo), &ncomp);
+    		 ZFILL(prob_lo), &ncomp, &alpha0, &M, &R);
     }
 }

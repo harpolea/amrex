@@ -56,10 +56,26 @@ subroutine advect(time, lo, hi, &
   ! allocate.  Bl_allocate is much faster than allocate inside OMP.
   ! Note that one MUST CALL BL_DEALLOCATE.
 
+  ! HACK: while the boundaries don't work
+  if (Ncomp == 5) then
+      do k = ui_lo(3), ui_hi(3)
+          do j = ui_lo(2), ui_hi(2)
+              do i = ui_lo(1), ui_hi(1)
+                  if (abs(uin(i,j,k,1)) < 1.0d-20) then
+                      uin(i,j,k,1) = 1.0d0
+                  end if
+                  if (uin(i,j,k,5) <= 1.0d-20 .or. uin(i,j,k,5) == 1.0d0) then
+                      uin(i,j,k,5) = 1.5d0
+                  end if
+              end do
+          end do
+      end do
+  end if
+
   !write(*,*) "gr: ", gr
   write(*,*) "lo, hi: ", lo, hi
   write(*,*) "ui_lo, ui_hi: ", ui_lo, ui_hi
-  write(*,*) "uin:  ", uin(lo(1)-1, lo(2)-1,lo(3)-1,:)
+  write(*,*) "uin:  ", uin(lo(1), lo(2),lo(3),:)
 
   ! call a function to compute flux
   call compute_flux_3d(lo-3, hi+3, dt, dx, &
