@@ -269,15 +269,15 @@ AmrAdv::EstTimeStep (int lev, bool local) const
 
     	    const FArrayBox& statein = S_new[mfi];
 
-    	    get_face_velocity(lev, cur_time,
+    	    /*get_face_velocity(lev, cur_time,
                       BL_TO_FORTRAN_3D(statein),
     			      AMREX_D_DECL(BL_TO_FORTRAN(uface[0]),
     				     BL_TO_FORTRAN(uface[1]),
     				     BL_TO_FORTRAN(uface[2])),
-    			      &ncomp);
+    			      &ncomp);*/
 
     	    for (int i = 0; i < BL_SPACEDIM; ++i) {
-        		Real umax = uface[i].norm(0);
+        		Real umax = 1.0; //uface[i].norm(0);
         		if (umax > 1.e-100) {
         		    dt_est = std::min(dt_est, dx[i] / umax);
         		} else {

@@ -32,12 +32,15 @@ contains
          phi_p, phi_m, fp, fm, slope
     logical, intent(in) :: gr
 
-    integer :: i, j, k
+    integer :: i, j, k, l
     double precision :: dxdt(3), f_p(Ncomp), f_m(Ncomp)
     double precision, parameter :: g = 1.0d-3, gamma = 5.0d0/3.0d0, alph = 0.5d0
     double precision :: alpha(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3))
 
     dxdt = dx/dt
+    flxx(:,:,:,:) = 0.0d0
+    flxy(:,:,:,:) = 0.0d0
+    flxz(:,:,:,:) = 0.0d0
 
     write(*,*) "phi: ", phi(lo(1)+3, lo(2)+3, lo(3)+3, :)
 
@@ -84,6 +87,11 @@ contains
               if (gr) then
                   flxx(i,j,k,:) = flxx(i,j,k,:) * alpha(i,j,k)
               end if
+              do l = 1, Ncomp
+                  if (flxx(i,j,k,l) /= flxx(i,j,k,l)) then
+                      flxx(i,j,k,l) = 0.d0
+                  end if
+              end do
            end do
         end do
     end do
@@ -133,6 +141,11 @@ contains
               if (gr) then
                   flxy(i,j,k,:) = flxy(i,j,k,:) * alpha(i,j,k)
               end if
+              do l = 1, Ncomp
+                  if (flxy(i,j,k,l) /= flxy(i,j,k,l)) then
+                      flxy(i,j,k,l) = 0.d0
+                  end if
+              end do
            end do
         end do
     end do
@@ -182,6 +195,11 @@ contains
                   if (gr) then
                       flxz(i,j,k,:) = flxz(i,j,k,:) * alpha(i,j,k)
                   end if
+                  do l = 1, Ncomp
+                      if (flxz(i,j,k,l) /= flxz(i,j,k,l)) then
+                          flxz(i,j,k,l) = 0.d0
+                      end if
+                  end do
                end do
             end do
         end do
@@ -543,7 +561,7 @@ contains
 
       double precision gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 9)
       double precision :: pmin, pmax, ssq, q(Ncomp), fmin, fmax, sq, h, W2
-      integer :: i, j, k
+      integer :: i, j, k, l
 
       call calc_gamma_up(gamma_up, lo, hi, lo, hi, alpha0, M, R, dx)
 
@@ -551,12 +569,29 @@ contains
           do j = lo(2), hi(2)
               do i = lo(1), hi(1)
                   q = U(i,j,k,:)
+
+                  !HACK
+                  if (q(1) /= q(1)) then
+                      q(1) = 1.0d0
+                  end if
+                  do l = 2, 4
+                      if (q(l) /= q(l)) then
+                          q(l) = 0.0d0
+                      end if
+                  end do
+                  if (q(5) == 1.0d0 .or. q(5) /= q(5)) then
+                      q(5) = 1.5d0
+                  end if
                   ssq = q(2)**2 * gamma_up(i,j,k,1) + &
                       2.0d0 * q(2) * q(3) * gamma_up(i,j,k,2) + &
                       2.0d0 * q(2) * q(4) * gamma_up(i,j,k,3) + &
                       q(3)**2 * gamma_up(i,j,k,5) + &
                       2.0d0 * q(3) * q(4) * gamma_up(i,j,k,6) + &
                       q(4)**2 * gamma_up(i,j,k,9)
+
+                  if (ssq /= ssq) then
+                      ssq = 0.d0
+                  end if
 
                   pmin = (1.0d0 - ssq)**2 * q(5) * (gamma - 1.0d0)
                   pmax = (gamma - 1.0d0) * (q(5) + q(1)) / (2.0d0 - gamma)
@@ -601,7 +636,7 @@ contains
                   h = 1.0d0 + gamma * (sq - p(i,j,k) * (q(5) + p(i,j,k) + q(1)) / sq - q(1)) / q(1)
                   W2 = 1.0d0 + ssq / (q(1) * h)**2
 
-                  !write(*,*) "h, W2, p", h, W2, p(i,j,k)
+                  !write(*,*) "p, sq", p(i,j,k), sq
 
                   U_prim(i,j,k,1) = q(1) * sq / (q(5) + p(i,j,k) + q(1))
                   U_prim(i,j,k,2) = (gamma_up(i,j,k,1) * q(2) + &
@@ -615,12 +650,16 @@ contains
                       (W2 * h * U_prim(i,j,k,1))
                   U_prim(i,j,k,5) = (h - 1.0d0) / gamma
 
+                  if (U_prim(i,j,k,2) /= U_prim(i,j,k,2)) then
+                      write(*,*) "p, q(1), sq, W, h", p(i,j,k), q(2), sq, W2, h
+                  end if
+
               end do
           end do
       end do
 
-      write(*,*) "U_comp", U(lo(1)+4, lo(2)+4, lo(3)+4, :)
-      write(*,*) "U_prim", U_prim(lo(1)+4, lo(2)+4, lo(3)+4, :)
+      write(*,*) "U_comp", U(lo(1)+3, lo(2)+3, lo(3)+3, :)
+      write(*,*) "U_prim", U_prim(lo(1), lo(2), lo(3), :)
       !write(*,*) "p", p(lo(1)+3, lo(2)+3, lo(3)+3)
       !write(*,*) "gamma_up", gamma_up(lo(1), lo(2), lo(3), 7:9)
       !write(*,*) "alpha0, R, M", alpha0, M, R

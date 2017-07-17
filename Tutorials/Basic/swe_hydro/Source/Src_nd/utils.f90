@@ -122,8 +122,7 @@ subroutine swe_from_comp(U_prim, prlo, prhi, U_swe, slo, shi, p_comp, &
                 U_prim(i,j,neighbour+1,4)**2 * gamma_up(i,j,neighbour+1,9)
 
             W = ssq * zfrac + (1.0d0 - zfrac) / sqrt(1.0d0 - W)
-            ! HACK
-            U_swe(i,j,k,1) = -log(alpha0 + M * h / (R**2 * alpha0)) * W
+            U_swe(i,j,k,1) = -log(alpha0 + M * h / (0.04*R * alpha0)) * W
             U_swe(i,j,k,2) = U_swe(i,j,k,1) * W * U_swe(i,j,k,2)
             U_swe(i,j,k,3) = U_swe(i,j,k,1) * W * U_swe(i,j,k,3)
             end do
@@ -165,6 +164,7 @@ end subroutine calc_gamma_up_swe
 
 subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_cons_comp, n_swe_comp, gamma, dx, alpha0, M, R, nghost) bind(C, name="comp_from_swe")
     ! TODO: what do I do about vertical velocity component????
+    use slope_module, only: slopez
     implicit none
 
     integer, intent(in) :: n_cons_comp, n_swe_comp, nghost
@@ -176,13 +176,14 @@ subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_co
     double precision, intent(in)  :: gamma, dx(3), alpha0, M, R
 
     double precision h_swe(lo(1)-nghost:hi(1)+nghost, lo(2)-nghost:hi(2)+nghost, slo(3):shi(3))
-    double precision v_swe(lo(1)-nghost:hi(1)+nghost, lo(2)-nghost:hi(2)+nghost, slo(3):shi(3), 2)
+    double precision v_swe(lo(1)-nghost:hi(1)+nghost, lo(2)-nghost:hi(2)+nghost, lo(3)-nghost:hi(3)+nghost, 2)
     double precision h_comp(lo(3)-nghost:hi(3)+nghost)
     double precision zfrac
     integer neighbour, minl(1)
     integer i, j, k, nlo(3), nhi(3)
     double precision W(lo(1)-nghost:hi(1)+nghost, lo(2)-nghost:hi(2)+nghost, min(slo(3),lo(3))-nghost:max(shi(3),hi(3))+nghost)
     double precision rhoh(lo(1)-nghost:hi(1)+nghost, lo(2)-nghost:hi(2)+nghost, lo(3)-nghost:hi(3)+nghost)
+
     double precision gamma_up_swe(lo(1)-nghost:hi(1)+nghost, lo(2)-nghost:hi(2)+nghost, slo(3):shi(3), 9)
     double precision gamma_up(lo(1)-nghost:hi(1)+nghost, lo(2)-nghost:hi(2)+nghost, lo(3)-nghost:hi(3)+nghost, 9)
     double precision dz
@@ -191,7 +192,8 @@ subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_co
     nlo = lo - nghost
     nhi = hi + nghost
 
-    write(*,*) "comp from swe, U_swe: ", U_swe(slo(1), slo(2), slo(3), :)
+    write(*,*) "comp from swe"
+    write(*,*), "U_swe: ", U_swe(lo(1)+3, lo(2)+3, slo(3)+3, :)
 
     call calc_gamma_up_swe(U_swe, slo, shi, nlo, nhi, n_swe_comp, gamma_up_swe)
     call calc_gamma_up(gamma_up, nlo, nhi, nlo, nhi, alpha0, M, R, dx)
@@ -211,7 +213,7 @@ subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_co
         h_swe = U_swe(nlo(1):nhi(1),nlo(2):nhi(2),slo(3):shi(3),4)
     else
         ! HACK
-        h_swe = alpha0 !* R**2 / M * (exp(-U_swe(nlo(1):nhi(1), nlo(2):nhi(2),slo(3):shi(3),1)) - alpha0)
+        h_swe = alpha0 * 0.04*R / M * (exp(-U_swe(nlo(1):nhi(1), nlo(2):nhi(2),slo(3):shi(3),1)) - alpha0)
     end if
 
     do k = slo(3), shi(3)
@@ -244,7 +246,7 @@ subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_co
                 if (h_swe(i,j,neighbour) < h_comp(k) .and. neighbour > lo(3)) then
                     neighbour = neighbour - 1
                 end if
-                if (neighbour == shi(3)-1) then
+                if (neighbour >= shi(3)-1) then
                     neighbour = neighbour - 1
                 end if
                 zfrac = 1.0d0 - (h_swe(i,j,neighbour) - h_comp(k)) / dz
@@ -354,6 +356,6 @@ subroutine calc_gamma_up(gamma_up, glo, ghi, lo, hi, alpha0, M, R, dx)
     gamma_up(:,:,:,5) = 1.0d0
 
     do k = lo(3), hi(3)
-        gamma_up(:,:,k,9) = (alpha0 + M * k * dx(3) / (R**2 * alpha0))**2
+        gamma_up(:,:,k,9) = (alpha0 + M * k * dx(3) / (0.04*R * alpha0))**2
     end do
 end subroutine calc_gamma_up

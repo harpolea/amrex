@@ -288,7 +288,6 @@ AmrAdv::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
     	Array<BCRec> bcs(1, BCRec(lo_bc, hi_bc));
 
         if (lev-1 == max_swe_level) {
-            std::cout << "y no comp from swe?\n";
             // do comp from swe conversion
             BoxArray ba = grids[lev-1];
             Array<MultiFab*> comp_mf;

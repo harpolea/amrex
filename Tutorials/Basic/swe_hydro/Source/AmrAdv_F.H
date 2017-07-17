@@ -12,7 +12,9 @@ extern "C"
 		  BL_FORT_FAB_ARG_3D(state),
 		  const amrex_real* dx, const amrex_real* problo,
           const int* Ncomp, const amrex_real* alpha0,
-          const amrex_real* M, const amrex_real* R);
+          const amrex_real* M, const amrex_real* R,
+          const amrex_real* p, const int* nlayers,
+          const amrex_real* gamma);
 
     void get_face_velocity(const int& level, const amrex_real& time,
                const BL_FORT_FAB_ARG_3D(state),
