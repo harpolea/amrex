@@ -193,7 +193,7 @@ subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_co
     nhi = hi + nghost
 
     write(*,*) "comp from swe"
-    write(*,*) "U_swe: ", U_swe(lo(1)+3, lo(2)+3, slo(3)+3, :)
+    write(*,*) "U_swe: ", U_swe(slo(1), slo(2), slo(3), :)
 
     call calc_gamma_up_swe(U_swe, slo, shi, nlo, nhi, n_swe_comp, gamma_up_swe)
     call calc_gamma_up(gamma_up, nlo, nhi, nlo, nhi, alpha0, M, R, dx)

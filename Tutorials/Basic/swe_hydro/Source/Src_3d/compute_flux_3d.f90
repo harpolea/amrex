@@ -580,13 +580,21 @@ contains
 
       call calc_gamma_up(gamma_up, lo, hi, lo, hi, alpha0, M, R, dx)
 
+      write(*,*) "cons_to_prim"
+
       do k = lo(3), hi(3)
           do j = lo(2), hi(2)
               do i = lo(1), hi(1)
                   q = U(i,j,k,:)
 
                   !HACK
+                  if (any(q /= q)) then
+                      write(*,*) "q is nan: ", q, i, j, k
+                      stop
+                  end if
                   if (q(1) /= q(1)) then
+                      write(*,*) "q is nan: ", q, i, j, k
+                      stop
                       q(1) = 1.0d0
                   end if
                   do l = 2, 4
@@ -673,7 +681,7 @@ contains
           end do
       end do
 
-      write(*,*) "U_comp", U(lo(1)+3, lo(2)+3, lo(3)+3, :)
+      write(*,*) "U_comp", U(lo(1)+4, lo(2)+4, lo(3)+4, :)
       write(*,*) "U_prim", U_prim(lo(1), lo(2), lo(3), :)
       !write(*,*) "p", p(lo(1)+3, lo(2)+3, lo(3)+3)
       !write(*,*) "gamma_up", gamma_up(lo(1), lo(2), lo(3), 7:9)
