@@ -64,7 +64,7 @@ PhysBCFunct::FillBoundary (MultiFab& mf, int, int, Real time)
     BL_PROFILE("PhysBCFunct::FillBoundary");
 
     if (mf.nGrow() == 0) return;
-    
+
     if (m_geom.isAllPeriodic()) return;
 
     const Box&     domain      = m_geom.Domain();
@@ -76,9 +76,9 @@ PhysBCFunct::FillBoundary (MultiFab& mf, int, int, Real time)
 
     Box gdomain = amrex::convert(domain, mf.boxArray().ixType());
     for (int i = 0; i < BL_SPACEDIM; ++i) {
-	if (m_geom.isPeriodic(i)) {
-	    gdomain.grow(i, mf.nGrow());
-	}
+    	if (m_geom.isPeriodic(i)) {
+    	    gdomain.grow(i, mf.nGrow());
+    	}
     }
 
 #ifdef _OPENMP

@@ -3,6 +3,7 @@
 #include <AMReX_ParmParse.H>
 #include <AMReX_MultiFabUtil.H>
 #include <AMReX_FillPatchUtil.H>
+#include <AMReX_BCUtil.H>
 
 #include "AmrAdv.H"
 #include "AmrAdvBC.H"
@@ -137,6 +138,8 @@ AmrAdv::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
     }
 
     FillCoarsePatch(lev, time, *phi_new[lev], 0, ncomp);
+
+    fill_physbc(*phi_new[lev], geom[lev]);
 
     //if (lev == max_swe_level+1) {
         // do conversion from swe to comp
@@ -301,6 +304,8 @@ AmrAdv::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
                      phi_new[lev]->nGrow()));
                 comp_from_swe_wrapper(lev-1, *cmf[i], *comp_mf[i]);
                 comp_mf[i]->FillBoundary(0, 5, geom[lev].periodicity());
+
+                fill_physbc(*comp_mf[i], geom[lev]);
             }
 
         	amrex::FillPatchTwoLevels(mf, time, comp_mf, ctime,
@@ -335,8 +340,10 @@ AmrAdv::FillCoarsePatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
     AmrAdvPhysBC cphysbc, fphysbc;
     Interpolater* mapper = &cell_cons_interp;
 
-    int lo_bc[] = {INT_DIR, INT_DIR, INT_DIR}; // periodic boundaryies
-    int hi_bc[] = {INT_DIR, INT_DIR, INT_DIR};
+    //int lo_bc[] = {INT_DIR, INT_DIR, INT_DIR}; // periodic boundaries
+    //int hi_bc[] = {INT_DIR, INT_DIR, INT_DIR};
+    int lo_bc[] = {FOEXTRAP, FOEXTRAP, FOEXTRAP}; // outflow boundaries
+    int hi_bc[] = {FOEXTRAP, FOEXTRAP, FOEXTRAP};
     Array<BCRec> bcs(1, BCRec(lo_bc, hi_bc));
 
     // NOTE: 0 index here as getdata using the vector push_back operation, so it puts the data from lev-1 into index 0 element of multifab array.
@@ -350,6 +357,9 @@ AmrAdv::FillCoarsePatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
         // do comp from swe conversion
         comp_from_swe_wrapper(lev, *swe_mf[0], mf);
     }
+
+    amrex::FillDomainBoundary(mf, geom[lev-1], bcs);
+    fill_physbc(mf, geom[lev-1]);
 }
 
 void
@@ -402,6 +412,8 @@ void AmrAdv::comp_from_swe_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf)
             &gamma, dx, &alpha0, &M, &R, &nghost);
     }
 
+    fill_physbc(comp_mf, geom[lev]);
+
     //comp_mf.FillBoundary(0, n_cons_comp, geom[lev].periodicity());
 }
 
@@ -443,6 +455,8 @@ void AmrAdv::swe_from_comp_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf)
             &alpha0, &M, &R,
             dx);
     }
+
+    fill_physbc(swe_mf, geom[lev]);
 
     //swe_mf.FillBoundary(0, n_swe_comp, geom[lev].periodicity());
 }

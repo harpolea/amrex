@@ -63,4 +63,6 @@ void AmrAdv::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     		 ZFILL(prob_lo), &ncomp, &alpha0, &M, &R,
              p, &nlayers, &gamma);
     }
+
+    fill_physbc(state, geom[lev]);
 }

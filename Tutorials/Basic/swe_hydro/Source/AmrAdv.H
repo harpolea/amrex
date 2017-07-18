@@ -35,6 +35,8 @@ public:
     virtual void InitFromScratch (amrex::Real time) override;
     //virtual amrex::BoxArray MakeBaseGrids () const override;
 
+    void fill_physbc (amrex::MultiFab& phi, const amrex::Geometry& geom);
+
 
 protected:
 

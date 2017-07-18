@@ -1,4 +1,4 @@
 CEXE_sources += main.cpp AmrAdv.cpp AmrAdvInit.cpp AmrAdvEvolve.cpp \
-                AmrAdvError.cpp AmrAdvIO.cpp
+                AmrAdvError.cpp AmrAdvIO.cpp physbc.cpp AmrAdvBC.cpp
 
-CEXE_headers += AmrAdv.H AmrAdvBC.H 
+CEXE_headers += AmrAdv.H AmrAdvBC.H

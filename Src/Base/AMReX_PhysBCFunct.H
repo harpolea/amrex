@@ -30,7 +30,7 @@ public:
     /**
     * \brief Return a ptr to a clone of this object.
     * It is the responsibility of the caller to delete the result.
-    */    
+    */
     virtual BndryFunctBase* clone () const;
     //! Fill boundary cells
     virtual void operator () (Real* data, const int* lo, const int* hi,

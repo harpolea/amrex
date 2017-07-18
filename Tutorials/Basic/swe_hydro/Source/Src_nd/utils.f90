@@ -193,7 +193,7 @@ subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_co
     nhi = hi + nghost
 
     write(*,*) "comp from swe"
-    write(*,*), "U_swe: ", U_swe(lo(1)+3, lo(2)+3, slo(3)+3, :)
+    write(*,*) "U_swe: ", U_swe(lo(1)+3, lo(2)+3, slo(3)+3, :)
 
     call calc_gamma_up_swe(U_swe, slo, shi, nlo, nhi, n_swe_comp, gamma_up_swe)
     call calc_gamma_up(gamma_up, nlo, nhi, nlo, nhi, alpha0, M, R, dx)
@@ -359,3 +359,70 @@ subroutine calc_gamma_up(gamma_up, glo, ghi, lo, hi, alpha0, M, R, dx)
         gamma_up(:,:,k,9) = (alpha0 + M * k * dx(3) / (0.04*R * alpha0))**2
     end do
 end subroutine calc_gamma_up
+
+subroutine gr_sources(S, slo, shi, U, ulo, uhi, p, plo, phi, alpha, alo, ahi, gamma_up, glo, ghi, M, R, gamma, Ncomp, lo, hi, dx)
+    implicit none
+
+    integer, intent(inout) :: slo(3), shi(3), ulo(3), uhi(3), plo(3), phi(3), alo(3), ahi(3), glo(3), ghi(3), lo(3), hi(3), Ncomp
+    double precision, intent(out)  :: S(slo(1):shi(1), slo(2):shi(2), slo(3):shi(3))
+    double precision, intent(in)  :: U(ulo(1):uhi(1), ulo(2):uhi(2), ulo(3):uhi(3), Ncomp)
+    double precision, intent(in)  :: p(plo(1):phi(1), plo(2):phi(2), plo(3):phi(3))
+    double precision, intent(in)  :: alpha(alo(1):ahi(1), alo(2):ahi(2), alo(3):ahi(3))
+    double precision, intent(in)  :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
+    double precision, intent(in)  :: M, R, gamma, dx(3)
+
+    double precision Ssq(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision h(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision W2(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision S_temp
+    integer i,j,k
+
+    Ssq(:,:,:) = U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 2)**2 * &
+        gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),1) + &
+        2.0d0 * U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 2) * &
+        U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 3) * &
+        gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),2) + &
+        2.0d0 * U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 2) * &
+        U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 4) * &
+        gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),3) + &
+        U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 3)**2 * &
+        gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),5) + &
+        2.0d0 * U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 3) * &
+        U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 4) * &
+        gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),6) + &
+        U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 4)**2 * &
+        gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),9)
+
+    h = 1.0d0 + gamma * &
+        (sqrt((U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 5) + &
+        p(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3)) + &
+        U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 1))**2 - Ssq) - &
+        p(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3)) * &
+        (U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 5) + &
+        p(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3)) + &
+        U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 1)) / &
+        sqrt((U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 5) + &
+        p(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3)) + &
+        U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 1))**2 - Ssq) - &
+        U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 1)) / &
+        U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 1)
+
+    W2 = 1.0d0 + Ssq / &
+        (U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 1) * h)**2
+
+    do i = lo(1), hi(1)
+        do j = lo(2), hi(2)
+            do k = lo(3), hi(3)
+                S_temp = - M / R**2 * &
+                    (alpha(i,j,k) * U(i,j,k, 4)**2 / W2(i,j,k) + &
+                    (U(i,j,k, 5) + p(i,j,k) + U(i,j,k, 1)) / &
+                    alpha(i,j,k))
+                if (S_temp == S_temp) then ! not nan
+                    S(i,j,k) = S(i,j,k) + dx(3) * alpha(i,j,k) * S_temp
+                end if
+
+            end do
+        end do
+    end do
+
+end subroutine gr_sources

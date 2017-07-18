@@ -37,7 +37,7 @@ extern "C"
 		       BL_FORT_FAB_ARG_3D(fy),
 		       BL_FORT_FAB_ARG_3D(fz)),
 		const amrex_real* dx, const amrex_real& dt, const int* Ncomp,
-        const bool* gr);
+        const bool* gr, const amrex_real* alpha0, const amrex_real* M, const amrex_real* R);
 
     void comp_from_swe(BL_FORT_FAB_ARG_3D(U_comp),
         const BL_FORT_FAB_ARG_3D(U_swe),

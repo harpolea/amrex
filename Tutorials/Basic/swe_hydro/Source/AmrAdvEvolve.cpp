@@ -146,6 +146,8 @@ AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
     MultiFab Sborder(grids[lev], dmap[lev], S_new.nComp(), num_grow);
     FillPatch(lev, time, Sborder, 0, S_new.nComp());
 
+    fill_physbc(Sborder, geom[lev]);
+
     //Sborder.FillBoundary();
     //for (int i = 0; i < Sborder.nComp(); i++) {
         //FillPatch(lev, time, Sborder, i, 1);//Sborder.nComp());
@@ -169,15 +171,13 @@ AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
         		flux[i].resize(amrex::grow(bx,3),S_new.nComp());
     	    }
 
-
-
             advect(time, bx.loVect(), bx.hiVect(),
           		   BL_TO_FORTRAN_3D(statein),
           		   BL_TO_FORTRAN_3D(stateout),
           		   AMREX_D_DECL(BL_TO_FORTRAN_3D(flux[0]),
           			  BL_TO_FORTRAN_3D(flux[1]),
           			  BL_TO_FORTRAN_3D(flux[2])),
-          		   dx, dt, &ncomp, &gr);
+          		   dx, dt, &ncomp, &gr, &alpha0, &M, &R);
 
     	    if (do_reflux) {
         		for (int i = 0; i < BL_SPACEDIM ; i++) {
@@ -201,6 +201,8 @@ AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
     	    }
     	}
     }
+
+    fill_physbc(S_new, geom[lev]);
 }
 
 void
