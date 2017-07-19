@@ -139,6 +139,7 @@ AmrAdv::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 
     FillCoarsePatch(lev, time, *phi_new[lev], 0, ncomp);
 
+    phi_new[lev]->FillBoundary(geom[lev].periodicity());
     fill_physbc(*phi_new[lev], geom[lev]);
 
     //if (lev == max_swe_level+1) {
@@ -174,6 +175,11 @@ AmrAdv::RemakeLevel (int lev, Real time, const BoxArray& ba,
     if (lev > 0 && do_reflux) {
 	       flux_reg[lev].reset(new FluxRegister(ba, dm, refRatio(lev-1), lev, ncomp));
     }
+
+    phi_new[lev]->FillBoundary(geom[lev].periodicity());
+    fill_physbc(*phi_new[lev], geom[lev]);
+    phi_old[lev]->FillBoundary(geom[lev].periodicity());
+    fill_physbc(*phi_old[lev], geom[lev]);
 }
 
 void
@@ -213,10 +219,16 @@ AmrAdv::AverageDown ()
  			     geom[lev+1], geom[lev],
  			     0, n_swe_comp, refRatio(lev));
 
+                 phi_new[lev]->FillBoundary(geom[lev].periodicity());
+                 fill_physbc(*phi_new[lev], geom[lev]);
+
         } else {
             amrex::average_down(*phi_new[lev+1], *phi_new[lev],
  			     geom[lev+1], geom[lev],
  			     0, phi_new[lev]->nComp(), refRatio(lev));
+
+                 phi_new[lev]->FillBoundary(geom[lev].periodicity());
+                 fill_physbc(*phi_new[lev], geom[lev]);
         }
     }
 }
@@ -275,6 +287,9 @@ AmrAdv::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
     	AmrAdvPhysBC physbc;
     	amrex::FillPatchSingleLevel(mf, time, smf, stime, 0, icomp, ncomp,
     				     geom[lev], physbc);
+
+        mf.FillBoundary(geom[lev].periodicity());
+        fill_physbc(mf, geom[lev]);
     }
     else
     {
@@ -303,7 +318,7 @@ AmrAdv::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
                      dmap[lev-1], phi_new[lev]->nComp(),
                      phi_new[lev]->nGrow()));
                 comp_from_swe_wrapper(lev-1, *cmf[i], *comp_mf[i]);
-                comp_mf[i]->FillBoundary(0, 5, geom[lev].periodicity());
+                comp_mf[i]->FillBoundary(geom[lev].periodicity());
 
                 fill_physbc(*comp_mf[i], geom[lev]);
             }
@@ -320,6 +335,9 @@ AmrAdv::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
         				   cphysbc, fphysbc, refRatio(lev-1),
         				   mapper, bcs);
         }
+
+        mf.FillBoundary(geom[lev].periodicity());
+        fill_physbc(mf, geom[lev]);
     }
 }
 
@@ -358,8 +376,9 @@ AmrAdv::FillCoarsePatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
         comp_from_swe_wrapper(lev, *swe_mf[0], mf);
     }
 
-    amrex::FillDomainBoundary(mf, geom[lev-1], bcs);
-    fill_physbc(mf, geom[lev-1]);
+    //amrex::FillDomainBoundary(mf, geom[lev-1], bcs);
+    mf.FillBoundary(geom[lev].periodicity());
+    fill_physbc(mf, geom[lev]);
 }
 
 void
@@ -411,7 +430,7 @@ void AmrAdv::comp_from_swe_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf)
             &n_cons_comp, &n_swe_comp,
             &gamma, dx, &alpha0, &M, &R, &nghost);
     }
-
+    comp_mf.FillBoundary(geom[lev].periodicity());
     fill_physbc(comp_mf, geom[lev]);
 
     //comp_mf.FillBoundary(0, n_cons_comp, geom[lev].periodicity());
@@ -455,7 +474,7 @@ void AmrAdv::swe_from_comp_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf)
             &alpha0, &M, &R,
             dx);
     }
-
+    swe_mf.FillBoundary(geom[lev].periodicity());
     fill_physbc(swe_mf, geom[lev]);
 
     //swe_mf.FillBoundary(0, n_swe_comp, geom[lev].periodicity());

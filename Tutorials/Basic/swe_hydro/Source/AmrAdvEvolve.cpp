@@ -146,6 +146,7 @@ AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
     MultiFab Sborder(grids[lev], dmap[lev], S_new.nComp(), num_grow);
     FillPatch(lev, time, Sborder, 0, S_new.nComp());
 
+    Sborder.FillBoundary(geom[lev].periodicity());
     fill_physbc(Sborder, geom[lev]);
 
     //Sborder.FillBoundary();
@@ -202,6 +203,7 @@ AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
     	}
     }
 
+    S_new.FillBoundary(geom[lev].periodicity());
     fill_physbc(S_new, geom[lev]);
 }
 
@@ -248,7 +250,7 @@ AmrAdv::EstTimeStep (int lev, bool local) const
     const Real cur_time = t_new[lev];
     const MultiFab& S_new = *phi_new[lev];
 
-    int ncomp = phi_new[lev]->nComp();
+    //int ncomp = phi_new[lev]->nComp();
     //int num_grow = phi_new[lev]->nGrow();
     //constexpr int num_grow = 3;
 
@@ -260,24 +262,24 @@ AmrAdv::EstTimeStep (int lev, bool local) const
 #pragma omp parallel reduction(min:dt_est)
 #endif
     {
-    	FArrayBox uface[BL_SPACEDIM];
+    	//FArrayBox uface[BL_SPACEDIM];
 
     	for (MFIter mfi(S_new, true); mfi.isValid(); ++mfi)
     	{
-    	    for (int i = 0; i < BL_SPACEDIM ; i++) {
+    	    /*for (int i = 0; i < BL_SPACEDIM ; i++) {
         		const Box& bx = mfi.nodaltilebox(i);
         		uface[i].resize(bx,1);
     	    }
 
     	    const FArrayBox& statein = S_new[mfi];
 
-    	    /*get_face_velocity(lev, cur_time,
+    	    get_face_velocity(lev, cur_time,
                       BL_TO_FORTRAN_3D(statein),
     			      AMREX_D_DECL(BL_TO_FORTRAN(uface[0]),
     				     BL_TO_FORTRAN(uface[1]),
     				     BL_TO_FORTRAN(uface[2])),
     			      &ncomp);*/
-
+            // NOTE: set face velocity to be 1
     	    for (int i = 0; i < BL_SPACEDIM; ++i) {
         		Real umax = 1.0; //uface[i].norm(0);
         		if (umax > 1.e-100) {
