@@ -1,6 +1,7 @@
 language: cpp
 
 before_install:
+  - sudo apt-get install libcr-dev mpich2 mpich2-doc
   - cd Tutorials/Basic/swe_hydro/Tests
 install:
   - make
