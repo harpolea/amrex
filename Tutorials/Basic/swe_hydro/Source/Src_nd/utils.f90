@@ -315,7 +315,6 @@ subroutine rhoh_from_p(rhoh, p, rho, gamma, clo, chi, lo, hi)
 
 end subroutine rhoh_from_p
 
-
 subroutine p_from_rhoh(rhoh, p, rho, gamma, lo, hi)
     implicit none
 
@@ -368,8 +367,6 @@ subroutine calc_gamma_down(gamma_down, glo, ghi, lo, hi, alpha0, M, R, dx)
     double precision, intent(out)  :: gamma_down(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
     double precision, intent(in)  :: alpha0, M, R
     double precision, intent(in)  :: dx(3)
-
-    integer k
 
     call calc_gamma_up(gamma_down, glo, ghi, lo, hi, alpha0, M, R, dx)
 

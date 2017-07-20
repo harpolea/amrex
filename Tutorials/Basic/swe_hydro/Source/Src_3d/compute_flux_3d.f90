@@ -4,7 +4,7 @@ module compute_flux_module
 
   private
 
-  public :: compute_flux_3d, cons_to_prim
+  public :: compute_flux_3d, cons_to_prim, gr_swe_flux, f_of_p, zbrent, gr_comp_flux
 
 contains
 
@@ -678,7 +678,7 @@ contains
 
                   U_prim(i,j,k,2) = gamma_down(i,j,k,1) * v_up(1) + gamma_down(i,j,k,2) * v_up(2) + gamma_down(i,j,k,3) * v_up(3)
                   U_prim(i,j,k,3) = gamma_down(i,j,k,4) * v_up(1) + gamma_down(i,j,k,5) * v_up(2) + gamma_down(i,j,k,6) * v_up(3)
-                  U_prim(i,j,k,4) = gamma_down(i,j,k,7) * v_up(1) + gamma_down(i,j,k,8) * v_up(2) + gamma_down(i,j,k,9) * v_up(3) 
+                  U_prim(i,j,k,4) = gamma_down(i,j,k,7) * v_up(1) + gamma_down(i,j,k,8) * v_up(2) + gamma_down(i,j,k,9) * v_up(3)
                   U_prim(i,j,k,5) = (h - 1.0d0) / gamma
 
                   if (U_prim(i,j,k,2) /= U_prim(i,j,k,2)) then
