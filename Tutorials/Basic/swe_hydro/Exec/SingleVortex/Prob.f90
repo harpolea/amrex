@@ -39,7 +39,7 @@ subroutine initdata(level, time, lo, hi, &
   phi(:,:,:,:) = 0.0d0
 
   z_surface = 1.0d0
-  Kk = 500.0d0
+  Kk = 1.0d0
   rho_ref = 1.0d0
 
   gamma_surf = (1.0d0 - M * z_surface / (R*alpha0)**2) / alpha0
@@ -77,11 +77,11 @@ subroutine initdata(level, time, lo, hi, &
            else
                ! height
                if (k < 1) then
-                   h = 0.04*R*alpha0**2 / M * (1.0d0 - alpha0/R * (p(1) / (Kk * rho_ref**gamma) + gamma_surf))
+                   h = R*alpha0**2 / M * (1.0d0 - alpha0/R * (p(1) / (Kk * rho_ref**gamma) + gamma_surf))
                else if (k > nlayers) then
-                   h = 0.04*R*alpha0**2 / M * (1.0d0 - alpha0/R * gamma_surf)
+                   h = R*alpha0**2 / M * (1.0d0 - alpha0/R * gamma_surf)
                else
-                   h = 0.04*R*alpha0**2 / M * (1.0d0 - alpha0/R * (p(k) / (Kk * rho_ref**gamma) + gamma_surf))
+                   h = R*alpha0**2 / M * (1.0d0 - alpha0/R * (p(k) / (Kk * rho_ref**gamma) + gamma_surf))
                end if
 
                !write(*,*) "alpha0 = ", alpha0, "gamma = ", gamma, "gamma_surf = ", gamma_surf, "h = ", h

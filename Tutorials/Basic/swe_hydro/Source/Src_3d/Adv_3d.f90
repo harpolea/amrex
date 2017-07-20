@@ -59,14 +59,14 @@ subroutine advect(time, lo, hi, &
 
   ! HACK: while the boundaries don't work
   if (Ncomp == 5) then
-      do k = ui_lo(3), ui_hi(3)
-          do j = ui_lo(2), ui_hi(2)
+      do         k = ui_lo(3), ui_hi(3)
+          do     j = ui_lo(2), ui_hi(2)
               do i = ui_lo(1), ui_hi(1)
                   if (abs(uin(i,j,k,1)) < 1.0d-20) then
-                      uin(i,j,k,1) = 1.0d0
+                      uin(i,j,k,1) = sum(uin(:,:,:,1), uin(:,:,:,1) == uin(:,:,:,1)) / count( uin(:,:,:,1) == uin(:,:,:,1))
                   end if
                   if (uin(i,j,k,5) <= 1.0d-20 .or. uin(i,j,k,5) == 1.0d0) then
-                      uin(i,j,k,5) = 1.5d0
+                      uin(i,j,k,5) = sum(uin(:,:,:,5), uin(:,:,:,5) == uin(:,:,:,5)) / count( uin(:,:,:,5) == uin(:,:,:,5))
                   end if
               end do
           end do

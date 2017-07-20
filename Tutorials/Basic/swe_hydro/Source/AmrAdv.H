@@ -72,6 +72,16 @@ private:
     amrex::Array<const amrex::MultiFab*> PlotFileMF () const;
     amrex::Array<std::string> PlotFileVarNames () const;
     void WritePlotFile () const;
+    void
+    WriteMultiLevelPlotfile (const std::string& plotfilename,
+                             int nlevels,
+                             const amrex::Array<const amrex::MultiFab*>& mf,
+                             const amrex::Array<std::string>& varnames,
+                             const amrex::Array<amrex::Geometry>& geom, Real time, const amrex::Array<int>& level_steps,
+                             const amrex::Array<amrex::IntVect>& ref_ratio,
+                             const std::string &versionName,
+                             const std::string &levelPrefix,
+                             const std::string &mfPrefix);
 
     amrex::Array<int> istep;      // which step?
     amrex::Array<int> nsubsteps;  // how many substeps on each level?

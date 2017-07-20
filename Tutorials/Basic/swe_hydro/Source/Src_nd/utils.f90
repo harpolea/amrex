@@ -9,8 +9,8 @@ subroutine W_swe(q, slo, shi, lo, hi, Ncomp, gamma_up, glo, ghi, W)
 
     integer i,j,l
 
-    do l = slo(3), shi(3)
-        do j = lo(2), hi(2)
+    do         l = slo(3), shi(3)
+        do     j = lo(2), hi(2)
             do i = lo(1), hi(1)
                 if (q(i,j,l,1) < 1.d-20) then
                     W(i,j,l) = 1.0d0
@@ -61,10 +61,10 @@ subroutine swe_from_comp(U_prim, prlo, prhi, U_swe, slo, shi, p_comp, &
 
     !write(*,*) "p_swe = ", p_swe(slo(3))
 
-    do k = slo(3), shi(3)
+    do         k = slo(3), shi(3)
         ! neighbour is the comp layer above
         ! check if this layer is above or below
-        do j = lo(2), hi(2)
+        do     j = lo(2), hi(2)
             do i = lo(1), hi(1)
                 ! find nearest layer
                 minl = minloc(abs(p_comp(i,j,lo(3):hi(3)) - p_swe(k)))
@@ -122,7 +122,7 @@ subroutine swe_from_comp(U_prim, prlo, prhi, U_swe, slo, shi, p_comp, &
                 U_prim(i,j,neighbour+1,4)**2 * gamma_up(i,j,neighbour+1,9)
 
             W = ssq * zfrac + (1.0d0 - zfrac) / sqrt(1.0d0 - W)
-            U_swe(i,j,k,1) = -log(alpha0 + M * h / (0.04*R * alpha0)) * W
+            U_swe(i,j,k,1) = -log(alpha0 + M * h / (R * alpha0)) * W
             U_swe(i,j,k,2) = U_swe(i,j,k,1) * W * U_swe(i,j,k,2)
             U_swe(i,j,k,3) = U_swe(i,j,k,1) * W * U_swe(i,j,k,3)
             end do
@@ -193,7 +193,7 @@ subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_co
     nhi = hi + nghost
 
     write(*,*) "comp from swe"
-    write(*,*) "U_swe: ", U_swe(slo(1), slo(2), slo(3), :)
+    write(*,*) "U_swe: ", U_swe(slo(1)+nghost, slo(2)+nghost, slo(3)+nghost, :), slo(1)+nghost, slo(2)+nghost, slo(3)+nghost
 
     call calc_gamma_up_swe(U_swe, slo, shi, nlo, nhi, n_swe_comp, gamma_up_swe)
     call calc_gamma_up(gamma_up, nlo, nhi, nlo, nhi, alpha0, M, R, dx)
@@ -213,11 +213,11 @@ subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_co
         h_swe = U_swe(nlo(1):nhi(1),nlo(2):nhi(2),slo(3):shi(3),4)
     else
         ! HACK
-        h_swe = alpha0 * 0.04*R / M * (exp(-U_swe(nlo(1):nhi(1), nlo(2):nhi(2),slo(3):shi(3),1)) - alpha0)
+        h_swe = alpha0 * R / M * (exp(-U_swe(nlo(1):nhi(1), nlo(2):nhi(2),slo(3):shi(3),1)) - alpha0)
     end if
 
-    do k = slo(3), shi(3)
-        do j = nlo(2), nhi(2)
+    do         k = slo(3), shi(3)
+        do     j = nlo(2), nhi(2)
             do i = nlo(1), nhi(1)
                 if (U_swe(i,j,k,1) < 1.d-20) then
                     v_swe(i,j,k,1) = U_swe(i,j,k,2)
@@ -235,10 +235,10 @@ subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_co
     U_comp(:,:,:,:) = 0.0d0
 
     ! calculate layer fracs and interpolate
-    do k = nlo(3), nhi(3)
+    do        k = nlo(3), nhi(3)
         ! neighbour is the swe layer above
         ! check if this layer is above or below
-        do j = nlo(2), nhi(2)
+        do     j = nlo(2), nhi(2)
             do i = nlo(1), nhi(1)
                 ! find nearest layer
                 minl = minloc(abs(h_swe(i,j,slo(3)+1:shi(3)-1) - h_comp(k)))
@@ -284,8 +284,8 @@ subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_co
 
     call rhoh_from_p(rhoh, U_comp(:,:,:,5), U_comp(:,:,:,1), gamma, clo, chi, nlo, nhi)
 
-    do k = nlo(3), nhi(3)
-        do j = nlo(2), nhi(2)
+    do         k = nlo(3), nhi(3)
+        do     j = nlo(2), nhi(2)
             do i = nlo(1), nhi(1)
                 U_comp(i,j,k,1) = U_comp(i,j,k,1) * W(i,j,k)
                 U_comp(i,j,k,2) = rhoh(i,j,k) * W(i,j,k)**2 * U_comp(i,j,k,2)
@@ -310,7 +310,8 @@ subroutine rhoh_from_p(rhoh, p, rho, gamma, clo, chi, lo, hi)
     double precision, intent(in)  :: gamma
     double precision, intent(out)  :: rhoh(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
 
-    rhoh = rho(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3)) + gamma * p(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3)) / (gamma - 1.0d0)
+    rhoh = rho(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3)) + &
+        gamma * p(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3)) / (gamma - 1.0d0)
 
 end subroutine rhoh_from_p
 
@@ -356,9 +357,24 @@ subroutine calc_gamma_up(gamma_up, glo, ghi, lo, hi, alpha0, M, R, dx)
     gamma_up(:,:,:,5) = 1.0d0
 
     do k = lo(3), hi(3)
-        gamma_up(:,:,k,9) = (alpha0 + M * k * dx(3) / (0.04*R * alpha0))**2
+        gamma_up(:,:,k,9) = (alpha0 + M * k * dx(3) / (R * alpha0))**2
     end do
 end subroutine calc_gamma_up
+
+subroutine calc_gamma_down(gamma_down, glo, ghi, lo, hi, alpha0, M, R, dx)
+    implicit none
+
+    integer, intent(in) :: glo(3), ghi(3), lo(3), hi(3)
+    double precision, intent(out)  :: gamma_down(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
+    double precision, intent(in)  :: alpha0, M, R
+    double precision, intent(in)  :: dx(3)
+
+    integer k
+
+    call calc_gamma_up(gamma_down, glo, ghi, lo, hi, alpha0, M, R, dx)
+
+    gamma_down(:,:,:,9) = 1.0 / gamma_down(:,:,:,9)
+end subroutine calc_gamma_down
 
 subroutine gr_sources(S, slo, shi, U, ulo, uhi, p, plo, phi, alpha, alo, ahi, gamma_up, glo, ghi, M, R, gamma, Ncomp, lo, hi, dx)
     implicit none
@@ -410,10 +426,10 @@ subroutine gr_sources(S, slo, shi, U, ulo, uhi, p, plo, phi, alpha, alo, ahi, ga
     W2 = 1.0d0 + Ssq / &
         (U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 1) * h)**2
 
-    do i = lo(1), hi(1)
-        do j = lo(2), hi(2)
-            do k = lo(3), hi(3)
-                S_temp = - M / R**2 * &
+    do         k = lo(3), hi(3)
+        do     j = lo(2), hi(2)
+            do i = lo(1), hi(1)
+                S_temp = -M / R**2 * &
                     (alpha(i,j,k) * U(i,j,k, 4)**2 / W2(i,j,k) + &
                     (U(i,j,k, 5) + p(i,j,k) + U(i,j,k, 1)) / &
                     alpha(i,j,k))

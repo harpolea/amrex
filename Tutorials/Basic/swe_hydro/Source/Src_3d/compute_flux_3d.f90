@@ -4,7 +4,7 @@ module compute_flux_module
 
   private
 
-  public :: compute_flux_3d
+  public :: compute_flux_3d, cons_to_prim
 
 contains
 
@@ -244,7 +244,7 @@ contains
       f(:,:,:,:) = 0.0d0
 
       if (x_dir == 0) then
-          do k = lo(3), hi(3)
+          do        k = lo(3), hi(3)
               do    j = lo(2), hi(2)
                  do i = lo(1)-1, hi(1)+1
                     f(i,j,k,1) =  U(i,j,k,2)
@@ -254,7 +254,7 @@ contains
               end do
           end do
       else if (x_dir == 1) then
-          do k = lo(3), hi(3)
+          do        k = lo(3), hi(3)
               do    j = lo(2)-1, hi(2)+1
                  do i = lo(1), hi(1)
                     f(i,j,k,1) =  U(i,j,k,3)
@@ -321,7 +321,7 @@ contains
       f(:,:,:,:) = 0.0d0
 
       if (x_dir == 0) then
-          do k = lo(3), hi(3)
+          do        k = lo(3), hi(3)
               do    j = lo(2), hi(2)
                  do i = lo(1)-1, hi(1)+1
                     if (U(i,j,k,1) < 1.d-20) then
@@ -347,7 +347,7 @@ contains
               end do
           end do
       else if (x_dir == 1) then
-          do k = lo(3), hi(3)
+          do        k = lo(3), hi(3)
               do    j = lo(2)-1, hi(2)+1
                  do i = lo(1), hi(1)
                      if (U(i,j,k,1) < 1.d-20) then
@@ -392,7 +392,7 @@ contains
       p = (gamma - 1.d0) * (U(:,:,:,5) - 0.5d0 * (U(:,:,:,2)**2 + U(:,:,:,3)**2 + U(:,:,:,4)**2) / U(:,:,:,1))
 
       if (x_dir == 0) then
-          do k = lo(3), hi(3)
+          do        k = lo(3), hi(3)
               do    j = lo(2), hi(2)
                  do i = lo(1)-1, hi(1)+1
                     f(i,j,k,1) =  U(i,j,k,2)
@@ -404,7 +404,7 @@ contains
               end do
           end do
       else if (x_dir == 1) then
-          do k = lo(3), hi(3)
+          do        k = lo(3), hi(3)
               do    j = lo(2)-1, hi(2)+1
                  do i = lo(1), hi(1)
                     f(i,j,k,1) =  U(i,j,k,3)
@@ -416,7 +416,7 @@ contains
               end do
           end do
       else
-          do k = lo(3)-1, hi(3)+1
+          do        k = lo(3)-1, hi(3)+1
               do    j = lo(2), hi(2)
                  do i = lo(1), hi(1)
                     f(i,j,k,1) =  U(i,j,k,4)
@@ -575,27 +575,27 @@ contains
       double precision, intent(in)  :: gamma, alpha0, M, R, dx(3)
 
       double precision gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 9)
-      double precision :: pmin, pmax, ssq, q(Ncomp), fmin, fmax, sq, h, W2
+      double precision gamma_down(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 9)
+      double precision :: pmin, pmax, ssq, q(Ncomp), fmin, fmax, sq, h, W2, v_up(3)
       integer :: i, j, k, l
 
       call calc_gamma_up(gamma_up, lo, hi, lo, hi, alpha0, M, R, dx)
+      call calc_gamma_down(gamma_down, lo, hi, lo, hi, alpha0, M, R, dx)
 
       write(*,*) "cons_to_prim"
 
-      do k = lo(3), hi(3)
-          do j = lo(2), hi(2)
-              do i = lo(1), hi(1)
+      do            k = lo(3), hi(3)
+          do        j = lo(2), hi(2)
+              do    i = lo(1), hi(1)
                   q = U(i,j,k,:)
 
                   !HACK
-                  if (any(q /= q)) then
-                      write(*,*) "q is nan: ", q, i, j, k
-                      stop
-                  end if
-                  if (q(1) /= q(1)) then
-                      write(*,*) "q is nan: ", q, i, j, k
-                      stop
-                      q(1) = 1.0d0
+                  !if (any(q /= q)) then
+                      !write(*,*) "q is nan: ", q, i, j, k
+                      !stop
+                  !end if
+                  if (q(1) /= q(1)) then !replace by average
+                      q(1) = sum(U(:,:,k,1), U(:,:,k,1) == U(:,:,k,1)) / count(U(:,:,k,1) == U(:,:,k,1))
                   end if
                   do l = 2, 4
                       if (q(l) /= q(l)) then
@@ -603,7 +603,7 @@ contains
                       end if
                   end do
                   if (q(5) == 1.0d0 .or. q(5) /= q(5)) then
-                      q(5) = 1.5d0
+                      q(5) = sum(U(:,:,k,5), U(:,:,k,5) == U(:,:,k,5)) / count(U(:,:,k,5) == U(:,:,k,5))
                   end if
                   ssq = q(2)**2 * gamma_up(i,j,k,1) + &
                       2.0d0 * q(2) * q(3) * gamma_up(i,j,k,2) + &
@@ -619,11 +619,15 @@ contains
                   pmin = (1.0d0 - ssq)**2 * q(5) * (gamma - 1.0d0)
                   pmax = (gamma - 1.0d0) * (q(5) + q(1)) / (2.0d0 - gamma)
 
+                  if (i == lo(1)+1 .and. j == lo(2)+1 .and. k == lo(3)+1) then
+                      write(*,*) "pmin: ", pmin, "pmax: ", pmax, "ssq: ", ssq, "D: ", q(1), "tau: ", q(5)
+                  end if
+
                   if (pmin < 0.0d0) then
                       pmin = 0.d0
                   end if
 
-                  if (pmax < 0.d0 .or. pmax < pmin) then
+                  if (pmax > 1.d0 .or. pmax < pmin) then
                       pmax = 1.0d0
                   end if
 
@@ -662,15 +666,19 @@ contains
                   !write(*,*) "p, sq", p(i,j,k), sq
 
                   U_prim(i,j,k,1) = q(1) * sq / (q(5) + p(i,j,k) + q(1))
-                  U_prim(i,j,k,2) = (gamma_up(i,j,k,1) * q(2) + &
+                  v_up(1) = (gamma_up(i,j,k,1) * q(2) + &
                       gamma_up(i,j,k,2) * q(3) + gamma_up(i,j,k,3) * q(4)) /&
                       (W2 * h * U_prim(i,j,k,1))
-                  U_prim(i,j,k,3) = (gamma_up(i,j,k,4) * q(2) + &
+                  v_up(2) = (gamma_up(i,j,k,4) * q(2) + &
                       gamma_up(i,j,k,5) * q(3) + gamma_up(i,j,k,6) * q(4)) /&
                       (W2 * h * U_prim(i,j,k,1))
-                  U_prim(i,j,k,4) = (gamma_up(i,j,k,3) * q(2) + &
+                  v_up(3) = (gamma_up(i,j,k,3) * q(2) + &
                       gamma_up(i,j,k,6) * q(3) + gamma_up(i,j,k,9) * q(4)) /&
                       (W2 * h * U_prim(i,j,k,1))
+
+                  U_prim(i,j,k,2) = gamma_down(i,j,k,1) * v_up(1) + gamma_down(i,j,k,2) * v_up(2) + gamma_down(i,j,k,3) * v_up(3)
+                  U_prim(i,j,k,3) = gamma_down(i,j,k,4) * v_up(1) + gamma_down(i,j,k,5) * v_up(2) + gamma_down(i,j,k,6) * v_up(3)
+                  U_prim(i,j,k,4) = gamma_down(i,j,k,7) * v_up(1) + gamma_down(i,j,k,8) * v_up(2) + gamma_down(i,j,k,9) * v_up(3) 
                   U_prim(i,j,k,5) = (h - 1.0d0) / gamma
 
                   if (U_prim(i,j,k,2) /= U_prim(i,j,k,2)) then
@@ -682,7 +690,8 @@ contains
       end do
 
       write(*,*) "U_comp", U(lo(1)+4, lo(2)+4, lo(3)+4, :)
-      write(*,*) "U_prim", U_prim(lo(1), lo(2), lo(3), :)
+      write(*,*) "U_prim", U_prim(lo(1)+1, lo(2)+1, lo(3)+1, :)
+      write(*,*) "p: ", p(lo(1), lo(2), lo(3):hi(3))
       !write(*,*) "p", p(lo(1)+3, lo(2)+3, lo(3)+3)
       !write(*,*) "gamma_up", gamma_up(lo(1), lo(2), lo(3), 7:9)
       !write(*,*) "alpha0, R, M", alpha0, M, R
@@ -702,17 +711,17 @@ contains
       integer :: i,j,k
       double precision :: p(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
       double precision :: U_prim(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1, Ncomp)
-      double precision :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
+      !double precision :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
       double precision :: beta(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 3)
       !double precision, parameter :: M = 1.0d0, R = 100.0d0
       !double precision alpha0
 
       alpha = sqrt(1.0d0 - 2.0d0 * M / (R+1.0))
       beta = 0.0d0
-      gamma_up = 0.0d0
-      gamma_up(:,:,:,1) = 1.0d0
-      gamma_up(:,:,:,5) = 1.0d0
-      gamma_up(:,:,:,9) = alpha**2
+      !gamma_up = 0.0d0
+      !gamma_up(:,:,:,1) = 1.0d0
+      !gamma_up(:,:,:,5) = 1.0d0
+      !gamma_up(:,:,:,9) = alpha**2
 
       !alpha0 = sqrt(1.0d0 - 2.0d0 * M / R)
 
@@ -739,8 +748,8 @@ contains
       f(:,:,:,:) = 0.0d0
 
       if (dir == 0) then
-          do k = lo(3), hi(3)
-              do j = lo(2), hi(2)
+          do         k = lo(3), hi(3)
+              do     j = lo(2), hi(2)
                   do i = lo(1)-1, hi(1)+1
                       f(i,j,k,1) = U(i,j,k,1) * (U_prim(i,j,k,2) - &
                            beta(i,j,k,1) / alpha(i,j,k))
@@ -758,8 +767,8 @@ contains
                end do
            end do
       else if (dir == 1) then
-          do k = lo(3), hi(3)
-              do j = lo(2)-1, hi(2)+1
+          do         k = lo(3), hi(3)
+              do     j = lo(2)-1, hi(2)+1
                   do i = lo(1), hi(1)
                       !write(*,*) "y, alpha", alpha(lo(1),lo(2),lo(3))
                       f(i,j,k,1) = U(i,j,k,1) * (U_prim(i,j,k,3) - &
@@ -778,8 +787,8 @@ contains
                end do
            end do
        else
-           do k = lo(3)-1, hi(3)+1
-               do j = lo(2), hi(2)
+           do         k = lo(3)-1, hi(3)+1
+               do     j = lo(2), hi(2)
                    do i = lo(1), hi(1)
                        !write(*,*) "y, alpha", alpha(lo(1),lo(2),lo(3))
                        f(i,j,k,1) = U(i,j,k,1) * (U_prim(i,j,k,4) - &

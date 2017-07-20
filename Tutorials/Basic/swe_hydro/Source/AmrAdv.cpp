@@ -301,8 +301,8 @@ AmrAdv::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
     	AmrAdvPhysBC cphysbc, fphysbc;
     	Interpolater* mapper = &cell_cons_interp;
 
-    	int lo_bc[] = {INT_DIR, INT_DIR, INT_DIR}; // periodic boundaries
-    	int hi_bc[] = {INT_DIR, INT_DIR, INT_DIR};
+        int lo_bc[] = {INT_DIR, INT_DIR, FOEXTRAP}; // outflow boundaries
+        int hi_bc[] = {INT_DIR, INT_DIR, FOEXTRAP};
     	Array<BCRec> bcs(1, BCRec(lo_bc, hi_bc));
 
         if (lev-1 == max_swe_level) {
@@ -360,8 +360,8 @@ AmrAdv::FillCoarsePatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
 
     //int lo_bc[] = {INT_DIR, INT_DIR, INT_DIR}; // periodic boundaries
     //int hi_bc[] = {INT_DIR, INT_DIR, INT_DIR};
-    int lo_bc[] = {FOEXTRAP, FOEXTRAP, FOEXTRAP}; // outflow boundaries
-    int hi_bc[] = {FOEXTRAP, FOEXTRAP, FOEXTRAP};
+    int lo_bc[] = {INT_DIR, INT_DIR, FOEXTRAP}; // outflow boundaries
+    int hi_bc[] = {INT_DIR, INT_DIR, FOEXTRAP};
     Array<BCRec> bcs(1, BCRec(lo_bc, hi_bc));
 
     // NOTE: 0 index here as getdata using the vector push_back operation, so it puts the data from lev-1 into index 0 element of multifab array.
@@ -432,8 +432,6 @@ void AmrAdv::comp_from_swe_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf)
     }
     comp_mf.FillBoundary(geom[lev].periodicity());
     fill_physbc(comp_mf, geom[lev]);
-
-    //comp_mf.FillBoundary(0, n_cons_comp, geom[lev].periodicity());
 }
 
 void AmrAdv::swe_from_comp_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf) {
