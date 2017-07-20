@@ -18,6 +18,7 @@ contains
                              alpha0, M, R)
 
     use slope_module, only: slopex, slopey, slopez
+    use utils_module, only : calc_gamma_up, gr_sources
 
     integer, intent(in) :: lo(3), hi(3), glo(3), ghi(3), Ncomp
     double precision, intent(in) :: dt, dx(3)
@@ -564,6 +565,7 @@ contains
   end subroutine zbrent
 
   subroutine cons_to_prim(U, clo, chi, U_prim, prlo, prhi, p, plo, phi, lo, hi, Ncomp, gamma, alpha0, M, R, dx) bind(C, name="cons_to_prim")
+      use utils_module, only : calc_gamma_up, calc_gamma_down
       ! convert from conserved variables (D, Sx, Sy, tau) to primitive variables (rho, v^x, v^y, eps). Also outputs the pressure
       implicit none
 

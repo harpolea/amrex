@@ -74,6 +74,7 @@ subroutine test_cons_to_prim(passed) bind(C, name="test_cons_to_prim")
 end subroutine test_cons_to_prim
 
 subroutine test_rhoh_from_p(passed) bind(C, name="test_rhoh_from_p")
+    use utils_module, only : rhoh_from_p
     implicit none
     logical, intent(inout) :: passed
 
@@ -100,6 +101,7 @@ subroutine test_rhoh_from_p(passed) bind(C, name="test_rhoh_from_p")
 end subroutine test_rhoh_from_p
 
 subroutine test_p_from_rhoh(passed) bind(C, name="test_p_from_rhoh")
+    use utils_module, only : p_from_rhoh
     implicit none
     logical, intent(inout) :: passed
 
@@ -126,6 +128,7 @@ subroutine test_p_from_rhoh(passed) bind(C, name="test_p_from_rhoh")
 end subroutine test_p_from_rhoh
 
 subroutine test_p_from_rho_eps(passed) bind(C, name="test_p_from_rho_eps")
+    use utils_module, only : p_from_rho_eps
     implicit none
     logical, intent(inout) :: passed
 
@@ -153,6 +156,7 @@ subroutine test_p_from_rho_eps(passed) bind(C, name="test_p_from_rho_eps")
 end subroutine test_p_from_rho_eps
 
 subroutine test_calc_gamma_up(passed) bind(C, name="test_calc_gamma_up")
+    use utils_module, only : calc_gamma_up
     implicit none
     logical, intent(inout) :: passed
 
@@ -185,6 +189,7 @@ subroutine test_calc_gamma_up(passed) bind(C, name="test_calc_gamma_up")
 end subroutine test_calc_gamma_up
 
 subroutine test_calc_gamma_down(passed) bind(C, name="test_calc_gamma_down")
+    use utils_module, only : calc_gamma_down
     implicit none
     logical, intent(inout) :: passed
 
@@ -217,6 +222,7 @@ subroutine test_calc_gamma_down(passed) bind(C, name="test_calc_gamma_down")
 end subroutine test_calc_gamma_down
 
 subroutine test_gr_sources(passed) bind(C, name="test_gr_sources")
+    use utils_module, only : gr_sources
     implicit none
     logical, intent(inout) :: passed
 
@@ -273,6 +279,7 @@ subroutine test_gr_sources(passed) bind(C, name="test_gr_sources")
 end subroutine test_gr_sources
 
 subroutine test_W_swe(passed) bind(C, name="test_W_swe")
+    use utils_module, only : W_swe
     implicit none
     logical, intent(inout) :: passed
 
@@ -321,14 +328,58 @@ subroutine test_W_swe(passed) bind(C, name="test_W_swe")
 end subroutine test_W_swe
 
 subroutine test_swe_from_comp(passed) bind(C, name="test_swe_from_comp")
+    use utils_module, only : swe_from_comp
     implicit none
     logical, intent(inout) :: passed
 
-    write(*,*) "test_swe_from_comp not implemented"
+    integer, parameter :: lo(3) = (/ 1, 1, 0 /), hi(3) = (/ 100, 1, 2 /), slo(3) = (/ 1, 1, 1 /), shi(3) = (/ 100, 1, 1 /), n_swe_comp = 3, n_cons_comp = 5
+    double precision :: U_swe(slo(1):shi(1), slo(2):shi(2), slo(3):shi(3), n_swe_comp)
+    double precision :: U_swe_test(slo(1):shi(1), slo(2):shi(2), slo(3):shi(3), n_swe_comp)
+    double precision :: U_prim(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1, n_cons_comp)
+    double precision :: p(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
+    double precision :: p_swe(slo(3):shi(3))
+    double precision, parameter :: gamma = 5.0d0/3.0d0, M = 1.0d0, R = 100.0d0
+    double precision :: dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /), rand, alpha0
+    integer i
+    integer, parameter :: stdout=6
+    character(len=*), parameter :: nullfile="/dev/null", terminal="/dev/stdout"
+
+    alpha0 = sqrt(1.0d0 - 2.0d0 * M / R)
+
+    do i = lo(1), hi(1)
+        call random_number(rand)
+        U_prim(i, 1, 1, 1) = 10.d0 * rand
+        U_prim(i, 1, 1, 2) = 0.8d0 * rand - 0.4d0
+        U_prim(i, 1, 1, 3) = rand - 0.5d0
+        U_prim(i, 1, 1, 4) = rand - 0.5d0
+        U_prim(i, 1, 1, 5) = 1.0d-2 * rand
+    end do
+
+    p(:,1,1) = (gamma - 1.0d0) * U_prim(:,1,1,1) * U_prim(:,1,1,5)
+    p_swe(:) = 0.016667d0
+
+    ! Suppress output to terminal from this function by redirecting it
+    open(unit=stdout, file=nullfile, status="old")
+
+    call swe_from_comp(U_prim, lo-1, hi+1, U_swe_test, slo, shi, &
+        p, lo-1, hi+1, p_swe, lo, hi, n_cons_comp, n_swe_comp, &
+        alpha0, M, R, dx)
+
+    ! Redirect output back to terminal
+    open(unit=stdout, file=terminal, status="old")
+
+    if (any(abs(U_swe_test - U_swe) > 1.d-5)) then
+        write(*,*) "swe_from_comp failed :("
+        !write(*,*) "delta p: ", abs(p_test - p)
+        passed = .false.
+    else
+        write(*,*) "swe_from_comp passed :D"
+    end if
 
 end subroutine test_swe_from_comp
 
 subroutine test_calc_gamma_swe(passed) bind(C, name="test_calc_gamma_swe")
+    use utils_module, only : calc_gamma_up_swe
     implicit none
     logical, intent(inout) :: passed
 
@@ -362,6 +413,7 @@ subroutine test_calc_gamma_swe(passed) bind(C, name="test_calc_gamma_swe")
 end subroutine test_calc_gamma_swe
 
 subroutine test_comp_from_swe(passed) bind(C, name="test_comp_from_swe")
+    use utils_module, only : comp_from_swe
     implicit none
     logical, intent(inout) :: passed
     write(*,*) "test_comp_from_swe not implemented"
