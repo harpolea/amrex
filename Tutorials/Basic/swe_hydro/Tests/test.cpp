@@ -1,6 +1,7 @@
 
 #include <AMReX.H>
 #include <AMReX_Utility.H>
+//#include <stdlib.h>
 
 #include "test_f.H"
 
@@ -17,5 +18,9 @@ int main(int argc, char *argv[]) {
 
     BL_PROFILE_VAR_STOP(pmain);
     amrex::Finalize();
+
+    if (!passed) {
+        exit(EXIT_FAILURE);
+    }
     return 0;
 }

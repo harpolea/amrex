@@ -1,0 +1,8 @@
+language: cpp
+
+before_install:
+  - cd Tutorials/Basic/swe_hydro/Tests
+install:
+  - make
+script:
+  - ./test3d.gnu.DEBUG.COMTR_PROF.MPI.ex
