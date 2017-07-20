@@ -17,6 +17,8 @@ subroutine test_cons_to_prim(passed) bind(C, name="test_cons_to_prim")
     double precision, parameter :: gamma = 5.0d0/3.0d0, M = 1.0d0, R = 100.0d0
     double precision :: dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /), gamma_z, v2(lo(1):hi(1)), W(lo(1):hi(1)), alpha0, rand
     integer i
+    integer, parameter :: stdout=6
+    character(len=*), parameter :: nullfile="/dev/null", terminal="/dev/stdout"
 
     alpha0 = sqrt(1.0d0 - 2.0d0 * M / R)
     gamma_z = (alpha0 + M * dx(3) * lo(3) / (R * alpha0))**2
@@ -45,7 +47,13 @@ subroutine test_cons_to_prim(passed) bind(C, name="test_cons_to_prim")
     end do
     U_cons(:,1,1,5) = U_prim(:,1,1,1) * W * (h * W - 1.0d0) - p
 
+    ! Suppress output to terminal from this function by redirecting it
+    open(unit=stdout, file=nullfile, status="old")
+
     call cons_to_prim(U_cons, lo, hi, U_prim_test, lo, hi, p, lo, hi, lo, hi, Ncomp, gamma, alpha0, M, R, dx)
+
+    ! Redirect output back to terminal
+    open(unit=stdout, file=terminal, status="old")
 
     if (any(abs(U_prim_test - U_prim) > 1.0d-10)) then
         write(*,*) "cons_to_prim failed :'("
@@ -148,17 +156,119 @@ subroutine test_calc_gamma_up(passed) bind(C, name="test_calc_gamma_up")
     implicit none
     logical, intent(inout) :: passed
 
+    integer, parameter :: lo(3) = (/ 1,1,1 /), hi(3) = (/ 3, 1, 1 /)
+    double precision :: gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),9)
+    double precision :: gamma_test(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),9)
+    double precision :: alpha0(3), M, R, dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /)
+    integer i
+
+    gamma_up(:,:,:,:) = 0.0d0
+    gamma_up(:,:,:,1) = 1.0d0
+    gamma_up(:,:,:,5) = 1.0d0
+
+    alpha0(:) = (/ 0.9d0, 1.0d-3, 1.0d0 /)
+
+    gamma_up(:,1,1,9) = (/ 0.9000111111d0, 4.41d-4, 1.0609d0 /)
+
+    do i = lo(1), hi(1)
+        call calc_gamma_up(gamma_test, lo, hi, (/ i, 1, 1 /), (/ i, 1, 1 /), alpha0(i), M, R, dx)
+    end do
+
+    if (any(abs(gamma_test - gamma_up) > 1.d-5)) then
+        write(*,*) "calc_gamma_up failed :("
+        !write(*,*) "delta p: ", abs(p_test - p)
+        passed = .false.
+    else
+        write(*,*) "calc_gamma_up passed :D"
+    end if
+
 end subroutine test_calc_gamma_up
 
 subroutine test_calc_gamma_down(passed) bind(C, name="test_calc_gamma_down")
     implicit none
     logical, intent(inout) :: passed
 
+    integer, parameter :: lo(3) = (/ 1,1,1 /), hi(3) = (/ 3, 1, 1 /)
+    double precision :: gamma_down(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),9)
+    double precision :: gamma_test(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),9)
+    double precision :: alpha0(3), M, R, dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /)
+    integer i
+
+    gamma_down(:,:,:,:) = 0.0d0
+    gamma_down(:,:,:,1) = 1.0d0
+    gamma_down(:,:,:,5) = 1.0d0
+
+    alpha0(:) = (/ 0.9d0, 1.0d-3, 1.0d0 /)
+
+    gamma_down(:,1,1,9) = (/ 1.111097394d0, 2267.573696d0, 0.9425959091d0 /)
+
+    do i = lo(1), hi(1)
+        call calc_gamma_down(gamma_test, lo, hi, (/ i, 1, 1 /), (/ i, 1, 1 /), alpha0(i), M, R, dx)
+    end do
+
+    if (any(abs(gamma_test - gamma_down) > 1.d-5)) then
+        write(*,*) "calc_gamma_down failed :("
+        !write(*,*) "delta p: ", abs(p_test - p)
+        passed = .false.
+    else
+        write(*,*) "calc_gamma_down passed :D"
+    end if
+
 end subroutine test_calc_gamma_down
 
 subroutine test_gr_sources(passed) bind(C, name="test_gr_sources")
     implicit none
     logical, intent(inout) :: passed
+
+    integer, parameter :: lo(3) = (/ 1, 1, 1 /), hi(3) = (/ 9, 1, 1 /), Ncomp = 5
+    double precision :: U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), Ncomp)
+    double precision :: S(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision :: S_test(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision :: p(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision :: alpha(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision :: gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),9)
+    double precision, parameter :: gamma = 5.0d0/3.0d0, alpha0 = 0.9, R = 100.d0, M = 1.0d0
+    double precision :: dx(3) = (/ 1.0d-1, 1.0d-1, 1.0d-1 /)
+    integer, parameter :: stdout=6
+    character(len=*), parameter :: nullfile="/dev/null", terminal="/dev/stdout"
+
+    gamma_up(:,:,:,:) = 0.0d0
+    gamma_up(:,:,:,1) = 1.0d0
+    gamma_up(:,:,:,5) = 1.0d0
+    alpha(:,:,:) = alpha0 + M * dx(3) * lo(3) / (R * alpha0)
+    gamma_up(:,:,:,9) = alpha**2
+
+    U(:,:,:,:) = 0.0d0
+
+    U(1,1,1,:) = (/ 1.d0,  0.d0,  0.d0,  0.d0,  1.d0 /)
+    U(2,1,1,:) = U(1,1,1,:)
+    U(3,1,1,:) = U(1,1,1,:)
+    U(4,1,1,:) = (/ 1.13133438d0,  1.02393398d0,  1.02393398d0,  1.02393398d0,  1.61511222d0 /)
+    U(5,1,1,:) = U(4,1,1,:)
+    U(6,1,1,:) = U(4,1,1,:)
+    U(7,1,1,:) = (/ 0.01012376d0,  0.00104199d0, -0.00104199d0,  0.00104199d0,  0.00022944d0 /)
+    U(8,1,1,:) = U(7,1,1,:)
+    U(9,1,1,:) = U(7,1,1,:)
+
+    p(:,1,1) = (/ 1.0d0, 1.d-3, 1.d3, 1.0d0, 1.d-3, 1.d3, 1.0d0, 1.d-3, 1.d3/)
+
+    S(:,1,1) = (/ -0.00033292231812577066d0, -0.00022205918618988904d0, -0.1111960542540074d0, -0.00048596380243693489d0, -0.00037379729398796943d0,  -0.11135747536167415d0, -0.00011212313835831177d0, -1.2600063009278325d-06, -0.11097525507424238d0/)
+
+    ! Suppress output to terminal from this function by redirecting it
+    open(unit=stdout, file=nullfile, status="old")
+
+    call gr_sources(S_test, lo, hi, U, lo, hi, p, lo, hi, alpha, lo, hi, gamma_up, lo, hi, M, R, gamma, Ncomp, lo, hi, dx)
+
+    ! Redirect output back to terminal
+    open(unit=stdout, file=terminal, status="old")
+
+    if (any(abs(S_test - S) > 1.d-5)) then
+        write(*,*) "gr_sources failed :("
+        write(*,*) "delta S: ", abs(S_test - S)
+        passed = .false.
+    else
+        write(*,*) "gr_sources passed :D"
+    end if
 
 end subroutine test_gr_sources
 
@@ -214,17 +324,47 @@ subroutine test_swe_from_comp(passed) bind(C, name="test_swe_from_comp")
     implicit none
     logical, intent(inout) :: passed
 
+    write(*,*) "test_swe_from_comp not implemented"
+
 end subroutine test_swe_from_comp
 
 subroutine test_calc_gamma_swe(passed) bind(C, name="test_calc_gamma_swe")
     implicit none
     logical, intent(inout) :: passed
 
+    integer, parameter :: lo(3) = (/ 1,1,1 /), hi(3) = (/ 3, 1, 1 /), Ncomp = 1
+    double precision :: gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),9)
+    double precision :: gamma_test(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),9)
+    double precision :: U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), Ncomp)
+    integer i
+
+    gamma_up(:,:,:,:) = 0.0d0
+    gamma_up(:,:,:,1) = 1.0d0
+    gamma_up(:,:,:,5) = 1.0d0
+
+    U(:,:,:,:) = 0.0d0
+    U(:,1,1,1) = (/ 0.0d0, 0.1d0, 10.0d0 /)
+
+    gamma_up(:,1,1,9) = (/ 1.0d0, 0.8187307531d0, 2.061153622d-9 /)
+
+    do i = lo(1), hi(1)
+        call calc_gamma_up_swe(U, lo, hi, lo, hi, Ncomp, gamma_test)
+    end do
+
+    if (any(abs(gamma_test - gamma_up) > 1.d-5)) then
+        write(*,*) "calc_gamma_up_swe failed :("
+        !write(*,*) "delta p: ", abs(p_test - p)
+        passed = .false.
+    else
+        write(*,*) "calc_gamma_up_swe passed :D"
+    end if
+
 end subroutine test_calc_gamma_swe
 
 subroutine test_comp_from_swe(passed) bind(C, name="test_comp_from_swe")
     implicit none
     logical, intent(inout) :: passed
+    write(*,*) "test_comp_from_swe not implemented"
 
 end subroutine test_comp_from_swe
 
@@ -315,6 +455,56 @@ subroutine test_zbrent(passed) bind(C, name="test_zbrent")
     implicit none
     logical, intent(inout) :: passed
 
+    integer, parameter :: lo = 1, hi = 4, Ncomp = 5
+    double precision :: U_prim(lo:hi, Ncomp)
+    double precision :: U_cons(lo:hi, Ncomp)
+    double precision :: p(lo:hi)
+    double precision :: p_test(lo:hi)
+    double precision :: pmin(lo:hi), pmax(lo:hi)
+    double precision, parameter :: gamma = 5.0d0/3.0d0
+    double precision :: gamma_up(9), v2(lo:hi), W(lo:hi), h(lo:hi), rand
+    integer i
+
+    gamma_up(:) = (/ 0.80999862d0,  0.0d0,  0.0d0,  0.0d0,  0.80999862d0, 0.0d0,  0.0d0,  0.0d0,  0.80999862d0 /)
+
+    do i = lo, hi
+        call random_number(rand)
+        U_prim(i, 1) = 10.d0 * rand
+        U_prim(i, 2) = 0.8d0 * rand - 0.4d0
+        U_prim(i, 3) = rand - 0.5d0
+        U_prim(i, 4) = rand - 0.5d0
+        U_prim(i, 5) = 1.0d-2 * rand
+    end do
+
+    ! calculate conservative variables
+    v2 = U_prim(:, 2)**2 + U_prim(:,3)**2 + &
+         gamma_up(9) * U_prim(:,4)**2
+
+    W = sqrt(1.0d0 / (1.0d0 - v2))
+
+    h = 1.0d0 + gamma * U_prim(:,5)
+    p = (gamma - 1.0d0) * U_prim(:,1) * U_prim(:,5)
+
+    U_cons(:,1) = U_prim(:,1) * W
+    do i = 2, 4
+        U_cons(:,i) = U_prim(:,1) * h * W**2 * U_prim(:,i)
+    end do
+    U_cons(:,5) = U_prim(:,1) * W * (h * W - 1.0d0) - p
+
+    do i = lo, hi
+        call zbrent(p_test(i), pmin(i), pmax(i), U_cons(i,:), Ncomp, gamma, gamma_up)
+    end do
+
+    if (any(abs(p_test - p) > 1.d-5)) then
+        write(*,*) "zbrent failed :("
+        write(*,*) "p: ", p
+        write(*,*) "p_test: ", p_test
+        write(*,*) "delta p: ", abs(p_test - p)
+        passed = .false.
+    else
+        write(*,*) "zbrent passed :D"
+    end if
+
 end subroutine test_zbrent
 
 subroutine test_gr_comp_flux(passed) bind(C, name="test_gr_comp_flux")
@@ -329,6 +519,8 @@ subroutine test_gr_comp_flux(passed) bind(C, name="test_gr_comp_flux")
     double precision, parameter :: gamma = 5.0d0/3.0d0, alpha0 = 0.9, R = 100.d0, M = 1.0d0
     double precision :: gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 9), dx(3) = (/ 1.0d-1, 1.0d-1, 1.0d-1 /), alpha(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
     integer :: i, dirs(lo(1):hi(1)), lims(3)
+    integer, parameter :: stdout=6
+    character(len=*), parameter :: nullfile="/dev/null", terminal="/dev/stdout"
 
     gamma_up(:,:,:,:) = 0.0d0
     gamma_up(:,:,:,1) = 1.0d0
@@ -355,10 +547,16 @@ subroutine test_gr_comp_flux(passed) bind(C, name="test_gr_comp_flux")
     f(7,1,1,:) = (/ -2.35061459d-05,  -2.12746488d-05,   6.87941315d-04, -2.12746488d-05,  -2.33557774d-04 /)
     f(8,1,1,:) = (/ -2.55456349d-03,  -2.62928173d-04,   2.62928173d-04, -1.96261506d-04,  -5.12293429d-05 /)
 
+    ! Suppress output to terminal from this function by redirecting it
+    open(unit=stdout, file=nullfile, status="old")
+
     do i = lo(1), hi(1)
         lims = (/ i,1,1 /)
         call gr_comp_flux(U_cons, f_test, lims, lims, Ncomp, dirs(i), gamma, lo-1, hi+1, alpha, dx, alpha0, M, R)
     end do
+
+    ! Redirect output back to terminal
+    open(unit=stdout, file=terminal, status="old")
 
     if (any(abs(f_test - f(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),:)) > 1.d-5)) then
         write(*,*) "gr_comp_flux failed :("
