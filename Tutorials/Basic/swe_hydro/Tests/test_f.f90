@@ -339,24 +339,35 @@ subroutine test_swe_from_comp(passed) bind(C, name="test_swe_from_comp")
     double precision :: p(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
     double precision :: p_swe(slo(3):shi(3))
     double precision, parameter :: gamma = 5.0d0/3.0d0, M = 1.0d0, R = 100.0d0
-    double precision :: dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /), rand, alpha0
+    double precision :: dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /), rand, alpha0, gamma_z, v2(lo(1)-1:hi(1)+1), W(lo(1)-1:hi(1)+1)
     integer i
     integer, parameter :: stdout=6
     character(len=*), parameter :: nullfile="/dev/null", terminal="/dev/stdout"
 
     alpha0 = sqrt(1.0d0 - 2.0d0 * M / R)
+    gamma_z = (alpha0 + M * dx(3) * lo(3) / (R * alpha0))**2
 
-    do i = lo(1), hi(1)
+    do i = lo(1)-1, hi(1)+1
         call random_number(rand)
-        U_prim(i, 1, 1, 1) = 10.d0 * rand
-        U_prim(i, 1, 1, 2) = 0.8d0 * rand - 0.4d0
-        U_prim(i, 1, 1, 3) = rand - 0.5d0
-        U_prim(i, 1, 1, 4) = rand - 0.5d0
-        U_prim(i, 1, 1, 5) = 1.0d-2 * rand
+        U_prim(i, :, :, 1) = 5.0d0!10.d0 * rand
+        U_prim(i, :, :, 2) = 0.8d0 * rand - 0.4d0
+        U_prim(i, :, :, 3) = rand - 0.5d0
+        U_prim(i, :, :, 4) = rand - 0.5d0
+        U_prim(i, :, :, 5) = 1.0d-2 * rand
     end do
 
-    p(:,1,1) = (gamma - 1.0d0) * U_prim(:,1,1,1) * U_prim(:,1,1,5)
+    p(:,:,:) = (gamma - 1.0d0) * U_prim(:,:,:,1) * U_prim(:,:,:,5)
     p_swe(:) = 0.016667d0
+
+    ! calculate conservative variables
+    v2 = U_prim(:,1,1,2)**2 + U_prim(:,1,1,3)**2 + &
+         gamma_z * U_prim(:,1,1,4)**2
+
+    W = sqrt(1.0d0 / (1.0d0 - v2))
+
+    U_swe(:,1,1,1) = -log(alpha0) * W(slo(1):shi(1))
+    U_swe(:,1,1,2) = U_swe(:,1,1,1) * W(slo(1):shi(1)) * U_prim(slo(1):shi(1),1,1,2)
+    U_swe(:,1,1,3) = U_swe(:,1,1,1) * W(slo(1):shi(1)) * U_prim(slo(1):shi(1),1,1,3)
 
     ! Suppress output to terminal from this function by redirecting it
     open(unit=stdout, file=nullfile, status="old")
@@ -368,13 +379,18 @@ subroutine test_swe_from_comp(passed) bind(C, name="test_swe_from_comp")
     ! Redirect output back to terminal
     open(unit=stdout, file=terminal, status="old")
 
-    if (any(abs(U_swe_test - U_swe) > 1.d-5)) then
+    if (any(abs(U_swe_test(:,1,1,:) - U_swe(:,1,1,:)) / abs(U_swe(:,1,1,:)) > 3.d-3) .or. any(U_swe_test(:,1,1,:) /= U_swe_test(:,1,1,:))) then
         write(*,*) "swe_from_comp failed :("
-        !write(*,*) "delta p: ", abs(p_test - p)
+        write(*,*) "delta U: ", abs(U_swe_test(:,1,1,:) - U_swe(:,1,1,:)) / abs(U_swe(:,1,1,:))
         passed = .false.
     else
         write(*,*) "swe_from_comp passed :D"
     end if
+
+    !do i = 1, 5
+    !    write(*,*) "U_swe: ", U_swe(i,1,1,:)
+    !    write(*,*) "U_swe_test: ", U_swe_test(i,1,1,:)
+    !end do
 
 end subroutine test_swe_from_comp
 
@@ -416,7 +432,77 @@ subroutine test_comp_from_swe(passed) bind(C, name="test_comp_from_swe")
     use utils_module, only : comp_from_swe
     implicit none
     logical, intent(inout) :: passed
-    write(*,*) "test_comp_from_swe not implemented"
+
+    integer, parameter :: lo(3) = (/ 1, 1, 0 /), hi(3) = (/ 100, 1, 2 /), slo(3) = (/ 1, 1, 1 /), shi(3) = (/ 100, 1, 1 /), n_swe_comp = 3, n_cons_comp = 5, nghost = 1
+    double precision :: U_swe(slo(1)-1:shi(1)+1, slo(2)-1:shi(2)+1, slo(3)-1:shi(3)+1, n_swe_comp)
+    double precision :: U_prim(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1, n_cons_comp)
+    double precision :: U_comp(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1, n_cons_comp)
+    double precision :: U_comp_test(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1, n_cons_comp)
+    double precision :: p(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
+    double precision :: h(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
+    double precision :: p_swe(slo(3)-1:shi(3)+1), rho(slo(3)-1:shi(3)+1)
+    double precision, parameter :: gamma = 5.0d0/3.0d0, M = 1.0d0, R = 100.0d0
+    double precision :: dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /), rand, alpha0, gamma_z, v2(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1), W(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
+    integer i
+    integer, parameter :: stdout=6
+    character(len=*), parameter :: nullfile="/dev/null", terminal="/dev/stdout"
+
+    alpha0 = sqrt(1.0d0 - 2.0d0 * M / R)
+    gamma_z = (alpha0 + M * dx(3) * lo(3) / (R * alpha0))**2
+
+    do i = lo(1)-1, hi(1)+1
+        call random_number(rand)
+        U_prim(i, :, :, 1) = 5.0d0!10.d0 * rand
+        U_prim(i, :, :, 2) = 0.8d0 * rand - 0.4d0
+        U_prim(i, :, :, 3) = rand - 0.5d0
+        U_prim(i, :, :, 4) = rand - 0.5d0
+        U_prim(i, :, :, 5) = 1.0d-2 * rand
+    end do
+
+    p_swe(:) = 0.016667d0
+    rho(:) = 5.0d0
+
+    ! calculate conservative variables
+    v2 = U_prim(:,:,:,2)**2 + U_prim(:,:,:,3)**2 + &
+         gamma_z * U_prim(:,:,:,4)**2
+
+    W = sqrt(1.0d0 / (1.0d0 - v2))
+
+    h = 1.0d0 + gamma * U_prim(:,:,:,5)
+    p = (gamma - 1.0d0) * U_prim(:,:,:,1) * U_prim(:,:,:,5)
+
+    U_comp(:,:,:,:) = 0.d0
+
+    U_comp(:,:,:,1) = U_prim(:,:,:,1) * W
+    do i = 2, 4
+        U_comp(:,:,:,i) = U_prim(:,:,:,1) * h * W**2 * U_prim(:,:,:,i)
+    end do
+    U_comp(:,:,:,5) = U_prim(:,:,:,1) * W * (h * W - 1.0d0) - p
+
+    U_swe(:,1,1,1) = -log(alpha0) * W(slo(1)-1:shi(1)+1,1,1)
+    U_swe(:,1,1,2) = U_swe(:,1,1,1) * W(slo(1)-1:shi(1)+1,1,1) * U_prim(slo(1)-1:shi(1)+1,1,1,2)
+    U_swe(:,1,1,3) = U_swe(:,1,1,1) * W(slo(1)-1:shi(1)+1,1,1) * U_prim(slo(1)-1:shi(1)+1,1,1,3)
+
+    ! Suppress output to terminal from this function by redirecting it
+    open(unit=stdout, file=nullfile, status="old")
+
+    call comp_from_swe(U_comp_test, lo-1, hi+1, U_swe, slo-1, shi+1, &
+        p(1,1,slo(3):shi(3)), rho, slo, shi, n_cons_comp, n_swe_comp, &
+        gamma, dx, alpha0, M, R, nghost)
+
+    ! Redirect output back to terminal
+    open(unit=stdout, file=terminal, status="old")
+
+    if (any(abs(U_comp_test(:,1,1,:) - U_comp(:,1,1,:)) > 1.d-5) .or. any(U_comp_test(:,1,1,:) /= U_comp_test(:,1,1,:))) then
+        write(*,*) "comp_from_swe failed :("
+        !write(*,*) "delta p: ", abs(p_test - p)
+        passed = .false.
+    else
+        write(*,*) "comp_from_swe passed :D"
+    end if
+
+    write(*,*) "U_comp: ", U_comp(1,1,1,:)
+    write(*,*) "U_comp_test: ", U_comp_test(1,1,1,:)
 
 end subroutine test_comp_from_swe
 

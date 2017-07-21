@@ -179,7 +179,7 @@ contains
         integer, intent(in) :: clo(3), chi(3), slo(3), shi(3), lo(3), hi(3)
         double precision, intent(in)  :: U_swe(slo(1):shi(1), slo(2):shi(2), slo(3):shi(3), n_swe_comp)
         double precision, intent(out) :: U_comp(clo(1):chi(1), clo(2):chi(2), clo(3):chi(3), n_cons_comp)
-        double precision, intent(in) :: p(slo(3)+1:shi(3)-1)
+        double precision, intent(in) :: p(slo(3):shi(3))
         double precision, intent(in) :: rho(slo(3):shi(3))
         double precision, intent(in)  :: gamma, dx(3), alpha0, M, R
 
