@@ -212,16 +212,16 @@ contains
         !write(*,*) "p", p
 
         do k = nlo(3), nhi(3)
-            h_comp(k) = (hi(3) - lo(3) - k) * dz
+            h_comp(k) = (hi(3) - lo(3) - k + 1) * dz
         end do
 
-        !write(*,*) "hcomp: ", h_comp
+        write(*,*) "hcomp: ", h_comp
 
         if (n_swe_comp > 3) then
             h_swe = U_swe(nlo(1):nhi(1),nlo(2):nhi(2),slo(3):shi(3),4)
         else
             ! HACK
-            h_swe = alpha0 * R / M * (exp(-U_swe(nlo(1):nhi(1), nlo(2):nhi(2),slo(3):shi(3),1)) - alpha0)
+            h_swe = alpha0 * R / M * (exp(-U_swe(nlo(1):nhi(1), nlo(2):nhi(2),slo(3):shi(3),1) / W(nlo(1):nhi(1), nlo(2):nhi(2),slo(3):shi(3))) - alpha0)
         end if
 
         do         k = slo(3), shi(3)
@@ -258,9 +258,9 @@ contains
                         neighbour = neighbour - 1
                     end if
                     zfrac = 1.0d0 - (h_swe(i,j,neighbour) - h_comp(k)) / dz
-                    zfrac = max(0.0d0, zfrac)
+                    zfrac = min(1.0d0, max(0.0d0, zfrac))
 
-                    !write(*,*) "zfrac, neighbour, hswe", zfrac, neighbour, h_swe(i,j,slo(3)+1:shi(3)-1)
+                    write(*,*) "zfrac, neighbour, hswe, hcomp", zfrac, neighbour, h_swe(i,j,neighbour), h_comp(k)
 
                     ! now interpolate and stick primitive compressible variables in U_comp
                     ! TODO: slope limit here?

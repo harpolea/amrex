@@ -15,7 +15,8 @@ subroutine test_cons_to_prim(passed) bind(C, name="test_cons_to_prim")
     double precision :: p(lo(1):hi(1))
     double precision :: h(lo(1):hi(1))
     double precision, parameter :: gamma = 5.0d0/3.0d0, M = 1.0d0, R = 100.0d0
-    double precision :: dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /), gamma_z, v2(lo(1):hi(1)), W(lo(1):hi(1)), alpha0, rand
+    double precision :: dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /), gamma_z
+    double precision :: v2(lo(1):hi(1)), W(lo(1):hi(1)), alpha0, rand
     integer i
     integer, parameter :: stdout=6
     character(len=*), parameter :: nullfile="/dev/null", terminal="/dev/stdout"
@@ -50,7 +51,8 @@ subroutine test_cons_to_prim(passed) bind(C, name="test_cons_to_prim")
     ! Suppress output to terminal from this function by redirecting it
     open(unit=stdout, file=nullfile, status="old")
 
-    call cons_to_prim(U_cons, lo, hi, U_prim_test, lo, hi, p, lo, hi, lo, hi, Ncomp, gamma, alpha0, M, R, dx)
+    call cons_to_prim(U_cons, lo, hi, U_prim_test, lo, hi, &
+        p, lo, hi, lo, hi, Ncomp, gamma, alpha0, M, R, dx)
 
     ! Redirect output back to terminal
     open(unit=stdout, file=terminal, status="old")
@@ -61,7 +63,8 @@ subroutine test_cons_to_prim(passed) bind(C, name="test_cons_to_prim")
             !write(*,*) "U_prim: ", U_prim(i,:,:,:)
             !write(*,*) "U_prim_test: ", U_prim_test(i,:,:,:)
             !write(*,*) "p: ", p(i)
-            write(*,*) "delta U_prim: ", abs(U_prim_test(i,:,:,:) - U_prim(i,:,:,:))
+            write(*,*) "delta U_prim: ", &
+                abs(U_prim_test(i,:,:,:) - U_prim(i,:,:,:))
         end do
         passed = .false.
     else
@@ -140,7 +143,8 @@ subroutine test_p_from_rho_eps(passed) bind(C, name="test_p_from_rho_eps")
     double precision, parameter :: gamma = 5.0d0 / 3.0d0
 
     rho(:, 1, 1) = (/ 1.0d-3, 0.1d0, 1.0d3, 1.0d3, 1.124d0 /)
-    p(:,1,1) = (/ 6.6666666667d-5, 6.6666666667d-5, 666666.66666667d0, 666.6666667d0, 25.420384d0 /)
+    p(:,1,1) = (/ 6.6666666667d-5, 6.6666666667d-5, 666666.66666667d0, &
+                  666.6666667d0, 25.420384d0 /)
     eps(:,1,1) = (/ 0.1d0, 1.d-3, 1.0d3, 1.0d0, 33.924d0 /)
 
     call p_from_rho_eps(rho, eps, p_test, gamma, lo, hi)
@@ -175,7 +179,8 @@ subroutine test_calc_gamma_up(passed) bind(C, name="test_calc_gamma_up")
     gamma_up(:,1,1,9) = (/ 0.9000111111d0, 4.41d-4, 1.0609d0 /)
 
     do i = lo(1), hi(1)
-        call calc_gamma_up(gamma_test, lo, hi, (/ i, 1, 1 /), (/ i, 1, 1 /), alpha0(i), M, R, dx)
+        call calc_gamma_up(gamma_test, lo, hi, (/ i, 1, 1 /), &
+                           (/ i, 1, 1 /), alpha0(i), M, R, dx)
     end do
 
     if (any(abs(gamma_test - gamma_up) > 1.d-5)) then
@@ -205,10 +210,12 @@ subroutine test_calc_gamma_down(passed) bind(C, name="test_calc_gamma_down")
 
     alpha0(:) = (/ 0.9d0, 1.0d-3, 1.0d0 /)
 
-    gamma_down(:,1,1,9) = (/ 1.111097394d0, 2267.573696d0, 0.9425959091d0 /)
+    gamma_down(:,1,1,9) = (/ 1.111097394d0, 2267.573696d0, &
+                             0.9425959091d0 /)
 
     do i = lo(1), hi(1)
-        call calc_gamma_down(gamma_test, lo, hi, (/ i, 1, 1 /), (/ i, 1, 1 /), alpha0(i), M, R, dx)
+        call calc_gamma_down(gamma_test, lo, hi, (/ i, 1, 1 /), &
+                             (/ i, 1, 1 /), alpha0(i), M, R, dx)
     end do
 
     if (any(abs(gamma_test - gamma_down) > 1.d-5)) then
@@ -233,7 +240,8 @@ subroutine test_gr_sources(passed) bind(C, name="test_gr_sources")
     double precision :: p(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
     double precision :: alpha(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
     double precision :: gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),9)
-    double precision, parameter :: gamma = 5.0d0/3.0d0, alpha0 = 0.9, R = 100.d0, M = 1.0d0
+    double precision, parameter :: gamma = 5.0d0/3.0d0, alpha0 = 0.9
+    double precision, parameter :: R = 100.d0, M = 1.0d0
     double precision :: dx(3) = (/ 1.0d-1, 1.0d-1, 1.0d-1 /)
     integer, parameter :: stdout=6
     character(len=*), parameter :: nullfile="/dev/null", terminal="/dev/stdout"
@@ -249,21 +257,29 @@ subroutine test_gr_sources(passed) bind(C, name="test_gr_sources")
     U(1,1,1,:) = (/ 1.d0,  0.d0,  0.d0,  0.d0,  1.d0 /)
     U(2,1,1,:) = U(1,1,1,:)
     U(3,1,1,:) = U(1,1,1,:)
-    U(4,1,1,:) = (/ 1.13133438d0,  1.02393398d0,  1.02393398d0,  1.02393398d0,  1.61511222d0 /)
+    U(4,1,1,:) = (/ 1.13133438d0,  1.02393398d0,  1.02393398d0,  &
+                    1.02393398d0,  1.61511222d0 /)
     U(5,1,1,:) = U(4,1,1,:)
     U(6,1,1,:) = U(4,1,1,:)
-    U(7,1,1,:) = (/ 0.01012376d0,  0.00104199d0, -0.00104199d0,  0.00104199d0,  0.00022944d0 /)
+    U(7,1,1,:) = (/ 0.01012376d0,  0.00104199d0, -0.00104199d0,  &
+                    0.00104199d0,  0.00022944d0 /)
     U(8,1,1,:) = U(7,1,1,:)
     U(9,1,1,:) = U(7,1,1,:)
 
-    p(:,1,1) = (/ 1.0d0, 1.d-3, 1.d3, 1.0d0, 1.d-3, 1.d3, 1.0d0, 1.d-3, 1.d3/)
+    p(:,1,1) = (/ 1.0d0, 1.d-3, 1.d3, 1.0d0, 1.d-3, 1.d3, &
+                  1.0d0, 1.d-3, 1.d3/)
 
-    S(:,1,1) = (/ -0.00033292231812577066d0, -0.00022205918618988904d0, -0.1111960542540074d0, -0.00048596380243693489d0, -0.00037379729398796943d0,  -0.11135747536167415d0, -0.00011212313835831177d0, -1.2600063009278325d-06, -0.11097525507424238d0/)
+    S(:,1,1) = (/ -0.00033292231812577066d0, &
+        -0.00022205918618988904d0, -0.1111960542540074d0, &
+        -0.00048596380243693489d0, -0.00037379729398796943d0,  &
+        -0.11135747536167415d0, -0.00011212313835831177d0, &
+        -1.2600063009278325d-06, -0.11097525507424238d0/)
 
     ! Suppress output to terminal from this function by redirecting it
     open(unit=stdout, file=nullfile, status="old")
 
-    call gr_sources(S_test, lo, hi, U, lo, hi, p, lo, hi, alpha, lo, hi, gamma_up, lo, hi, M, R, gamma, Ncomp, lo, hi, dx)
+    call gr_sources(S_test, lo, hi, U, lo, hi, p, lo, hi, &
+        alpha, lo, hi, gamma_up, lo, hi, M, R, gamma, Ncomp, lo, hi, dx)
 
     ! Redirect output back to terminal
     open(unit=stdout, file=terminal, status="old")
@@ -289,7 +305,10 @@ subroutine test_W_swe(passed) bind(C, name="test_W_swe")
     double precision :: W(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
     double precision :: W_test(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
     double precision, parameter :: gamma = 5.0d0/3.0d0, M = 1.0d0, R = 100.0d0
-    double precision :: dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /), gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 9), v2(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3)), alpha0, rand
+    double precision :: dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /)
+    double precision :: gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 9)
+    double precision :: v2(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
+    double precision :: alpha0, rand
     integer i
 
     alpha0 = sqrt(1.0d0 - 2.0d0 * M / R)
@@ -332,14 +351,18 @@ subroutine test_swe_from_comp(passed) bind(C, name="test_swe_from_comp")
     implicit none
     logical, intent(inout) :: passed
 
-    integer, parameter :: lo(3) = (/ 1, 1, 0 /), hi(3) = (/ 100, 1, 2 /), slo(3) = (/ 1, 1, 1 /), shi(3) = (/ 100, 1, 1 /), n_swe_comp = 3, n_cons_comp = 5
+    integer, parameter :: lo(3) = (/ 1, 1, 0 /), hi(3) = (/ 100, 1, 2 /)
+    integer, parameter :: slo(3) = (/ 1, 1, 1 /), shi(3) = (/ 100, 1, 1 /)
+    integer, parameter :: n_swe_comp = 3, n_cons_comp = 5
     double precision :: U_swe(slo(1):shi(1), slo(2):shi(2), slo(3):shi(3), n_swe_comp)
     double precision :: U_swe_test(slo(1):shi(1), slo(2):shi(2), slo(3):shi(3), n_swe_comp)
     double precision :: U_prim(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1, n_cons_comp)
     double precision :: p(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
     double precision :: p_swe(slo(3):shi(3))
     double precision, parameter :: gamma = 5.0d0/3.0d0, M = 1.0d0, R = 100.0d0
-    double precision :: dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /), rand, alpha0, gamma_z, v2(lo(1)-1:hi(1)+1), W(lo(1)-1:hi(1)+1)
+    double precision :: dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /), rand
+    double precision :: alpha0, gamma_z
+    double precision :: v2(lo(1)-1:hi(1)+1), W(lo(1)-1:hi(1)+1)
     integer i
     integer, parameter :: stdout=6
     character(len=*), parameter :: nullfile="/dev/null", terminal="/dev/stdout"
@@ -366,8 +389,10 @@ subroutine test_swe_from_comp(passed) bind(C, name="test_swe_from_comp")
     W = sqrt(1.0d0 / (1.0d0 - v2))
 
     U_swe(:,1,1,1) = -log(alpha0) * W(slo(1):shi(1))
-    U_swe(:,1,1,2) = U_swe(:,1,1,1) * W(slo(1):shi(1)) * U_prim(slo(1):shi(1),1,1,2)
-    U_swe(:,1,1,3) = U_swe(:,1,1,1) * W(slo(1):shi(1)) * U_prim(slo(1):shi(1),1,1,3)
+    U_swe(:,1,1,2) = U_swe(:,1,1,1) * W(slo(1):shi(1)) * &
+        U_prim(slo(1):shi(1),1,1,2)
+    U_swe(:,1,1,3) = U_swe(:,1,1,1) * W(slo(1):shi(1)) * &
+        U_prim(slo(1):shi(1),1,1,3)
 
     ! Suppress output to terminal from this function by redirecting it
     open(unit=stdout, file=nullfile, status="old")
@@ -379,9 +404,14 @@ subroutine test_swe_from_comp(passed) bind(C, name="test_swe_from_comp")
     ! Redirect output back to terminal
     open(unit=stdout, file=terminal, status="old")
 
-    if (any(abs(U_swe_test(:,1,1,:) - U_swe(:,1,1,:)) / abs(U_swe(:,1,1,:)) > 3.d-3) .or. any(U_swe_test(:,1,1,:) /= U_swe_test(:,1,1,:))) then
+    if (any(abs(U_swe_test(:,1,1,:) - U_swe(:,1,1,:)) / &
+        abs(U_swe(:,1,1,:)) > 3.d-3) .or. &
+        any(U_swe_test(:,1,1,:) /= U_swe_test(:,1,1,:))) then
+
         write(*,*) "swe_from_comp failed :("
-        write(*,*) "delta U: ", abs(U_swe_test(:,1,1,:) - U_swe(:,1,1,:)) / abs(U_swe(:,1,1,:))
+        write(*,*) "delta U: ", &
+            abs(U_swe_test(:,1,1,:) - U_swe(:,1,1,:)) / &
+            abs(U_swe(:,1,1,:))
         passed = .false.
     else
         write(*,*) "swe_from_comp passed :D"
@@ -433,7 +463,9 @@ subroutine test_comp_from_swe(passed) bind(C, name="test_comp_from_swe")
     implicit none
     logical, intent(inout) :: passed
 
-    integer, parameter :: lo(3) = (/ 1, 1, 0 /), hi(3) = (/ 100, 1, 2 /), slo(3) = (/ 1, 1, 1 /), shi(3) = (/ 100, 1, 1 /), n_swe_comp = 3, n_cons_comp = 5, nghost = 1
+    integer, parameter :: lo(3) = (/ 1, 1, 0 /), hi(3) = (/ 100, 1, 2 /)
+    integer, parameter :: slo(3) = (/ 1, 1, 1 /), shi(3) = (/ 100, 1, 1 /)
+    integer, parameter :: n_swe_comp = 3, n_cons_comp = 5, nghost = 1
     double precision :: U_swe(slo(1)-1:shi(1)+1, slo(2)-1:shi(2)+1, slo(3)-1:shi(3)+1, n_swe_comp)
     double precision :: U_prim(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1, n_cons_comp)
     double precision :: U_comp(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1, n_cons_comp)
@@ -442,7 +474,10 @@ subroutine test_comp_from_swe(passed) bind(C, name="test_comp_from_swe")
     double precision :: h(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
     double precision :: p_swe(slo(3)-1:shi(3)+1), rho(slo(3)-1:shi(3)+1)
     double precision, parameter :: gamma = 5.0d0/3.0d0, M = 1.0d0, R = 100.0d0
-    double precision :: dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /), rand, alpha0, gamma_z, v2(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1), W(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
+    double precision :: dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /)
+    double precision :: rand, alpha0, gamma_z
+    double precision :: v2(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
+    double precision :: W(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
     integer i
     integer, parameter :: stdout=6
     character(len=*), parameter :: nullfile="/dev/null", terminal="/dev/stdout"
@@ -459,7 +494,7 @@ subroutine test_comp_from_swe(passed) bind(C, name="test_comp_from_swe")
         U_prim(i, :, :, 5) = 1.0d-2 * rand
     end do
 
-    p_swe(:) = 0.016667d0
+    p_swe(:) = 3.0d-3
     rho(:) = 5.0d0
 
     ! calculate conservative variables
@@ -479,28 +514,47 @@ subroutine test_comp_from_swe(passed) bind(C, name="test_comp_from_swe")
     end do
     U_comp(:,:,:,5) = U_prim(:,:,:,1) * W * (h * W - 1.0d0) - p
 
-    U_swe(:,1,1,1) = -log(alpha0) * W(slo(1)-1:shi(1)+1,1,1)
-    U_swe(:,1,1,2) = U_swe(:,1,1,1) * W(slo(1)-1:shi(1)+1,1,1) * U_prim(slo(1)-1:shi(1)+1,1,1,2)
-    U_swe(:,1,1,3) = U_swe(:,1,1,1) * W(slo(1)-1:shi(1)+1,1,1) * U_prim(slo(1)-1:shi(1)+1,1,1,3)
+    do i = slo(3)-1,shi(3)+1
+        U_swe(slo(1)-1:shi(1)+1, slo(2)-1:shi(2)+1, i,1) = &
+            -log((shi(3) - slo(3) - i + 1) * dx(3) * M / (alpha0 * R) + alpha0) * &
+            W(slo(1)-1:shi(1)+1, slo(2)-1:shi(2)+1, i)
+        !write(*,*) "h: ", (shi(3) - slo(3) - i + 1) * dx(3)
+    end do
+
+    U_swe(slo(1)-1:shi(1)+1, slo(2)-1:shi(2)+1, slo(3)-1:shi(3)+1,2) = &
+      U_swe(slo(1)-1:shi(1)+1,slo(2)-1:shi(2)+1,slo(3)-1:shi(3)+1,1) * &
+      W(slo(1)-1:shi(1)+1, slo(2)-1:shi(2)+1, slo(3)-1:shi(3)+1) * &
+      U_prim(slo(1)-1:shi(1)+1, slo(2)-1:shi(2)+1, slo(3)-1:shi(3)+1,2)
+
+    U_swe(slo(1)-1:shi(1)+1, slo(2)-1:shi(2)+1, slo(3)-1:shi(3)+1,3) = &
+      U_swe(slo(1)-1:shi(1)+1,slo(2)-1:shi(2)+1,slo(3)-1:shi(3)+1,1) * &
+      W(slo(1)-1:shi(1)+1, slo(2)-1:shi(2)+1, slo(3)-1:shi(3)+1) * &
+      U_prim(slo(1)-1:shi(1)+1, slo(2)-1:shi(2)+1, slo(3)-1:shi(3)+1,3)
 
     ! Suppress output to terminal from this function by redirecting it
-    open(unit=stdout, file=nullfile, status="old")
+    !open(unit=stdout, file=nullfile, status="old")
 
     call comp_from_swe(U_comp_test, lo-1, hi+1, U_swe, slo-1, shi+1, &
         p(1,1,slo(3):shi(3)), rho, slo, shi, n_cons_comp, n_swe_comp, &
         gamma, dx, alpha0, M, R, nghost)
 
     ! Redirect output back to terminal
-    open(unit=stdout, file=terminal, status="old")
+    !open(unit=stdout, file=terminal, status="old")
 
-    if (any(abs(U_comp_test(:,1,1,:) - U_comp(:,1,1,:)) > 1.d-5) .or. any(U_comp_test(:,1,1,:) /= U_comp_test(:,1,1,:))) then
+    if (any(abs(U_comp_test(:,1,1,1:3) - U_comp(:,1,1,1:3)) / abs(U_comp(:,1,1,1:3)) > 1.d-5) .or. &
+        any(abs(U_comp_test(:,1,1,5) - U_comp(:,1,1,5)) > 1.d-5) .or. &
+        any(U_comp_test(:,1,1,:) /= U_comp_test(:,1,1,:))) then
+
         write(*,*) "comp_from_swe failed :("
-        !write(*,*) "delta p: ", abs(p_test - p)
+        write(*,*) "delta U: ", abs(U_comp_test(1,1,1,1:3) - U_comp(1,1,1,1:3)) / abs(U_comp(1,1,1,1:3)), abs(U_comp_test(1,1,1,5) - U_comp(1,1,1,5)) / abs(U_comp(1,1,1,5))
         passed = .false.
     else
         write(*,*) "comp_from_swe passed :D"
     end if
 
+    write(*,*) "U_prim: ", U_prim(1,1,1,:)
+    write(*,*) "p: ", p(1,1,:)
+    write(*,*) "U_swe: ", U_swe(1,1,1,:)
     write(*,*) "U_comp: ", U_comp(1,1,1,:)
     write(*,*) "U_comp_test: ", U_comp_test(1,1,1,:)
 
@@ -564,7 +618,9 @@ subroutine test_f_of_p(passed) bind(C, name="test_f_of_p")
     integer i
 
     do i = lo(1), hi(1)
-        gamma_up(i,1,1,:) = (/ 0.80999862d0,  0.0d0,  0.0d0,  0.0d0,  0.80999862d0, 0.0d0,  0.0d0,  0.0d0,  0.80999862d0 /)
+        gamma_up(i,1,1,:) = (/ 0.80999862d0,  0.0d0,  0.0d0,  &
+            0.0d0,  0.80999862d0, 0.0d0,  &
+            0.0d0,  0.0d0,  0.80999862d0 /)
     end do
 
     U_cons(1,1,1,:) = (/ 1.0d-3, 0.0d0, 0.0d0, 0.0d0, 3.0d0 /)
@@ -572,10 +628,12 @@ subroutine test_f_of_p(passed) bind(C, name="test_f_of_p")
     U_cons(3,1,1,:) = (/ 1.0d3, 0.0d0, 0.0d0, 0.0d0, 1.0d-3 /)
     U_cons(4,1,1,:) = (/ 5.0d0, 0.3d0, 0.1d0, 0.4d0, 1.0d0 /)
     p(:,1,1) = (/ 2.0d0, 50.0d0, 20.0d0, 1.0d0 /)
-    f(:,1,1) = (/ 0.d0, 616.66641981029716d0, -19.99933333333335d0, -0.34621947550289045d0 /)
+    f(:,1,1) = (/ 0.d0, 616.66641981029716d0, -19.99933333333335d0, &
+                  -0.34621947550289045d0 /)
 
     do i = lo(1), hi(1)
-        call f_of_p(f_test(i,1,1), p(i,1,1), U_cons(i,1,1,:), Ncomp, gamma, gamma_up(i,1,1,:))
+        call f_of_p(f_test(i,1,1), p(i,1,1), U_cons(i,1,1,:), &
+                    Ncomp, gamma, gamma_up(i,1,1,:))
     end do
 
     if (any(abs(f_test - f) > 1.d-5)) then
@@ -603,7 +661,9 @@ subroutine test_zbrent(passed) bind(C, name="test_zbrent")
     double precision :: gamma_up(9), v2(lo:hi), W(lo:hi), h(lo:hi), rand
     integer i
 
-    gamma_up(:) = (/ 0.80999862d0,  0.0d0,  0.0d0,  0.0d0,  0.80999862d0, 0.0d0,  0.0d0,  0.0d0,  0.80999862d0 /)
+    gamma_up(:) = (/ 0.80999862d0,  0.0d0,  0.0d0,  &
+                     0.0d0,  0.80999862d0, 0.0d0,  &
+                     0.0d0,  0.0d0,  0.80999862d0 /)
 
     do i = lo, hi
         call random_number(rand)
@@ -630,7 +690,8 @@ subroutine test_zbrent(passed) bind(C, name="test_zbrent")
     U_cons(:,5) = U_prim(:,1) * W * (h * W - 1.0d0) - p
 
     do i = lo, hi
-        call zbrent(p_test(i), pmin(i), pmax(i), U_cons(i,:), Ncomp, gamma, gamma_up)
+        call zbrent(p_test(i), pmin(i), pmax(i), U_cons(i,:), &
+                    Ncomp, gamma, gamma_up)
     end do
 
     if (any(abs(p_test - p) > 1.d-5)) then
@@ -654,8 +715,11 @@ subroutine test_gr_comp_flux(passed) bind(C, name="test_gr_comp_flux")
     double precision :: U_cons(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1, Ncomp)
     double precision :: f(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1, Ncomp)
     double precision :: f_test(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), Ncomp)
-    double precision, parameter :: gamma = 5.0d0/3.0d0, alpha0 = 0.9, R = 100.d0, M = 1.0d0
-    double precision :: gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 9), dx(3) = (/ 1.0d-1, 1.0d-1, 1.0d-1 /), alpha(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
+    double precision, parameter :: gamma = 5.0d0/3.0d0, alpha0 = 0.9
+    double precision, parameter :: R = 100.d0, M = 1.0d0
+    double precision :: gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 9)
+    double precision :: dx(3) = (/ 1.0d-1, 1.0d-1, 1.0d-1 /)
+    double precision :: alpha(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
     integer :: i, dirs(lo(1):hi(1)), lims(3)
     integer, parameter :: stdout=6
     character(len=*), parameter :: nullfile="/dev/null", terminal="/dev/stdout"
@@ -670,27 +734,38 @@ subroutine test_gr_comp_flux(passed) bind(C, name="test_gr_comp_flux")
     U_cons(1,1,1,:) = (/ 1.d0,  0.d0,  0.d0,  0.d0,  1.d0 /)
     U_cons(2,1,1,:) = U_cons(1,1,1,:)
     U_cons(3,1,1,:) = U_cons(1,1,1,:)
-    U_cons(4,1,1,:) = (/ 1.13133438d0,  1.02393398d0,  1.02393398d0,  1.02393398d0,  1.61511222d0 /)
+    U_cons(4,1,1,:) = (/ 1.13133438d0,  1.02393398d0,  1.02393398d0,  &
+                         1.02393398d0,  1.61511222d0 /)
     U_cons(5,1,1,:) = U_cons(4,1,1,:)
     U_cons(6,1,1,:) = U_cons(4,1,1,:)
     U_cons(7,1,1,:) = U_cons(4,1,1,:)
-    U_cons(8,1,1,:) = (/ 0.01012376d0,  0.00104199d0, -0.00104199d0,  0.00104199d0,  0.00022944d0 /)
+    U_cons(8,1,1,:) = (/ 0.01012376d0,  0.00104199d0, -0.00104199d0,  &
+                         0.00104199d0,  0.00022944d0 /)
     dirs(:) = (/ 0,1,2,0,1,0,1,2 /)
-    f(1,1,1,:) = (/ -0.11111111d0,  0.66666667d0, -0.0d0, -0.0d0, -0.11111111d0 /)
-    f(2,1,1,:) = (/ 0.22222222d0,  0.0d0,  0.66666667d0,  0.0d0,  0.22222222d0 /)
-    f(3,1,1,:) = (/ -0.33333333d0, -0.0d0,  0.0d0,  0.66666667d0, -0.33333333d0 /)
-    f(4,1,1,:) = (/ 0.14920997d0,  0.80171176d0,  0.13504509d0,  0.13504509d0,  0.41301469d0 /)
-    f(5,1,1,:) = (/ 0.52632143d0,  0.47635642d0,  1.14302308d0,  0.47635642d0,  0.95138543d0 /)
-    f(6,1,1,:) = (/ 0.00014921d0,  0.00080171d0, -0.00013505d0,  0.00013505d0,  0.00041301d0 /)
-    f(7,1,1,:) = (/ -2.35061459d-05,  -2.12746488d-05,   6.87941315d-04, -2.12746488d-05,  -2.33557774d-04 /)
-    f(8,1,1,:) = (/ -2.55456349d-03,  -2.62928173d-04,   2.62928173d-04, -1.96261506d-04,  -5.12293429d-05 /)
+    f(1,1,1,:) = (/ -0.11111111d0,  0.66666667d0, -0.0d0, &
+                    -0.0d0, -0.11111111d0 /)
+    f(2,1,1,:) = (/ 0.22222222d0,  0.0d0,  0.66666667d0,  &
+                    0.0d0,  0.22222222d0 /)
+    f(3,1,1,:) = (/ -0.33333333d0, -0.0d0,  0.0d0,  &
+                    0.66666667d0, -0.33333333d0 /)
+    f(4,1,1,:) = (/ 0.14920997d0,  0.80171176d0,  0.13504509d0,  &
+                    0.13504509d0,  0.41301469d0 /)
+    f(5,1,1,:) = (/ 0.52632143d0,  0.47635642d0,  1.14302308d0,  &
+                    0.47635642d0,  0.95138543d0 /)
+    f(6,1,1,:) = (/ 0.00014921d0,  0.00080171d0, -0.00013505d0,  &
+                    0.00013505d0,  0.00041301d0 /)
+    f(7,1,1,:) = (/ -2.35061459d-05,  -2.12746488d-05,   &
+                    6.87941315d-04, -2.12746488d-05,  -2.33557774d-04 /)
+    f(8,1,1,:) = (/ -2.55456349d-03,  -2.62928173d-04,   &
+                    2.62928173d-04, -1.96261506d-04,  -5.12293429d-05 /)
 
     ! Suppress output to terminal from this function by redirecting it
     open(unit=stdout, file=nullfile, status="old")
 
     do i = lo(1), hi(1)
         lims = (/ i,1,1 /)
-        call gr_comp_flux(U_cons, f_test, lims, lims, Ncomp, dirs(i), gamma, lo-1, hi+1, alpha, dx, alpha0, M, R)
+        call gr_comp_flux(U_cons, f_test, lims, lims, Ncomp, dirs(i), &
+                          gamma, lo-1, hi+1, alpha, dx, alpha0, M, R)
     end do
 
     ! Redirect output back to terminal
@@ -698,7 +773,8 @@ subroutine test_gr_comp_flux(passed) bind(C, name="test_gr_comp_flux")
 
     if (any(abs(f_test - f(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),:)) > 1.d-5)) then
         write(*,*) "gr_comp_flux failed :("
-        write(*,*) "delta f: ", abs(f_test - f(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),:))
+        write(*,*) "delta f: ", &
+            abs(f_test - f(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),:))
         passed = .false.
     else
         write(*,*) "gr_comp_flux passed :D"
