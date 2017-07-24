@@ -23,7 +23,7 @@ subroutine initdata(level, time, lo, hi, &
                                         phi_lo(2):phi_hi(2), &
                                         phi_lo(3):phi_hi(3), Ncomp)
   double precision, intent(in) :: dx(3), prob_lo(3), alpha0, M, R, p(phi_lo(3):phi_hi(3)), gamma
-  double precision, intent(inout) :: rho_swe(phi_lo(3):phi_hi(3))
+  double precision, intent(inout) :: rho_swe(nlayers)
 
   integer          :: dm
   integer          :: i,j,k
