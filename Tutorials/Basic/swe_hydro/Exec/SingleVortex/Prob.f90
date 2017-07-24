@@ -14,7 +14,7 @@ end subroutine amrex_probinit
 
 subroutine initdata(level, time, lo, hi, &
      phi, phi_lo, phi_hi, &
-     dx, prob_lo, Ncomp, alpha0, M, R, p, nlayers, gamma) bind(C, name="initdata")
+     dx, prob_lo, Ncomp, alpha0, M, R, p, nlayers, gamma, rho_swe) bind(C, name="initdata")
 
   implicit none
   integer, intent(in) :: level, lo(3), hi(3), phi_lo(3), phi_hi(3), Ncomp, nlayers
@@ -22,7 +22,8 @@ subroutine initdata(level, time, lo, hi, &
   double precision, intent(inout) :: phi(phi_lo(1):phi_hi(1), &
                                         phi_lo(2):phi_hi(2), &
                                         phi_lo(3):phi_hi(3), Ncomp)
-  double precision, intent(in) :: dx(3), prob_lo(3), alpha0, M, R, p(nlayers), gamma
+  double precision, intent(in) :: dx(3), prob_lo(3), alpha0, M, R, p(phi_lo(3):phi_hi(3)), gamma
+  double precision, intent(inout) :: rho_swe(phi_lo(3):phi_hi(3))
 
   integer          :: dm
   integer          :: i,j,k
@@ -86,7 +87,14 @@ subroutine initdata(level, time, lo, hi, &
 
                !write(*,*) "alpha0 = ", alpha0, "gamma = ", gamma, "gamma_surf = ", gamma_surf, "h = ", h
 
-               phi(i,j,k,1) = -0.5d0 * log(1.0d0 - 2.0d0 / h)
+               rho_swe(k) = p(k)**(1.0d0 / gamma) / Kk
+
+               gamma_z = p(k) + gamma_surf
+
+               z = (1.0d0 - gamma_z * alpha0) * (R*alpha0)**2 / M
+
+               phi(i,j,k,1) = -log(z * M / (alpha0 * R) + alpha0)
+               !-0.5d0 * log(1.0d0 - 2.0d0 / h)
                !-log(alpha)
 
                !rho = (p(k) / K)**(1.0d0/gamma)

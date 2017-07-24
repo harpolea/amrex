@@ -416,7 +416,7 @@ void AmrAdv::comp_from_swe_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf)
     const int n_swe_comp = 3;
     int nghost = swe_mf.nGrow();
     const Real* dx = geom[lev].CellSize();
-
+    const Real* prob_lo = geom[lev].ProbLo();
 
     for (MFIter mfi(swe_mf, true); mfi.isValid(); ++mfi) {
         const Box& bx = mfi.tilebox();
@@ -428,7 +428,7 @@ void AmrAdv::comp_from_swe_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf)
             p, rho,
             bx.loVect(), bx.hiVect(),
             &n_cons_comp, &n_swe_comp,
-            &gamma, dx, &alpha0, &M, &R, &nghost);
+            &gamma, dx, &alpha0, &M, &R, &nghost, ZFILL(prob_lo));
     }
     comp_mf.FillBoundary(geom[lev].periodicity());
     fill_physbc(comp_mf, geom[lev]);

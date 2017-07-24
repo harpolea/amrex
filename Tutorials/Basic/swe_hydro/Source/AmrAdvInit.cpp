@@ -61,7 +61,7 @@ void AmrAdv::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
              BL_TO_FORTRAN_3D(state[mfi]),
              ZFILL(dx),
     		 ZFILL(prob_lo), &ncomp, &alpha0, &M, &R,
-             p, &nlayers, &gamma);
+             p, &nlayers, &gamma, rho);
     }
     state.FillBoundary(geom[lev].periodicity());
     fill_physbc(state, geom[lev]);

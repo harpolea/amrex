@@ -621,9 +621,9 @@ contains
                   pmin = (1.0d0 - ssq)**2 * q(5) * (gamma - 1.0d0)
                   pmax = (gamma - 1.0d0) * (q(5) + q(1)) / (2.0d0 - gamma)
 
-                  if (i == lo(1)+1 .and. j == lo(2)+1 .and. k == lo(3)+1) then
-                      write(*,*) "pmin: ", pmin, "pmax: ", pmax, "ssq: ", ssq, "D: ", q(1), "tau: ", q(5)
-                  end if
+                  !if (i == lo(1)+1 .and. j == lo(2)+1 .and. k == lo(3)+1) then
+                !    write(*,*) "pmin: ", pmin, "pmax: ", pmax, "ssq: ", ssq, "D: ", q(1), "tau: ", q(5)
+                 ! end if
 
                   if (pmin < 0.0d0) then
                       pmin = 0.d0
@@ -691,9 +691,9 @@ contains
           end do
       end do
 
-      write(*,*) "U_comp", U(lo(1)+4, lo(2)+4, lo(3)+4, :)
-      write(*,*) "U_prim", U_prim(lo(1)+1, lo(2)+1, lo(3)+1, :)
-      write(*,*) "p: ", p(lo(1), lo(2), lo(3):hi(3))
+      !write(*,*) "U_comp", U(lo(1)+4, lo(2)+4, lo(3)+4, :)
+      !write(*,*) "U_prim", U_prim(lo(1)+1, lo(2)+1, lo(3)+1, :)
+      !write(*,*) "p: ", p(lo(1), lo(2), lo(3):hi(3))
       !write(*,*) "p", p(lo(1)+3, lo(2)+3, lo(3)+3)
       !write(*,*) "gamma_up", gamma_up(lo(1), lo(2), lo(3), 7:9)
       !write(*,*) "alpha0, R, M", alpha0, M, R

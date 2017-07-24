@@ -475,7 +475,7 @@ subroutine test_comp_from_swe(passed) bind(C, name="test_comp_from_swe")
     double precision :: p_swe(slo(3)-1:shi(3)+1), rho(slo(3)-1:shi(3)+1)
     double precision, parameter :: gamma = 5.0d0/3.0d0, M = 1.0d0, R = 100.0d0
     double precision :: dx(3) = (/ 1.0d-3, 1.0d-3, 2.0d-1 /)
-    double precision :: rand, alpha0, gamma_z, z_surf, gamma_surf, z, rho_c, rhoh
+    double precision :: rand, alpha0, gamma_z, z_surf, gamma_surf, z, rho_c, rhoh, prob_lo(3)
     double precision :: v2(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
     double precision :: W(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
     integer i
@@ -510,9 +510,11 @@ subroutine test_comp_from_swe(passed) bind(C, name="test_comp_from_swe")
     z_surf = 1.0d0
     gamma_surf = (1.0d0 - M * z_surf / (R*alpha0)**2) / alpha0
 
+    prob_lo(3) = 0.25d0
+
     do  i = lo(3)-1, lo(3)+1
 
-        z = (dble(i)+0.5d0) * dx(3) + 0.25d0
+        z = (dble(i)+0.5d0) * dx(3) + prob_lo(3)
         gamma_z = (1.0d0 - M * z / (R*alpha0)**2) / alpha0
 
 
@@ -586,7 +588,7 @@ subroutine test_comp_from_swe(passed) bind(C, name="test_comp_from_swe")
 
     call comp_from_swe(U_comp_test, lo-1, hi+1, U_swe, slo-1, shi+1, &
         p_swe, rho, slo, shi, n_cons_comp, n_swe_comp, &
-        gamma, dx, alpha0, M, R, nghost)
+        gamma, dx, alpha0, M, R, nghost, prob_lo)
 
     ! Redirect output back to terminal
     open(unit=stdout, file=terminal, status="old")
