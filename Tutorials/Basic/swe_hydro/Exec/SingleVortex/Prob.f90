@@ -22,7 +22,7 @@ subroutine initdata(level, time, lo, hi, &
   double precision, intent(inout) :: phi(phi_lo(1):phi_hi(1), &
                                         phi_lo(2):phi_hi(2), &
                                         phi_lo(3):phi_hi(3), Ncomp)
-  double precision, intent(in) :: dx(3), prob_lo(3), alpha0, M, R, p(phi_lo(3):phi_hi(3)), gamma
+  double precision, intent(in) :: dx(3), prob_lo(3), alpha0, M, R, p(nlayers), gamma
   double precision, intent(inout) :: rho_swe(nlayers)
 
   integer          :: dm
@@ -87,11 +87,21 @@ subroutine initdata(level, time, lo, hi, &
 
                !write(*,*) "alpha0 = ", alpha0, "gamma = ", gamma, "gamma_surf = ", gamma_surf, "h = ", h
 
-               rho_swe(k) = p(k)**(1.0d0 / gamma) / Kk
+               if (k > 0 .and. k <= nlayers) then
+                   rho_swe(k) = p(k)**(1.0d0 / gamma) / Kk
 
-               gamma_z = p(k) + gamma_surf
+                   gamma_z = p(k) + gamma_surf
 
-               z = (1.0d0 - gamma_z * alpha0) * (R*alpha0)**2 / M
+                   z = (1.0d0 - gamma_z * alpha0) * (R*alpha0)**2 / M
+               else if (k < 1) then
+                   gamma_z = p(1) + gamma_surf
+
+                   z = (1.0d0 - gamma_z * alpha0) * (R*alpha0)**2 / M
+               else
+                   gamma_z = p(nlayers) + gamma_surf
+
+                   z = (1.0d0 - gamma_z * alpha0) * (R*alpha0)**2 / M
+               end if
 
                phi(i,j,k,1) = -log(z * M / (alpha0 * R) + alpha0)
                !-0.5d0 * log(1.0d0 - 2.0d0 / h)
