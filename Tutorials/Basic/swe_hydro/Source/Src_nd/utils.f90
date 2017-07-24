@@ -212,10 +212,12 @@ contains
         !write(*,*) "p", p
 
         do k = nlo(3), nhi(3)
-            h_comp(k) = (hi(3) - lo(3) - k + 1) * dz
+            h_comp(k) = (dble(k)+0.5d0) * dx(3) + 0.25d0!(hi(3) - lo(3) - k + 2) * dz
         end do
 
         write(*,*) "hcomp: ", h_comp
+        write(*,*) "n_swe_comp: ", n_swe_comp
+        write(*,*) "U, exp(-U/w), alpha, W", U_swe(nlo(1), nlo(2),slo(3),1), exp(-U_swe(nlo(1), nlo(2),slo(3),1) / W(nlo(1), nlo(2),slo(3))), alpha0, W(nlo(1), nlo(2),slo(3))
 
         if (n_swe_comp > 3) then
             h_swe = U_swe(nlo(1):nhi(1),nlo(2):nhi(2),slo(3):shi(3),4)
@@ -242,25 +244,27 @@ contains
 
         U_comp(:,:,:,:) = 0.0d0
 
+        write(*,*) "h_swe: ", h_swe(nlo(1), nlo(2), :)
+
         ! calculate layer fracs and interpolate
         do        k = nlo(3), nhi(3)
-            ! neighbour is the swe layer above
+            ! neighbour is the swe layer below
             ! check if this layer is above or below
             do     j = nlo(2), nhi(2)
                 do i = nlo(1), nhi(1)
                     ! find nearest layer
-                    minl = minloc(abs(h_swe(i,j,slo(3)+1:shi(3)-1) - h_comp(k)))
-                    neighbour = minl(1) + slo(3)
-                    if (h_swe(i,j,neighbour) < h_comp(k) .and. neighbour > lo(3)) then
+                    minl = minloc(abs(h_swe(i,j,slo(3):shi(3)) - h_comp(k)))
+                    neighbour = minl(1) + slo(3) - 1
+                    if (h_swe(i,j,neighbour) > h_comp(k) .and. neighbour > slo(3)) then
                         neighbour = neighbour - 1
                     end if
-                    if (neighbour >= shi(3)-1) then
+                    if (neighbour >= shi(3)) then
                         neighbour = neighbour - 1
                     end if
-                    zfrac = 1.0d0 - (h_swe(i,j,neighbour) - h_comp(k)) / dz
+                    zfrac = 1.0d0 - (h_comp(k) - h_swe(i,j,neighbour)) / (h_swe(i,j,neighbour+1) - h_swe(i,j,neighbour))
                     zfrac = min(1.0d0, max(0.0d0, zfrac))
 
-                    write(*,*) "zfrac, neighbour, hswe, hcomp", zfrac, neighbour, h_swe(i,j,neighbour), h_comp(k)
+                    !write(*,*) "zfrac, neighbour, hswe, hswe+1, hcomp", zfrac, neighbour, h_swe(i,j,neighbour), h_swe(i,j,neighbour+1), h_comp(k)
 
                     ! now interpolate and stick primitive compressible variables in U_comp
                     ! TODO: slope limit here?
@@ -271,6 +275,7 @@ contains
 
                     U_comp(i,j,k,5) = p(neighbour) * zfrac + &
                         p(neighbour+1) * (1.0d0 - zfrac)
+                    !write(*,*) "p: ", U_comp(i,j,k,5), "p(neighbour+1)", p(neighbour+1)
 
                     W(i,j,k) = U_comp(i,j,k,2)**2*gamma_up(i,j,k,1) + &
                         2.0d0 * U_comp(i,j,k,2) * U_comp(i,j,k,3) * &
