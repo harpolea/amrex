@@ -15,14 +15,15 @@ subroutine test_cons_to_prim(passed) bind(C, name="test_cons_to_prim")
     double precision :: p(lo(1):hi(1))
     double precision :: h(lo(1):hi(1))
     double precision, parameter :: gamma = 5.0d0/3.0d0, M = 1.0d0, R = 100.0d0
-    double precision :: dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /), gamma_z
+    double precision :: dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /), gamma_z, prob_lo(3)
     double precision :: v2(lo(1):hi(1)), W(lo(1):hi(1)), alpha0, rand
     integer i
     integer, parameter :: stdout=6
     character(len=*), parameter :: nullfile="/dev/null", terminal="/dev/stdout"
 
     alpha0 = sqrt(1.0d0 - 2.0d0 * M / R)
-    gamma_z = (alpha0 + M * dx(3) * lo(3) / (R * alpha0))**2
+    prob_lo(3) = 0.0d0
+    gamma_z = (alpha0 + M * dx(3) * 1.5d0 / (R * alpha0))**2
 
     do i = 1, hi(1)
         call random_number(rand)
@@ -52,19 +53,19 @@ subroutine test_cons_to_prim(passed) bind(C, name="test_cons_to_prim")
     open(unit=stdout, file=nullfile, status="old")
 
     call cons_to_prim(U_cons, lo, hi, U_prim_test, lo, hi, &
-        p, lo, hi, lo, hi, Ncomp, gamma, alpha0, M, R, dx)
+        p, lo, hi, lo, hi, Ncomp, gamma, alpha0, M, R, dx, prob_lo)
 
     ! Redirect output back to terminal
     open(unit=stdout, file=terminal, status="old")
 
-    if (any(abs(U_prim_test - U_prim) > 1.0d-10)) then
+    if (any(abs(U_prim_test - U_prim) / abs(U_prim) > 1.0d-10)) then
         write(*,*) "cons_to_prim failed :'("
         do i = lo(1), hi(1)
             !write(*,*) "U_prim: ", U_prim(i,:,:,:)
             !write(*,*) "U_prim_test: ", U_prim_test(i,:,:,:)
             !write(*,*) "p: ", p(i)
             write(*,*) "delta U_prim: ", &
-                abs(U_prim_test(i,:,:,:) - U_prim(i,:,:,:))
+                abs(U_prim_test(i,:,:,:) - U_prim(i,:,:,:)) / abs(U_prim(i,:,:,:))
         end do
         passed = .false.
     else
@@ -167,7 +168,7 @@ subroutine test_calc_gamma_up(passed) bind(C, name="test_calc_gamma_up")
     integer, parameter :: lo(3) = (/ 1,1,1 /), hi(3) = (/ 3, 1, 1 /)
     double precision :: gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),9)
     double precision :: gamma_test(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),9)
-    double precision :: alpha0(3), M, R, dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /)
+    double precision :: alpha0(3), M, R, dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /), prob_lo(3)
     integer i
 
     gamma_up(:,:,:,:) = 0.0d0
@@ -175,12 +176,13 @@ subroutine test_calc_gamma_up(passed) bind(C, name="test_calc_gamma_up")
     gamma_up(:,:,:,5) = 1.0d0
 
     alpha0(:) = (/ 0.9d0, 1.0d-3, 1.0d0 /)
+    prob_lo(3) = 0.0d0
 
     gamma_up(:,1,1,9) = (/ 0.9000111111d0, 4.41d-4, 1.0609d0 /)
 
     do i = lo(1), hi(1)
         call calc_gamma_up(gamma_test, lo, hi, (/ i, 1, 1 /), &
-                           (/ i, 1, 1 /), alpha0(i), M, R, dx)
+                           (/ i, 1, 1 /), alpha0(i), M, R, dx, prob_lo)
     end do
 
     if (any(abs(gamma_test - gamma_up) > 1.d-5)) then
@@ -201,7 +203,7 @@ subroutine test_calc_gamma_down(passed) bind(C, name="test_calc_gamma_down")
     integer, parameter :: lo(3) = (/ 1,1,1 /), hi(3) = (/ 3, 1, 1 /)
     double precision :: gamma_down(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),9)
     double precision :: gamma_test(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3),9)
-    double precision :: alpha0(3), M, R, dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /)
+    double precision :: alpha0(3), M, R, dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /), prob_lo(3)
     integer i
 
     gamma_down(:,:,:,:) = 0.0d0
@@ -209,13 +211,14 @@ subroutine test_calc_gamma_down(passed) bind(C, name="test_calc_gamma_down")
     gamma_down(:,:,:,5) = 1.0d0
 
     alpha0(:) = (/ 0.9d0, 1.0d-3, 1.0d0 /)
+    prob_lo(3) = 0.0d0
 
     gamma_down(:,1,1,9) = (/ 1.111097394d0, 2267.573696d0, &
                              0.9425959091d0 /)
 
     do i = lo(1), hi(1)
         call calc_gamma_down(gamma_test, lo, hi, (/ i, 1, 1 /), &
-                             (/ i, 1, 1 /), alpha0(i), M, R, dx)
+                             (/ i, 1, 1 /), alpha0(i), M, R, dx, prob_lo)
     end do
 
     if (any(abs(gamma_test - gamma_down) > 1.d-5)) then
@@ -361,14 +364,15 @@ subroutine test_swe_from_comp(passed) bind(C, name="test_swe_from_comp")
     double precision :: p_swe(slo(3):shi(3))
     double precision, parameter :: gamma = 5.0d0/3.0d0, M = 1.0d0, R = 100.0d0
     double precision :: dx(3) = (/ 1.0d-3, 1.0d-3, 1.0d-3 /), rand
-    double precision :: alpha0, gamma_z
+    double precision :: alpha0, gamma_z, prob_lo(3)
     double precision :: v2(lo(1)-1:hi(1)+1), W(lo(1)-1:hi(1)+1)
     integer i
     integer, parameter :: stdout=6
     character(len=*), parameter :: nullfile="/dev/null", terminal="/dev/stdout"
 
     alpha0 = sqrt(1.0d0 - 2.0d0 * M / R)
-    gamma_z = (alpha0 + M * dx(3) * lo(3) / (R * alpha0))**2
+    prob_lo(3) = 0.0d0
+    gamma_z = (alpha0 + M * dx(3) * 1.5d0 / (R * alpha0))**2
 
     do i = lo(1)-1, hi(1)+1
         call random_number(rand)
@@ -399,7 +403,7 @@ subroutine test_swe_from_comp(passed) bind(C, name="test_swe_from_comp")
 
     call swe_from_comp(U_prim, lo-1, hi+1, U_swe_test, slo, shi, &
         p, lo-1, hi+1, p_swe, lo, hi, n_cons_comp, n_swe_comp, &
-        alpha0, M, R, dx)
+        alpha0, M, R, dx, prob_lo)
 
     ! Redirect output back to terminal
     open(unit=stdout, file=terminal, status="old")
@@ -772,7 +776,7 @@ subroutine test_gr_comp_flux(passed) bind(C, name="test_gr_comp_flux")
     double precision, parameter :: gamma = 5.0d0/3.0d0, alpha0 = 0.9
     double precision, parameter :: R = 100.d0, M = 1.0d0
     double precision :: gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 9)
-    double precision :: dx(3) = (/ 1.0d-1, 1.0d-1, 1.0d-1 /)
+    double precision :: dx(3) = (/ 1.0d-1, 1.0d-1, 1.0d-1 /), prob_lo(3)
     double precision :: alpha(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
     integer :: i, dirs(lo(1):hi(1)), lims(3)
     integer, parameter :: stdout=6
@@ -782,6 +786,8 @@ subroutine test_gr_comp_flux(passed) bind(C, name="test_gr_comp_flux")
     gamma_up(:,:,:,1) = 1.0d0
     gamma_up(:,:,:,5) = 1.0d0
     gamma_up(:,:,:,9) = (alpha0 + M * dx(3) * lo(3) / (R * alpha0))**2
+
+    prob_lo(3) = 0.0d0
 
     U_cons(:,:,:,:) = 0.0d0
 
@@ -819,7 +825,7 @@ subroutine test_gr_comp_flux(passed) bind(C, name="test_gr_comp_flux")
     do i = lo(1), hi(1)
         lims = (/ i,1,1 /)
         call gr_comp_flux(U_cons, f_test, lims, lims, Ncomp, dirs(i), &
-                          gamma, lo-1, hi+1, alpha, dx, alpha0, M, R)
+                          gamma, lo-1, hi+1, alpha, dx, alpha0, M, R, prob_lo)
     end do
 
     ! Redirect output back to terminal

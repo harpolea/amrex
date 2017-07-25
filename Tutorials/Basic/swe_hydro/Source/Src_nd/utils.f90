@@ -40,7 +40,7 @@ contains
 
     subroutine swe_from_comp(U_prim, prlo, prhi, U_swe, slo, shi, p_comp, &
          pclo, pchi, p_swe, lo, hi, n_cons_comp, n_swe_comp, &
-         alpha0, M, R, dx) bind(C, name="swe_from_comp")
+         alpha0, M, R, dx, prob_lo) bind(C, name="swe_from_comp")
         ! Assume nlayers = 1 as 2d
         implicit none
 
@@ -50,21 +50,18 @@ contains
         double precision, intent(in) :: U_prim(prlo(1):prhi(1), prlo(2):prhi(2), prlo(3):prhi(3), n_cons_comp)
         double precision, intent(in) :: p_comp(pclo(1):pchi(1), pclo(2):pchi(2), pclo(3):pchi(3))
         double precision, intent(in) :: p_swe(slo(3):shi(3))
-        double precision, intent(in) :: alpha0, M, R, dx(3)
+        double precision, intent(in) :: alpha0, M, R, dx(3), prob_lo(3)
 
         double precision gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 9)
         double precision h_comp(lo(3):hi(3)), ssq
         integer neighbour, minl(1)
-        double precision zfrac, W
+        double precision zfrac, W, h
         integer i, j, k
-        double precision dz, h
 
-        call calc_gamma_up(gamma_up, lo, hi, lo, hi, alpha0, M, R, dx)
-
-        dz = dx(3)
+        call calc_gamma_up(gamma_up, lo, hi, lo, hi, alpha0, M, R, dx, prob_lo)
 
         do k = lo(3), hi(3)
-            h_comp(k) = (hi(3) - lo(3) - k) * dz
+            h_comp(k) = prob_lo(3) + (dble(k)+0.5d0) * dx(3) !(hi(3) - lo(3) - k) * dz
         end do
 
         !write(*,*) "p_swe = ", p_swe(slo(3))
@@ -89,6 +86,7 @@ contains
                 if (abs(zfrac) > 1.e9 .or. zfrac /= zfrac) then
                     zfrac = 1.0d0
                 end if
+                zfrac = max(0.0d0, zfrac)
 
                 !write(*,*) "zfrac, neighbour", zfrac, neighbour, h_comp(neighbour)
 
@@ -194,9 +192,7 @@ contains
 
         double precision gamma_up_swe(lo(1)-nghost:hi(1)+nghost, lo(2)-nghost:hi(2)+nghost, slo(3):shi(3), 9)
         double precision gamma_up(lo(1)-nghost:hi(1)+nghost, lo(2)-nghost:hi(2)+nghost, lo(3)-nghost:hi(3)+nghost, 9)
-        double precision dz
 
-        dz = dx(3)
         nlo = lo - nghost
         nhi = hi + nghost
 
@@ -204,7 +200,7 @@ contains
         write(*,*) "U_swe: ", U_swe(slo(1)+nghost, slo(2)+nghost, slo(3)+nghost, :), slo(1)+nghost, slo(2)+nghost, slo(3)+nghost
 
         call calc_gamma_up_swe(U_swe, slo, shi, nlo, nhi, n_swe_comp, gamma_up_swe)
-        call calc_gamma_up(gamma_up, nlo, nhi, nlo, nhi, alpha0, M, R, dx)
+        call calc_gamma_up(gamma_up, nlo, nhi, nlo, nhi, alpha0, M, R, dx, prob_lo)
         call W_swe(U_swe, slo, shi, nlo, nhi, n_swe_comp, gamma_up_swe, nlo, nhi, W(:,:,slo(3):shi(3)))
 
         !write(*,*) "gamma_up", gamma_up_swe(lo(1), lo(2), lo(3), 7:9)
@@ -353,34 +349,36 @@ contains
 
     end subroutine p_from_rho_eps
 
-    subroutine calc_gamma_up(gamma_up, glo, ghi, lo, hi, alpha0, M, R, dx)
+    subroutine calc_gamma_up(gamma_up, glo, ghi, lo, hi, alpha0, M, R, dx, prob_lo)
         implicit none
 
         integer, intent(in) :: glo(3), ghi(3), lo(3), hi(3)
         double precision, intent(out)  :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
         double precision, intent(in)  :: alpha0, M, R
-        double precision, intent(in)  :: dx(3)
+        double precision, intent(in)  :: dx(3), prob_lo(3)
 
         integer k
+        double precision :: z
 
         gamma_up(:,:,:,:) = 0.0d0
         gamma_up(:,:,:,1) = 1.0d0
         gamma_up(:,:,:,5) = 1.0d0
 
         do k = lo(3), hi(3)
-            gamma_up(:,:,k,9) = (alpha0 + M * k * dx(3) / (R * alpha0))**2
+            z = prob_lo(3) + (dble(k)+0.5d0) * dx(3)
+            gamma_up(:,:,k,9) = (alpha0 + M * z / (R * alpha0))**2
         end do
     end subroutine calc_gamma_up
 
-    subroutine calc_gamma_down(gamma_down, glo, ghi, lo, hi, alpha0, M, R, dx)
+    subroutine calc_gamma_down(gamma_down, glo, ghi, lo, hi, alpha0, M, R, dx, prob_lo)
         implicit none
 
         integer, intent(in) :: glo(3), ghi(3), lo(3), hi(3)
         double precision, intent(out)  :: gamma_down(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
         double precision, intent(in)  :: alpha0, M, R
-        double precision, intent(in)  :: dx(3)
+        double precision, intent(in)  :: dx(3), prob_lo(3)
 
-        call calc_gamma_up(gamma_down, glo, ghi, lo, hi, alpha0, M, R, dx)
+        call calc_gamma_up(gamma_down, glo, ghi, lo, hi, alpha0, M, R, dx, prob_lo)
 
         gamma_down(:,:,:,9) = 1.0 / gamma_down(:,:,:,9)
     end subroutine calc_gamma_down

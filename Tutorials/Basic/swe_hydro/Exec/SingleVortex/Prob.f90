@@ -75,7 +75,7 @@ subroutine initdata(level, time, lo, hi, &
                phi(i,j,k,1) = rho * W
                phi(i,j,k,2:4) = 0.0d0
                phi(i,j,k,5) = rhoh * W**2 - Kk * rho**gamma - phi(i,j,k,1)
-           else
+           else !swe
                ! height
                if (k < 1) then
                    h = R*alpha0**2 / M * (1.0d0 - alpha0/R * (p(1) / (Kk * rho_ref**gamma) + gamma_surf))
@@ -98,7 +98,7 @@ subroutine initdata(level, time, lo, hi, &
 
                    z = (1.0d0 - gamma_z * alpha0) * (R*alpha0)**2 / M
                else
-                   gamma_z = p(nlayers) + gamma_surf
+                   gamma_z = gamma_surf
 
                    z = (1.0d0 - gamma_z * alpha0) * (R*alpha0)**2 / M
                end if

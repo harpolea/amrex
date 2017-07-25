@@ -6,7 +6,7 @@ subroutine advect(time, lo, hi, &
      &            flxy, fy_lo, fy_hi, &
      &            flxz, fz_lo, fz_hi, &
      &            dx, dt, Ncomp, gr,  &
-     &            alpha0, M, R) bind(C, name="advect")
+     &            alpha0, M, R, prob_lo) bind(C, name="advect")
 
   use mempool_module, only : bl_allocate, bl_deallocate
   use compute_flux_module, only : compute_flux_3d
@@ -14,7 +14,7 @@ subroutine advect(time, lo, hi, &
   implicit none
 
   integer, intent(in) :: lo(3), hi(3), Ncomp
-  double precision, intent(in) :: dx(3), dt, time, alpha0, M, R
+  double precision, intent(in) :: dx(3), dt, time, alpha0, M, R, prob_lo(3)
   integer, intent(in) :: ui_lo(3), ui_hi(3)
   integer, intent(in) :: uo_lo(3), uo_hi(3)
   integer, intent(in) :: fx_lo(3), fx_hi(3)
@@ -86,7 +86,7 @@ subroutine advect(time, lo, hi, &
                        flxz, fz_lo, fz_hi, &
                        phi_p, phi_m, fp, fm, &
                        slope, glo, ghi, Ncomp, gr, &
-                       alpha0, M, R)
+                       alpha0, M, R, prob_lo)
 
   ! Do a conservative update
   do       k = lo(3)-3, hi(3)+3
@@ -117,7 +117,7 @@ subroutine advect(time, lo, hi, &
                        flxz, fz_lo, fz_hi, &
                        phi_p, phi_m, fp, fm, slope, &
                        glo, ghi, Ncomp, gr, &
-                       alpha0, M, R)
+                       alpha0, M, R, prob_lo)
 
    ! Do a conservative update
    do       k = lo(3), hi(3)

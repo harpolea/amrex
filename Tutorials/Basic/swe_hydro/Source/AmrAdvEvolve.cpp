@@ -130,6 +130,7 @@ AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
     const Real ctr_time = 0.5*(old_time+new_time);
 
     const Real* dx = geom[lev].CellSize();
+    const Real* prob_lo = geom[lev].ProbLo();
 
     MultiFab fluxes[BL_SPACEDIM];
     if (do_reflux)
@@ -178,7 +179,7 @@ AmrAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
           		   AMREX_D_DECL(BL_TO_FORTRAN_3D(flux[0]),
           			  BL_TO_FORTRAN_3D(flux[1]),
           			  BL_TO_FORTRAN_3D(flux[2])),
-          		   dx, dt, &ncomp, &gr, &alpha0, &M, &R);
+          		   dx, dt, &ncomp, &gr, &alpha0, &M, &R, ZFILL(prob_lo));
 
     	    if (do_reflux) {
         		for (int i = 0; i < BL_SPACEDIM ; i++) {

@@ -37,7 +37,7 @@ extern "C"
 		       BL_FORT_FAB_ARG_3D(fy),
 		       BL_FORT_FAB_ARG_3D(fz)),
 		const amrex_real* dx, const amrex_real& dt, const int* Ncomp,
-        const bool* gr, const amrex_real* alpha0, const amrex_real* M, const amrex_real* R);
+        const bool* gr, const amrex_real* alpha0, const amrex_real* M, const amrex_real* R,const amrex_real* prob_lo);
 
     void comp_from_swe(BL_FORT_FAB_ARG_3D(U_comp),
         const BL_FORT_FAB_ARG_3D(U_swe),
@@ -55,15 +55,17 @@ extern "C"
         amrex_real* p_swe,
         const int* lo, const int* hi,
         const int* n_cons_comp, const int* n_swe_comp,
-        amrex_real* alpha0, amrex_real* M,
-        amrex_real* R, const amrex_real* dx);
+        const amrex_real* alpha0, const amrex_real* M,
+        const amrex_real* R, const amrex_real* dx,
+        const amrex_real* prob_lo);
 
     void cons_to_prim(const BL_FORT_FAB_ARG_3D(U),
         BL_FORT_FAB_ARG_3D(U_prim),
         BL_FORT_FAB_ARG_3D(p),
         const int* lo, const int* hi, const int* Ncomp,
-        amrex_real* gamma, amrex_real* alpha0, amrex_real* M,
-        amrex_real* R, const amrex_real* dx);
+        const amrex_real* gamma, const amrex_real* alpha0,
+        const amrex_real* M,
+        const amrex_real* R, const amrex_real* dx,const amrex_real* prob_lo);
 
 #ifdef __cplusplus
 }

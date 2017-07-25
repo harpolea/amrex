@@ -35,7 +35,7 @@ public:
     virtual void InitFromScratch (amrex::Real time) override;
     //virtual amrex::BoxArray MakeBaseGrids () const override;
 
-    void fill_physbc (amrex::MultiFab& phi, const amrex::Geometry& geom);
+    void fill_physbc (amrex::MultiFab& phi, const amrex::Geometry& geom) const;
 
 
 protected:
@@ -63,7 +63,7 @@ private:
     void FillCoarsePatch (int lev, amrex::Real time, amrex::MultiFab& mf, int icomp, int ncomp);
     void GetData (int lev, amrex::Real time, amrex::Array<amrex::MultiFab*>& data, amrex::Array<amrex::Real>& datatime);
     void comp_from_swe_wrapper(int lev, amrex::MultiFab& swe_mf, amrex::MultiFab& comp_mf);
-    void swe_from_comp_wrapper(int lev, amrex::MultiFab& swe_mf, amrex::MultiFab& comp_mf);
+    void swe_from_comp_wrapper(int lev, amrex::MultiFab& swe_mf, amrex::MultiFab& comp_mf) const;
 
     void average_down(const amrex::MultiFab& S_fine, amrex::MultiFab& S_crse,
                        int scomp, int ncomp, const amrex::IntVect& ratio);
@@ -79,9 +79,9 @@ private:
                              const amrex::Array<std::string>& varnames,
                              const amrex::Array<amrex::Geometry>& geom, Real time, const amrex::Array<int>& level_steps,
                              const amrex::Array<amrex::IntVect>& ref_ratio,
-                             const std::string &versionName,
-                             const std::string &levelPrefix,
-                             const std::string &mfPrefix);
+                             const std::string &versionName = "amrex_swe_v1",
+                             const std::string &levelPrefix = "Level_",
+                             const std::string &mfPrefix = "Cell") const;
 
     amrex::Array<int> istep;      // which step?
     amrex::Array<int> nsubsteps;  // how many substeps on each level?

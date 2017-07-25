@@ -40,7 +40,7 @@ AmrAdv::WritePlotFile () const
     const auto& mf = PlotFileMF();
     const auto& varnames = PlotFileVarNames();
 
-    amrex::WriteMultiLevelPlotfile(plotfilename, finest_level+1, mf, varnames,
+    WriteMultiLevelPlotfile(plotfilename, finest_level+1, mf, varnames,
 				    Geom(), t_new[0], istep, refRatio());
 }
 
@@ -58,7 +58,7 @@ AmrAdv::WriteMultiLevelPlotfile (const std::string& plotfilename, int nlevels,
                          const Array<IntVect>& ref_ratio,
                          const std::string &versionName,
                          const std::string &levelPrefix,
-                         const std::string &mfPrefix)
+                         const std::string &mfPrefix) const
 {
     BL_PROFILE("WriteMultiLevelPlotfile()");
 
@@ -112,6 +112,7 @@ AmrAdv::WriteMultiLevelPlotfile (const std::string& plotfilename, int nlevels,
         }
 
         if (level > max_swe_level) {
+            std::cout << "Writing level " << level << '\n';
             int n_swe_comp = phi_new[max_swe_level]->nComp();
             int nghost = phi_new[max_swe_level]->nGrow();
             BoxArray ba = grids[level];
@@ -119,9 +120,11 @@ AmrAdv::WriteMultiLevelPlotfile (const std::string& plotfilename, int nlevels,
                     dmap[level], n_swe_comp, nghost));
 
             swe_from_comp_wrapper(level, *phi_swe, *data);
-            MultiFab::Copy(*data, *phi_swe, 0, 0, n_swe_comp, 0);
+            //MultiFab::Copy(*data, *phi_swe, 0, 0, n_swe_comp, 0);
+            VisMF::Write(*phi_swe, MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mfPrefix));
+        } else {
+    	    VisMF::Write(*data, MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mfPrefix));
         }
-	    VisMF::Write(*data, MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mfPrefix));
     }
 
     VisMF::SetNOutFiles(saveNFiles);

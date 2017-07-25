@@ -15,7 +15,7 @@ contains
                              flxz, fz_lo, fz_hi, &
                              phi_p, phi_m, fp, fm, &
                              slope, glo, ghi, Ncomp, gr, &
-                             alpha0, M, R)
+                             alpha0, M, R, prob_lo)
 
     use slope_module, only: slopex, slopey, slopez
     use utils_module, only : calc_gamma_up, gr_sources
@@ -33,7 +33,7 @@ contains
     double precision, dimension(glo(1):ghi(1),glo(2):ghi(2),glo(3):ghi(3), Ncomp) :: &
          phi_p, phi_m, fp, fm, slope
     logical, intent(in) :: gr
-    double precision, intent(in) :: alpha0, M, R
+    double precision, intent(in) :: alpha0, M, R, prob_lo(3)
 
     integer :: i, j, k, l
     double precision :: dxdt(3), f_p(Ncomp), f_m(Ncomp)
@@ -71,8 +71,8 @@ contains
         end if
     else
         if (gr) then
-            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 0, gamma, glo, ghi, alpha, dx, alpha0, M, R)
-            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 0, gamma, glo, ghi, alpha, dx, alpha0, M, R)
+            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 0, gamma, glo, ghi, alpha, dx, alpha0, M, R, prob_lo)
+            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 0, gamma, glo, ghi, alpha, dx, alpha0, M, R, prob_lo)
         else
             call comp_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, gamma, 0)
             call comp_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, gamma, 0)
@@ -125,8 +125,8 @@ contains
         end if
     else
         if (gr) then
-            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 1, gamma, glo, ghi, alpha, dx, alpha0, M, R)
-            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 1, gamma, glo, ghi, alpha, dx, alpha0, M, R)
+            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 1, gamma, glo, ghi, alpha, dx, alpha0, M, R, prob_lo)
+            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 1, gamma, glo, ghi, alpha, dx, alpha0, M, R, prob_lo)
         else
             call comp_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, gamma, 1)
             call comp_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, gamma, 1)
@@ -180,8 +180,8 @@ contains
         flxz(:,:,:,:) = 0.0d0
     else
         if (gr) then
-            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 2, gamma, glo, ghi, alpha, dx, alpha0, M, R)
-            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 2, gamma, glo, ghi, alpha, dx, alpha0, M, R)
+            call gr_comp_flux(phi_p, fp, lo, hi, Ncomp, 2, gamma, glo, ghi, alpha, dx, alpha0, M, R, prob_lo)
+            call gr_comp_flux(phi_m, fm, lo, hi, Ncomp, 2, gamma, glo, ghi, alpha, dx, alpha0, M, R, prob_lo)
         else
             call comp_flux(phi_p, fp, glo, ghi, lo, hi, Ncomp, gamma, 2)
             call comp_flux(phi_m, fm, glo, ghi, lo, hi, Ncomp, gamma, 2)
@@ -209,9 +209,9 @@ contains
 
         if (gr) then
             write(*,*) "fz before: ", flxz(lo(1), lo(2), lo(3), 4)
-            call calc_gamma_up(gamma_up, glo, ghi, lo, hi, alpha0, M, R, dx)
+            call calc_gamma_up(gamma_up, glo, ghi, lo, hi, alpha0, M, R, dx, prob_lo)
 
-            call cons_to_prim(phi, ph_lo, ph_hi, U_prim, ph_lo, ph_hi, p, ph_lo, ph_hi, lo, hi, Ncomp, gamma, alpha0, M, R, dx)
+            call cons_to_prim(phi, ph_lo, ph_hi, U_prim, ph_lo, ph_hi, p, ph_lo, ph_hi, lo, hi, Ncomp, gamma, alpha0, M, R, dx, prob_lo)
 
             call gr_sources(flxz(:,:,:,4), fz_lo, fz_hi, phi, ph_lo, ph_hi, &
                 p, ph_lo, ph_hi, alpha, glo, ghi, gamma_up, glo, ghi, &
@@ -564,7 +564,7 @@ contains
 
   end subroutine zbrent
 
-  subroutine cons_to_prim(U, clo, chi, U_prim, prlo, prhi, p, plo, phi, lo, hi, Ncomp, gamma, alpha0, M, R, dx) bind(C, name="cons_to_prim")
+  subroutine cons_to_prim(U, clo, chi, U_prim, prlo, prhi, p, plo, phi, lo, hi, Ncomp, gamma, alpha0, M, R, dx, prob_lo) bind(C, name="cons_to_prim")
       use utils_module, only : calc_gamma_up, calc_gamma_down
       ! convert from conserved variables (D, Sx, Sy, tau) to primitive variables (rho, v^x, v^y, eps). Also outputs the pressure
       implicit none
@@ -574,15 +574,15 @@ contains
       double precision, intent(in)  :: U(clo(1):chi(1), clo(2):chi(2), clo(3):chi(3), Ncomp)
       double precision, intent(out) :: U_prim(prlo(1):prhi(1), prlo(2):prhi(2), prlo(3):prhi(3), Ncomp)
       double precision, intent(out) :: p(plo(1):phi(1), plo(2):phi(2), plo(3):phi(3))
-      double precision, intent(in)  :: gamma, alpha0, M, R, dx(3)
+      double precision, intent(in)  :: gamma, alpha0, M, R, dx(3), prob_lo(3)
 
       double precision gamma_up(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 9)
       double precision gamma_down(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 9)
       double precision :: pmin, pmax, ssq, q(Ncomp), fmin, fmax, sq, h, W2, v_up(3)
       integer :: i, j, k, l
 
-      call calc_gamma_up(gamma_up, lo, hi, lo, hi, alpha0, M, R, dx)
-      call calc_gamma_down(gamma_down, lo, hi, lo, hi, alpha0, M, R, dx)
+      call calc_gamma_up(gamma_up, lo, hi, lo, hi, alpha0, M, R, dx, prob_lo)
+      call calc_gamma_down(gamma_down, lo, hi, lo, hi, alpha0, M, R, dx, prob_lo)
 
       write(*,*) "cons_to_prim"
 
@@ -700,14 +700,14 @@ contains
 
   end subroutine cons_to_prim
 
-  subroutine gr_comp_flux(U, f, lo, hi, Ncomp, dir, gamma, glo, ghi, alpha, dx, alpha0, M, R)
+  subroutine gr_comp_flux(U, f, lo, hi, Ncomp, dir, gamma, glo, ghi, alpha, dx, alpha0, M, R, prob_lo)
       implicit none
 
       integer, intent(in) :: Ncomp, dir
       integer, intent(in) :: lo(3), hi(3), glo(3), ghi(3)
       double precision, intent(inout)  :: U(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
       double precision, intent(out) :: f(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
-      double precision, intent(in)  :: gamma, dx(3), alpha0, M, R
+      double precision, intent(in)  :: gamma, dx(3), alpha0, M, R, prob_lo(3)
       double precision, intent(out) :: alpha(glo(1):ghi(1),glo(2):ghi(2), glo(3):ghi(3))
 
       integer :: i,j,k
@@ -745,7 +745,7 @@ contains
       !end do
 
 
-      call cons_to_prim(U, glo, ghi, U_prim, lo-1, hi+1, p, lo-1, hi+1, lo-1, hi+1, Ncomp, gamma, alpha0, M, R, dx)
+      call cons_to_prim(U, glo, ghi, U_prim, lo-1, hi+1, p, lo-1, hi+1, lo-1, hi+1, Ncomp, gamma, alpha0, M, R, dx, prob_lo)
 
       f(:,:,:,:) = 0.0d0
 

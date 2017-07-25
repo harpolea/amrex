@@ -434,13 +434,14 @@ void AmrAdv::comp_from_swe_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf)
     fill_physbc(comp_mf, geom[lev]);
 }
 
-void AmrAdv::swe_from_comp_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf) {
+void AmrAdv::swe_from_comp_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf) const {
 
     std::cout << "*********swe from comp*********\n\n";
 
     const int n_cons_comp = 5;
     const int n_swe_comp = 3;
     const Real* dx = geom[lev].CellSize();
+    const Real* prob_lo = geom[lev].ProbLo();
 
     int n_com_comp = comp_mf.nComp();
     int nghost = comp_mf.nGrow();
@@ -460,7 +461,7 @@ void AmrAdv::swe_from_comp_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf)
             BL_TO_FORTRAN_3D(U_prim),
             BL_TO_FORTRAN_3D(p_comp),
             bx.loVect(), bx.hiVect(),
-            &n_cons_comp, &gamma, &alpha0, &M, &R, dx);
+            &n_cons_comp, &gamma, &alpha0, &M, &R, dx, ZFILL(prob_lo));
 
         // then calculate swe
         swe_from_comp(BL_TO_FORTRAN_3D(U_prim),
@@ -470,7 +471,7 @@ void AmrAdv::swe_from_comp_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf)
             bx.loVect(), bx.hiVect(),
             &n_cons_comp, &n_swe_comp,
             &alpha0, &M, &R,
-            dx);
+            dx, ZFILL(prob_lo));
     }
     swe_mf.FillBoundary(geom[lev].periodicity());
     fill_physbc(swe_mf, geom[lev]);
