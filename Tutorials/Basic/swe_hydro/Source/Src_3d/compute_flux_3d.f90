@@ -208,7 +208,7 @@ contains
         end do
 
         if (gr) then
-            write(*,*) "fz before: ", flxz(lo(1), lo(2), lo(3), 4)
+            write(*,*) "fz before: ", flxz(lo(1), lo(2), lo(3), 4), flxz(lo(1)+2, lo(2)+2, lo(3)+2, 4)
             call calc_gamma_up(gamma_up, glo, ghi, lo, hi, alpha0, M, R, dx, prob_lo)
 
             call cons_to_prim(phi, ph_lo, ph_hi, U_prim, ph_lo, ph_hi, p, ph_lo, ph_hi, lo, hi, Ncomp, gamma, alpha0, M, R, dx, prob_lo)
@@ -217,7 +217,7 @@ contains
                 p, ph_lo, ph_hi, alpha, glo, ghi, gamma_up, glo, ghi, &
                 M, R, gamma, Ncomp, lo, hi, dx)
 
-            write(*,*) "fz after: ", flxz(lo(1), lo(2), lo(3), 4)
+            write(*,*) "fz after: ", flxz(lo(1), lo(2), lo(3), 4), flxz(lo(1)+2, lo(2)+2, lo(3)+2, 4)
         end if
 
         !write(*,*) "slope", slope(lo(1), lo(2), lo(3), :)

@@ -106,9 +106,9 @@ subroutine advect(time, lo, hi, &
   write(*,*) "u1:   ", u1(lo(1)+1, lo(2)+1,lo(3)+1,:)
 
   ! NOTE: remove next two lines
-  uout(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), :) = u1(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), :)
+  !uout(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), :) = u1(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), :)
 
-  return
+  !return
 
   call compute_flux_3d(lo, hi, dt, dx, &
                        u1, glo, ghi, &

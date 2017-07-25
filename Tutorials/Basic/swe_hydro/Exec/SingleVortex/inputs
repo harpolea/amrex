@@ -47,7 +47,7 @@ adv.swe_phierr = 1.05  1.2  1.5# 0.00999 0.00995 0.00992
 amr.probin_file = probin
 
 # SWE / COMP
-swe.max_swe_level = 0 # highest index of swe level
+swe.max_swe_level = -1 # highest index of swe level
 swe.nlayers = 5
 swe.rho = 6.034e-3 5.078e-3 3.891e-3 2.627e-3 0.0
 swe.p = 0.2e-3 0.15e-3 0.1e-3 0.05e-3 0.0
