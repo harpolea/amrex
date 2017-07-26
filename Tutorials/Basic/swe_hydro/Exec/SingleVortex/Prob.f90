@@ -63,7 +63,7 @@ subroutine initdata(level, time, lo, hi, &
            if (Ncomp == 4 .and. dm == 2) then ! compressible
                phi(i,j,k,1) = 1.d0! + exp(-r2)
                phi(i,j,k,4) = phi(i,j,k,1)
-           else if (Ncomp == 5) then
+           else if (Ncomp == 5) then ! compressible
                !phi(i,j,k,1) = 1.d0 + exp(-r2)
                !phi(i,j,k,5) = phi(i,j,k,1)
 

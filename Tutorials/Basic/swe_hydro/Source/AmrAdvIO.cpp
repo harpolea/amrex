@@ -111,7 +111,7 @@ AmrAdv::WriteMultiLevelPlotfile (const std::string& plotfilename, int nlevels,
             //data = mf[level];
         }
 
-        if (level > max_swe_level) {
+        if (level > max_swe_level && max_swe_level >= 0) {
             std::cout << "Writing level " << level << '\n';
             int n_swe_comp = phi_new[max_swe_level]->nComp();
             int nghost = phi_new[max_swe_level]->nGrow();

@@ -5,7 +5,7 @@ stop_time = 20.0
 # PROBLEM SIZE & GEOMETRY
 geometry.is_periodic =  1  1  0
 geometry.coord_sys   =  0       # 0 => cart
-geometry.prob_lo     =  0.0  0.0  0.0
+geometry.prob_lo     =  0.2  0.2  0.2
 geometry.prob_hi     =  1.0  1.0  1.0
 amr.n_cell           =  20 20 20 #64   64   64
 
@@ -23,7 +23,7 @@ amr.v              = 1       # verbosity in Amr
 #amr.grid_log         = grdlog  # name of grid logging file
 
 # REFINEMENT / REGRIDDING
-amr.max_level       = 2       # maximum level number allowed
+amr.max_level       = 0       # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.blocking_factor = 5       # block factor in grid generation
