@@ -35,7 +35,6 @@ if __name__ == "__main__":
             f_content[i+1] = '\t' + output[0]
             f_content[i+2] = '\n\t' + output[1]
 
-    print(f_content)
     f.seek(0)
     f.truncate()
     f.write('\n'.join(f_content))

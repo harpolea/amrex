@@ -21,13 +21,22 @@ AmrAdv::InitData ()
     {
 	       InitFromCheckpoint();
     }
+
+    for (int lev = 0; lev < maxLevel(); lev++) {
+
+        phi_old[lev]->FillBoundary(geom[lev].periodicity());
+        fill_physbc(*phi_old[lev], geom[lev]);
+
+        phi_new[lev]->FillBoundary(geom[lev].periodicity());
+        fill_physbc(*phi_new[lev], geom[lev]);
+    }
 }
 
 void AmrAdv::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
 				      const DistributionMapping& dm)
 {
     int ncomp;
-    const int nghost = 1;
+    const int nghost = 6;//phi_new[lev]->nGrow();
 
     if (lev > max_swe_level) {
         ncomp = 5;

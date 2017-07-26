@@ -29,7 +29,7 @@ subroutine advect(time, lo, hi, &
 
   integer :: i, j, k
   integer :: glo(3), ghi(3)
-  double precision :: dtdx(3)
+  double precision :: dtdx(3), gamma_bc, gamma_z, z, z_bc, gamma
 
   ! Some compiler may not support 'contiguous'.  Remove it in that case.
   double precision, dimension(:,:,:,:), pointer, contiguous :: &
@@ -57,21 +57,34 @@ subroutine advect(time, lo, hi, &
   ! allocate.  Bl_allocate is much faster than allocate inside OMP.
   ! Note that one MUST CALL BL_DEALLOCATE.
 
-  ! HACK: while the boundaries don't work
-  if (Ncomp == 5) then
-      do         k = ui_lo(3), ui_hi(3)
-          do     j = ui_lo(2), ui_hi(2)
-              do i = ui_lo(1), ui_hi(1)
-                  if (abs(uin(i,j,k,1)) < 1.0d-20) then
-                      uin(i,j,k,1) = sum(uin(:,:,:,1), uin(:,:,:,1) == uin(:,:,:,1)) / count( uin(:,:,:,1) == uin(:,:,:,1))
-                  end if
-                  if (uin(i,j,k,5) <= 1.0d-20 .or. uin(i,j,k,5) == 1.0d0) then
-                      uin(i,j,k,5) = sum(uin(:,:,:,5), uin(:,:,:,5) == uin(:,:,:,5)) / count( uin(:,:,:,5) == uin(:,:,:,5))
-                  end if
-              end do
-          end do
+  ! Enforce HSE on ghosts as code doesn't seem to be doing it properly :'(
+  if (lo(3)-6 == ui_lo(3)) then
+      do k = lo(3)-1, lo(3)-6
+          uin(:,:,k,:) = 1.0d0 / 8.0d0 * (15.0d0*uin(:,:,k+1,:) - 10.0d0 * uin(:,:,k+2,:) + 3.0d0*uin(:,:,k+3,:))!0.5d0 * (3*uin(:,:,k+1,:) - uin(:,:,k+2,:))
       end do
   end if
+  if (hi(3)+6 == ui_hi(3)) then
+      do k = hi(3)+1, hi(3)+6
+          uin(:,:,k,:) = 1.0d0 / 8.0d0 * (15.0d0*uin(:,:,k-1,:) - 10.0d0 * uin(:,:,k-2,:) + 3.0d0*uin(:,:,k-3,:))!0.5d0 * (3*uin(:,:,k-1,:) - uin(:,:,k-2,:))
+      end do
+  end if
+
+
+  ! HACK: while the boundaries don't work
+  !if (Ncomp == 5) then
+    !  do         k = ui_lo(3), ui_hi(3)
+    !      do     j = ui_lo(2), ui_hi(2)
+    !          do i = ui_lo(1), ui_hi(1)
+    !              if (abs(uin(i,j,k,1)) < 1.0d-20) then
+    !                  uin(i,j,k,1) = sum(uin(:,:,:,1), uin(:,:,:,1) == uin(:,:,:,1)) / count( uin(:,:,:,1) == uin(:,:,:,1))
+    !              end if
+    !              if (uin(i,j,k,5) <= 1.0d-20 .or. uin(i,j,k,5) == 1.0d0) then
+    !                  uin(i,j,k,5) = sum(uin(:,:,:,5), uin(:,:,:,5) == uin(:,:,:,5)) / count( uin(:,:,:,5) == uin(:,:,:,5))
+    !              end if
+    !          end do
+    !      end do
+     ! end do
+  !end if
 
   !write(*,*) "gr: ", gr
   write(*,*) "lo, hi: ", lo, hi
@@ -108,6 +121,19 @@ subroutine advect(time, lo, hi, &
   ! NOTE: remove next two lines
   !uout(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), :) = u1(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), :)
 
+  ! Enforce HSE on ghosts as code doesn't seem to be doing it properly :'(
+  if (lo(3)-6 == ui_lo(3)) then
+      do k = lo(3)-1, lo(3)-4
+          u1(:,:,k,:) = 1.0d0 / 8.0d0 * (15.0d0*u1(:,:,k+1,:) - 10.0d0 * u1(:,:,k+2,:) + 3.0d0*u1(:,:,k+3,:))
+      end do
+  end if
+  if (hi(3)+6 == ui_hi(3)) then
+      do k = hi(3)+1, hi(3)+4
+          u1(:,:,k,:) = 1.0d0 / 8.0d0 * (15.0d0*u1(:,:,k-1,:) - 10.0d0 * u1(:,:,k-2,:) + 3.0d0*u1(:,:,k-3,:))
+      end do
+  end if
+
+
   !return
 
   call compute_flux_3d(lo, hi, dt, dx, &
@@ -134,6 +160,18 @@ subroutine advect(time, lo, hi, &
    write(*,*) "flxy: ", flxy(lo(1)+1, lo(2)+1,lo(3)+1,:)
    write(*,*) "flxz: ", flxz(lo(1)+1, lo(2)+1,lo(3)+1,:)
    write(*,*) "uout: ", uout(lo(1)+1, lo(2)+1,lo(3)+1,:)
+
+   ! Enforce HSE on ghosts as code doesn't seem to be doing it properly :'(
+   if (lo(3)-6 == ui_lo(3)) then
+       do k = lo(3)-1, lo(3)-6
+           uout(:,:,k,:) = 1.0d0 / 8.0d0 * (15.0d0*uout(:,:,k+1,:) - 10.0d0 * uout(:,:,k+2,:) + 3.0d0*u1(:,:,k+3,:))
+       end do
+   end if
+   if (hi(3)+6 == ui_hi(3)) then
+       do k = hi(3)+1, hi(3)+6
+           uout(:,:,k,:) = 1.0d0 / 8.0d0 * (15.0d0*uout(:,:,k-1,:) - 10.0d0 * uout(:,:,k-2,:) + 3.0d0*uout(:,:,k-3,:))
+       end do
+   end if
 
   ! Scale by face area in order to correctly reflx
   !do       k = lo(3), hi(3)

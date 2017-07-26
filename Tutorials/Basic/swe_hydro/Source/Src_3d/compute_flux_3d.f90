@@ -218,6 +218,9 @@ contains
                 M, R, gamma, Ncomp, lo, hi, dx)
 
             write(*,*) "fz after: ", flxz(lo(1), lo(2), lo(3), 4), flxz(lo(1)+2, lo(2)+2, lo(3)+2, 4)
+
+            !HACK
+            flxz(:,:,:,:) = 0.0d0
         end if
 
         !write(*,*) "slope", slope(lo(1), lo(2), lo(3), :)
@@ -728,7 +731,7 @@ contains
       !alpha0 = sqrt(1.0d0 - 2.0d0 * M / R)
 
       write(*,*) "gr_comp_flux"
-      write(*,*) "U: ", U(lo(1)+3, lo(2)+3, :, 5)
+      write(*,*) "U: ", U(lo(1), lo(2), lo(3):hi(3), 5)
 
       ! HACK: while the boundaries don't work
       !do k = lo(3)-1, hi(3)+1
@@ -808,7 +811,7 @@ contains
                     end do
                 end do
             end do
-            write(*,*) "p in z direction: ", p(lo(1), lo(2),lo(3)-1: hi(3)+1)
+            write(*,*) "p in z direction: ", p(lo(1), lo(2), lo(3):hi(3))
       end if
   end subroutine gr_comp_flux
 

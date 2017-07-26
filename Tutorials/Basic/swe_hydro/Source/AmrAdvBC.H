@@ -14,10 +14,12 @@ class AmrAdvPhysBC
 public:
     AmrAdvPhysBC () {}
     virtual ~AmrAdvPhysBC () {}
-    virtual void FillBoundary (amrex::MultiFab& mf, int, int, amrex::Real time) override { }
+    virtual void FillBoundary (amrex::MultiFab& mf, int, int, amrex::Real time) override {}
     using amrex::PhysBCFunctBase::FillBoundary;
 
     virtual void FillBoundary (amrex::MultiFab& mf, amrex::Real time) override;
+
+    virtual void FillBoundary (amrex::MultiFab& mf);
 
 private:
     amrex::Geometry m_geom;
