@@ -6,14 +6,14 @@ module utils_module
 
 contains
 
-    subroutine W_swe(q, slo, shi, lo, hi, Ncomp, gamma_up, glo, ghi, W)
+    subroutine W_swe(q, slo, shi, lo, hi, Ncomp, gamma_up, glo, ghi, W, wlo, whi)
         ! Calculate lorentz factor
         implicit none
 
-        integer, intent(in) :: slo(3), shi(3), lo(3), hi(3), Ncomp, glo(3), ghi(3)
+        integer, intent(in) :: slo(3), shi(3), lo(3), hi(3), Ncomp, glo(3), ghi(3), wlo(3), whi(3)
         double precision, intent(in) :: q(slo(1):shi(1), slo(2):shi(2), slo(3):shi(3), Ncomp)
         double precision, intent(in) :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), slo(3):shi(3), 9)
-        double precision, intent(out) :: W(lo(1):hi(1), lo(2):hi(2), slo(3):shi(3))
+        double precision, intent(out) :: W(wlo(1):whi(1), wlo(2):whi(2), wlo(3):whi(3))
 
         integer i,j,l
 
@@ -201,7 +201,7 @@ contains
 
         call calc_gamma_up_swe(U_swe, slo, shi, nlo, nhi, n_swe_comp, gamma_up_swe)
         call calc_gamma_up(gamma_up, nlo, nhi, nlo, nhi, alpha0, M, R, dx, prob_lo)
-        call W_swe(U_swe, slo, shi, nlo, nhi, n_swe_comp, gamma_up_swe, nlo, nhi, W(:,:,slo(3):shi(3)))
+        call W_swe(U_swe, slo, shi, nlo, nhi, n_swe_comp, gamma_up_swe, nlo, nhi, W(nlo(1):nhi(1), nlo(2):nhi(2), nlo(3):nhi(3)), nlo, nhi)
 
         !write(*,*) "gamma_up", gamma_up_swe(lo(1), lo(2), lo(3), 7:9)
         !write(*,*) "W_swe", W(lo(1), lo(2), slo(3))
@@ -387,7 +387,7 @@ contains
         implicit none
 
         integer, intent(in) :: slo(3), shi(3), ulo(3), uhi(3), plo(3), phi(3), alo(3), ahi(3), glo(3), ghi(3), lo(3), hi(3), Ncomp
-        double precision, intent(out)  :: S(slo(1):shi(1), slo(2):shi(2), slo(3):shi(3))
+        double precision, intent(inout)  :: S(slo(1):shi(1), slo(2):shi(2), slo(3):shi(3))
         double precision, intent(in)  :: U(ulo(1):uhi(1), ulo(2):uhi(2), ulo(3):uhi(3), Ncomp)
         double precision, intent(in)  :: p(plo(1):phi(1), plo(2):phi(2), plo(3):phi(3))
         double precision, intent(in)  :: alpha(alo(1):ahi(1), alo(2):ahi(2), alo(3):ahi(3))
@@ -397,7 +397,7 @@ contains
         double precision Ssq(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
         double precision h(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
         double precision W2(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3))
-        double precision S_temp
+        double precision S_temp, alpha0
         integer i,j,k
 
         Ssq(:,:,:) = U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 2)**2 * &
@@ -433,6 +433,8 @@ contains
         W2 = 1.0d0 + Ssq / &
             (U(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), 1) * h)**2
 
+        alpha0 = sqrt(1.0d0 - M / R)
+
         do         k = lo(3), hi(3)
             do     j = lo(2), hi(2)
                 do i = lo(1), hi(1)
@@ -440,8 +442,9 @@ contains
                         (alpha(i,j,k) * U(i,j,k, 4)**2 / W2(i,j,k) + &
                         (U(i,j,k, 5) + p(i,j,k) + U(i,j,k, 1)) / &
                         alpha(i,j,k))
+                    S_temp = -M / R**2 / alpha0**3 * alpha(i,j,k)
                     if (S_temp == S_temp) then ! not nan
-                        S(i,j,k) = S(i,j,k) + dx(3) * alpha(i,j,k) * S_temp
+                        S(i,j,k) = S(i,j,k) + S_temp! / dx(3)! * dx(3) * alpha(i,j,k)
                     end if
 
                 end do

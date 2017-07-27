@@ -428,7 +428,7 @@ void AmrAdv::comp_from_swe_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf)
             p, rho,
             bx.loVect(), bx.hiVect(),
             &n_cons_comp, &n_swe_comp,
-            &gamma, dx, &alpha0, &M, &R, &nghost, ZFILL(prob_lo));
+            &gamma, ZFILL(dx), &alpha0, &M, &R, &nghost, ZFILL(prob_lo));
     }
     comp_mf.FillBoundary(geom[lev].periodicity());
     fill_physbc(comp_mf, geom[lev]);
@@ -461,7 +461,7 @@ void AmrAdv::swe_from_comp_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf)
             BL_TO_FORTRAN_3D(U_prim),
             BL_TO_FORTRAN_3D(p_comp),
             bx.loVect(), bx.hiVect(),
-            &n_cons_comp, &gamma, &alpha0, &M, &R, dx, ZFILL(prob_lo));
+            &n_cons_comp, &gamma, &alpha0, &M, &R, ZFILL(dx), ZFILL(prob_lo));
 
         // then calculate swe
         swe_from_comp(BL_TO_FORTRAN_3D(U_prim),
@@ -471,7 +471,7 @@ void AmrAdv::swe_from_comp_wrapper(int lev, MultiFab& swe_mf, MultiFab& comp_mf)
             bx.loVect(), bx.hiVect(),
             &n_cons_comp, &n_swe_comp,
             &alpha0, &M, &R,
-            dx, ZFILL(prob_lo));
+            ZFILL(dx), ZFILL(prob_lo));
     }
     swe_mf.FillBoundary(geom[lev].periodicity());
     fill_physbc(swe_mf, geom[lev]);
@@ -528,7 +528,6 @@ void AmrAdv::InitAmrMesh (int max_level_in,
 
     for (int i = 0; i <= max_level; i++)
     {
-
         geom[i].define(index_domain);
         //std::cout << "index domain " << index_domain << '\n';
         if (i < max_level) index_domain.refine(ref_ratio[i]);

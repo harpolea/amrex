@@ -58,16 +58,16 @@ subroutine advect(time, lo, hi, &
   ! Note that one MUST CALL BL_DEALLOCATE.
 
   ! Enforce HSE on ghosts as code doesn't seem to be doing it properly :'(
-  if (lo(3)-6 == ui_lo(3)) then
-      do k = lo(3)-1, lo(3)-6
-          uin(:,:,k,:) = 1.0d0 / 8.0d0 * (15.0d0*uin(:,:,k+1,:) - 10.0d0 * uin(:,:,k+2,:) + 3.0d0*uin(:,:,k+3,:))!0.5d0 * (3*uin(:,:,k+1,:) - uin(:,:,k+2,:))
-      end do
-  end if
-  if (hi(3)+6 == ui_hi(3)) then
-      do k = hi(3)+1, hi(3)+6
-          uin(:,:,k,:) = 1.0d0 / 8.0d0 * (15.0d0*uin(:,:,k-1,:) - 10.0d0 * uin(:,:,k-2,:) + 3.0d0*uin(:,:,k-3,:))!0.5d0 * (3*uin(:,:,k-1,:) - uin(:,:,k-2,:))
-      end do
-  end if
+  !if (lo(3)-6 == ui_lo(3)) then
+    !  do k = lo(3)-1, lo(3)-6
+    !      uin(:,:,k,:) = 1.0d0 / 8.0d0 * (15.0d0*uin(:,:,k+1,:) - 10.0d0 * uin(:,:,k+2,:) + 3.0d0*uin(:,:,k+3,:))!0.5d0 * (3*uin(:,:,k+1,:) - uin(:,:,k+2,:))
+     ! end do
+  !end if
+  !if (hi(3)+6 == ui_hi(3)) then
+    !  do k = hi(3)+1, hi(3)+6
+    !      uin(:,:,k,:) = 1.0d0 / 8.0d0 * (15.0d0*uin(:,:,k-1,:) - 10.0d0 * uin(:,:,k-2,:) + 3.0d0*uin(:,:,k-3,:))!0.5d0 * (3*uin(:,:,k-1,:) - uin(:,:,k-2,:))
+     ! end do
+  !end if
 
 
   ! HACK: while the boundaries don't work
@@ -85,6 +85,8 @@ subroutine advect(time, lo, hi, &
     !      end do
      ! end do
   !end if
+
+  uout(:,:,:,:) = uin(:,:,:,:)
 
   !write(*,*) "gr: ", gr
   write(*,*) "lo, hi: ", lo, hi
@@ -119,19 +121,20 @@ subroutine advect(time, lo, hi, &
   write(*,*) "u1:   ", u1(lo(1)+1, lo(2)+1,lo(3)+1,:)
 
   ! NOTE: remove next two lines
-  !uout(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), :) = u1(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), :)
+  uout(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), :) = u1(lo(1):hi(1), lo(2):hi(2), lo(3):hi(3), :)
+  !uout(lo(1)-3:hi(1)+3, lo(2)-3:hi(2)+3, lo(3)-3:hi(3)+3, :) = u1(lo(1)-3:hi(1)+3, lo(2)-3:hi(2)+3, lo(3)-3:hi(3)+3, :)
 
   ! Enforce HSE on ghosts as code doesn't seem to be doing it properly :'(
-  if (lo(3)-6 == ui_lo(3)) then
-      do k = lo(3)-1, lo(3)-4
-          u1(:,:,k,:) = 1.0d0 / 8.0d0 * (15.0d0*u1(:,:,k+1,:) - 10.0d0 * u1(:,:,k+2,:) + 3.0d0*u1(:,:,k+3,:))
-      end do
-  end if
-  if (hi(3)+6 == ui_hi(3)) then
-      do k = hi(3)+1, hi(3)+4
-          u1(:,:,k,:) = 1.0d0 / 8.0d0 * (15.0d0*u1(:,:,k-1,:) - 10.0d0 * u1(:,:,k-2,:) + 3.0d0*u1(:,:,k-3,:))
-      end do
-  end if
+  !if (lo(3)-6 == ui_lo(3)) then
+    !  do k = lo(3)-1, lo(3)-4
+    !      u1(:,:,k,:) = 1.0d0 / 8.0d0 * (15.0d0*u1(:,:,k+1,:) - 10.0d0 * u1(:,:,k+2,:) + 3.0d0*u1(:,:,k+3,:))
+     ! end do
+  !end if
+  !if (hi(3)+6 == ui_hi(3)) then
+    !  do k = hi(3)+1, hi(3)+4
+    !      u1(:,:,k,:) = 1.0d0 / 8.0d0 * (15.0d0*u1(:,:,k-1,:) - 10.0d0 * u1(:,:,k-2,:) + 3.0d0*u1(:,:,k-3,:))
+     ! end do
+  !end if
 
 
   !return
@@ -162,16 +165,16 @@ subroutine advect(time, lo, hi, &
    write(*,*) "uout: ", uout(lo(1)+1, lo(2)+1,lo(3)+1,:)
 
    ! Enforce HSE on ghosts as code doesn't seem to be doing it properly :'(
-   if (lo(3)-6 == ui_lo(3)) then
-       do k = lo(3)-1, lo(3)-6
-           uout(:,:,k,:) = 1.0d0 / 8.0d0 * (15.0d0*uout(:,:,k+1,:) - 10.0d0 * uout(:,:,k+2,:) + 3.0d0*u1(:,:,k+3,:))
-       end do
-   end if
-   if (hi(3)+6 == ui_hi(3)) then
-       do k = hi(3)+1, hi(3)+6
-           uout(:,:,k,:) = 1.0d0 / 8.0d0 * (15.0d0*uout(:,:,k-1,:) - 10.0d0 * uout(:,:,k-2,:) + 3.0d0*uout(:,:,k-3,:))
-       end do
-   end if
+   !if (lo(3)-6 == ui_lo(3)) then
+    !   do k = lo(3)-1, lo(3)-6
+    !       uout(:,:,k,:) = 1.0d0 / 8.0d0 * (15.0d0*uout(:,:,k+1,:) - 10.0d0 * uout(:,:,k+2,:) + 3.0d0*u1(:,:,k+3,:))
+     !  end do
+   !end if
+   !if (hi(3)+6 == ui_hi(3)) then
+    !   do k = hi(3)+1, hi(3)+6
+    !       uout(:,:,k,:) = 1.0d0 / 8.0d0 * (15.0d0*uout(:,:,k-1,:) - 10.0d0 * uout(:,:,k-2,:) + 3.0d0*uout(:,:,k-3,:))
+     !  end do
+   !end if
 
   ! Scale by face area in order to correctly reflx
   !do       k = lo(3), hi(3)

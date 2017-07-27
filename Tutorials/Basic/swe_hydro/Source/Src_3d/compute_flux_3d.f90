@@ -37,7 +37,7 @@ contains
 
     integer :: i, j, k, l
     double precision :: dxdt(3), f_p(Ncomp), f_m(Ncomp)
-    double precision, parameter :: g = 1.0d-3, gamma = 5.0d0/3.0d0, alph = 0.5d0
+    double precision, parameter :: g = 1.0d-3, gamma = 5.0d0/3.0d0, alph = 1.0d0
     double precision :: alpha(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3)), gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9), U_prim(ph_lo(1):ph_hi(1),ph_lo(2):ph_hi(2),ph_lo(3):ph_hi(3), Ncomp), p(ph_lo(1):ph_hi(1),ph_lo(2):ph_hi(2),ph_lo(3):ph_hi(3))
 
     dxdt = dx/dt
@@ -104,9 +104,9 @@ contains
                 slope, glo, ghi, Ncomp)
 
     ! compute phi on y faces using vmac to upwind; ignore transverse terms
-    do       k = lo(3), hi(3)
-       do    j = lo(2)-1  , hi(2)+1
-          do i = lo(1), hi(1)
+    do       k = lo(3)-1, hi(3)+1
+       do    j = lo(2)-1, hi(2)+1
+          do i = lo(1)-1, hi(1)+1
 
               phi_p(i,j,k,:) = phi(i,j,k,:) + 0.5d0 * slope(i,j,k,:)
               phi_m(i,j,k,:) = phi(i,j,k,:) - 0.5d0 * slope(i,j,k,:)
@@ -159,8 +159,8 @@ contains
 
     ! compute phi on z faces using wmac to upwind; ignore transverse terms
     do       k = lo(3)-1, hi(3)+1
-       do    j = lo(2), hi(2)
-          do i = lo(1), hi(1)
+       do    j = lo(2)-1, hi(2)+1
+          do i = lo(1)-1, hi(1)+1
 
               phi_p(i,j,k,:) = phi(i,j,k,:) + 0.5d0 * slope(i,j,k,:)
               phi_m(i,j,k,:) = phi(i,j,k,:) - 0.5d0 * slope(i,j,k,:)
@@ -659,6 +659,26 @@ contains
                       end if
                   end if
 
+              end do
+          end do
+      end do
+
+      ! NOTE: this is slightly hacky but seems to help?
+      ! check to make sure p is near its neighbours
+      do            k = lo(3)+1, hi(3)-1
+          do        j = lo(2), hi(2)
+              do    i = lo(1), hi(1)
+                  if ((p(i,j,k) > 5 * p(i,j,k-1) .and. p(i,j,k) > 5 * p(i,j,k+1)) .or. (p(i,j,k) < p(i,j,k-1) / 5.0d0 .and. p(i,j,k) < p(i,j,k+1) / 5.0d0)) then
+                      p(i,j,k) = 0.5d0 * (p(i,j,k-1) + p(i,j,k+1))
+                  end if
+              end do
+          end do
+      end do
+
+      do            k = lo(3), hi(3)
+          do        j = lo(2), hi(2)
+              do    i = lo(1), hi(1)
+
                   sq = sqrt((q(5) + p(i,j,k) + q(1))**2 - ssq)
 
                   if (sq /= sq) then
@@ -719,9 +739,13 @@ contains
       !double precision :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
       double precision :: beta(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 3)
       !double precision, parameter :: M = 1.0d0, R = 100.0d0
-      !double precision alpha0
+      double precision :: z
 
-      alpha = sqrt(1.0d0 - 2.0d0 * M / (R+1.0))
+      do k = glo(3), ghi(3)
+          z = prob_lo(3) + (dble(k)+0.5d0) * dx(3)
+          alpha(:,:,k) = sqrt(1.0d0 - 2.0d0 * M * z / R)
+      end do
+
       beta = 0.0d0
       !gamma_up = 0.0d0
       !gamma_up(:,:,:,1) = 1.0d0
