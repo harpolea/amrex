@@ -337,7 +337,7 @@ subroutine test_W_swe(passed) bind(C, name="test_W_swe")
         U_cons(:,1,1,i) = U_prim(:,1,1,1) * W(:,1,1)**2 * U_prim(:,1,1,i)
     end do
 
-    call W_swe(U_cons, lo, hi, lo, hi, Ncomp, gamma_up, lo, hi, W_test)
+    call W_swe(U_cons, lo, hi, lo, hi, Ncomp, gamma_up, lo, hi, W_test, lo, hi)
 
     if (any(abs(W_test - W) > 1.d-5)) then
         write(*,*) "W_swe failed :("

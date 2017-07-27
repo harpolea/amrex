@@ -137,7 +137,7 @@ subroutine advect(time, lo, hi, &
   !end if
 
 
-  !return
+  return
 
   call compute_flux_3d(lo, hi, dt, dx, &
                        u1, glo, ghi, &

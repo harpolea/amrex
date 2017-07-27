@@ -621,11 +621,12 @@ contains
                       ssq = 0.d0
                   end if
 
+                  ! NOTE: divided pmax by 20 as it kept on finding the wrong root here
                   pmin = (1.0d0 - ssq)**2 * q(5) * (gamma - 1.0d0)
-                  pmax = (gamma - 1.0d0) * (q(5) + q(1)) / (2.0d0 - gamma)
+                  pmax = (gamma - 1.0d0) * (q(5) + q(1)) / (2.0d0 - gamma) / 20.0d0
 
                   !if (i == lo(1)+1 .and. j == lo(2)+1 .and. k == lo(3)+1) then
-                !    write(*,*) "pmin: ", pmin, "pmax: ", pmax, "ssq: ", ssq, "D: ", q(1), "tau: ", q(5)
+                    !write(*,*) "pmin: ", pmin, "pmax: ", pmax, "ssq: ", ssq, "D: ", q(1), "tau: ", q(5)
                  ! end if
 
                   if (pmin < 0.0d0) then
@@ -659,25 +660,42 @@ contains
                       end if
                   end if
 
-              end do
-          end do
-      end do
+!              end do
+!          end do
+!      end do
 
       ! NOTE: this is slightly hacky but seems to help?
       ! check to make sure p is near its neighbours
-      do            k = lo(3)+1, hi(3)-1
-          do        j = lo(2), hi(2)
-              do    i = lo(1), hi(1)
-                  if ((p(i,j,k) > 5 * p(i,j,k-1) .and. p(i,j,k) > 5 * p(i,j,k+1)) .or. (p(i,j,k) < p(i,j,k-1) / 5.0d0 .and. p(i,j,k) < p(i,j,k+1) / 5.0d0)) then
-                      p(i,j,k) = 0.5d0 * (p(i,j,k-1) + p(i,j,k+1))
-                  end if
-              end do
-          end do
-      end do
+     ! do            k = lo(3)+1, hi(3)-1
+    !      do        j = lo(2), hi(2)
+    !          do    i = lo(1), hi(1)
+    !              if ((p(i,j,k) > 5 * p(i,j,k-1) .and. &
+    !                   p(i,j,k) > 5 * p(i,j,k+1)) .or. &
+    !                  (p(i,j,k) < p(i,j,k-1) / 5.0d0 .and. &
+    !                   p(i,j,k) < p(i,j,k+1) / 5.0d0)) then
+    !                  p(i,j,k) = 0.5d0 * (p(i,j,k-1) + p(i,j,k+1))
+    !              end if
 
-      do            k = lo(3), hi(3)
-          do        j = lo(2), hi(2)
-              do    i = lo(1), hi(1)
+                  !if (k < (hi(3)-1)) then
+                !      if ((p(i,j,k) > 5 * p(i,j,k-1) .and. &
+                !           p(i,j,k) > 5 * p(i,j,k+2) .and. &
+                !           p(i,j,k+1) > 5 * p(i,j,k-1) .and. &
+                !           p(i,j,k+1) > 5 * p(i,j,k+2)) .or. &
+                !          (p(i,j,k) < p(i,j,k-1) / 5.0d0 .and. &
+                !           p(i,j,k) < p(i,j,k+2) / 5.0d0 .and. &
+                !           p(i,j,k+1) < p(i,j,k-1) / 5.0d0 .and. &
+                !           p(i,j,k+1) < p(i,j,k+2) / 5.0d0)) then
+                !          p(i,j,k) = (2.0d0 * p(i,j,k-1) + p(i,j,k+2)) / 3.0d0
+                !          p(i,j,k+1) = (p(i,j,k-1) + 2.0d0 * p(i,j,k+2)) / 3.0d0
+                !      end if
+                 ! end if
+    !          end do
+    !      end do
+     ! end do
+
+    !  do            k = lo(3), hi(3)
+    !      do        j = lo(2), hi(2)
+    !          do    i = lo(1), hi(1)
 
                   sq = sqrt((q(5) + p(i,j,k) + q(1))**2 - ssq)
 
