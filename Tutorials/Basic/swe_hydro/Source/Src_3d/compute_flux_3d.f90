@@ -26,11 +26,11 @@ contains
     integer, intent(in) :: fx_lo(3), fx_hi(3)
     integer, intent(in) :: fy_lo(3), fy_hi(3)
     integer, intent(in) :: fz_lo(3), fz_hi(3)
-    double precision, intent(in   ) :: phi (ph_lo(1):ph_hi(1),ph_lo(2):ph_hi(2),ph_lo(3):ph_hi(3), Ncomp)
-    double precision, intent(  out) :: flxx(fx_lo(1):fx_hi(1),fx_lo(2):fx_hi(2),fx_lo(3):fx_hi(3),Ncomp)
-    double precision, intent(  out) :: flxy(fy_lo(1):fy_hi(1),fy_lo(2):fy_hi(2),fy_lo(3):fy_hi(3),Ncomp)
-    double precision, intent(  out) :: flxz(fz_lo(1):fz_hi(1),fz_lo(2):fz_hi(2),fz_lo(3):fz_hi(3),Ncomp)
-    double precision, dimension(glo(1):ghi(1),glo(2):ghi(2),glo(3):ghi(3), Ncomp) :: &
+    double precision, intent(in   ) :: phi (ph_lo(1):ph_hi(1), ph_lo(2):ph_hi(2), ph_lo(3):ph_hi(3), Ncomp)
+    double precision, intent(  out) :: flxx(fx_lo(1):fx_hi(1), fx_lo(2):fx_hi(2), fx_lo(3):fx_hi(3),Ncomp)
+    double precision, intent(  out) :: flxy(fy_lo(1):fy_hi(1), fy_lo(2):fy_hi(2), fy_lo(3):fy_hi(3),Ncomp)
+    double precision, intent(  out) :: flxz(fz_lo(1):fz_hi(1), fz_lo(2):fz_hi(2), fz_lo(3):fz_hi(3),Ncomp)
+    double precision, dimension(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp) :: &
          phi_p, phi_m, fp, fm, slope
     logical, intent(in) :: gr
     double precision, intent(in) :: alpha0, M, R, prob_lo(3)
@@ -38,7 +38,10 @@ contains
     integer :: i, j, k, l
     double precision :: dxdt(3), f_p(Ncomp), f_m(Ncomp)
     double precision, parameter :: g = 1.0d-3, gamma = 5.0d0/3.0d0, alph = 1.0d0
-    double precision :: alpha(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3)), gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9), U_prim(ph_lo(1):ph_hi(1),ph_lo(2):ph_hi(2),ph_lo(3):ph_hi(3), Ncomp), p(ph_lo(1):ph_hi(1),ph_lo(2):ph_hi(2),ph_lo(3):ph_hi(3))
+    double precision :: alpha(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3))
+    double precision :: gamma_up(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), 9)
+    double precision :: U_prim(ph_lo(1):ph_hi(1), ph_lo(2):ph_hi(2), ph_lo(3):ph_hi(3), Ncomp)
+    double precision :: p(ph_lo(1):ph_hi(1), ph_lo(2):ph_hi(2), ph_lo(3):ph_hi(3))
 
     dxdt = dx/dt
     flxx(:,:,:,:) = 0.0d0
@@ -82,8 +85,10 @@ contains
     do        k = lo(3), hi(3)
         do    j = lo(2), hi(2)
            do i = lo(1), hi(1)
-              f_p = 0.5d0 * (fp(i,j,k,:) + fm(i+1,j,k,:) + alph * dxdt(1) * (phi_p(i,j,k,:) - phi_m(i+1,j,k,:)))
-              f_m = 0.5d0 * (fp(i-1,j,k,:) + fm(i,j,k,:) + alph * dxdt(1) * (phi_p(i-1,j,k,:) - phi_m(i,j,k,:)))
+              f_p = 0.5d0 * (fp(i,j,k,:) + fm(i+1,j,k,:) + &
+                alph * dxdt(1) * (phi_p(i,j,k,:) - phi_m(i+1,j,k,:)))
+              f_m = 0.5d0 * (fp(i-1,j,k,:) + fm(i,j,k,:) + &
+                alph * dxdt(1) * (phi_p(i-1,j,k,:) - phi_m(i,j,k,:)))
 
               flxx(i,j,k,:) = -(f_p - f_m)
 
@@ -136,8 +141,10 @@ contains
     do        k = lo(3), hi(3)
         do    j = lo(2), hi(2)
            do i = lo(1), hi(1)
-              f_p = 0.5d0 * (fp(i,j,k,:) + fm(i,j+1,k,:) + alph * dxdt(2) * (phi_p(i,j,k,:) - phi_m(i,j+1,k,:)))
-              f_m = 0.5d0 * (fp(i,j-1,k,:) + fm(i,j,k,:) + alph * dxdt(2) * (phi_p(i,j-1,k,:) - phi_m(i,j,k,:)))
+              f_p = 0.5d0 * (fp(i,j,k,:) + fm(i,j+1,k,:) + &
+                alph * dxdt(2) * (phi_p(i,j,k,:) - phi_m(i,j+1,k,:)))
+              f_m = 0.5d0 * (fp(i,j-1,k,:) + fm(i,j,k,:) + &
+                alph * dxdt(2) * (phi_p(i,j-1,k,:) - phi_m(i,j,k,:)))
 
               flxy(i,j,k,:) = -(f_p - f_m)
 
@@ -190,8 +197,10 @@ contains
         do        k = lo(3), hi(3)
             do    j = lo(2), hi(2)
                do i = lo(1), hi(1)
-                  f_p = 0.5d0 * (fp(i,j,k,:) + fm(i,j,k+1,:) + alph * dxdt(3) * (phi_p(i,j,k,:) - phi_m(i,j,k+1,:)))
-                  f_m = 0.5d0 * (fp(i,j,k-1,:) + fm(i,j,k,:) + alph * dxdt(3) * (phi_p(i,j,k-1,:) - phi_m(i,j,k,:)))
+                  f_p = 0.5d0 * (fp(i,j,k,:) + fm(i,j,k+1,:) + &
+                    alph * dxdt(3) * (phi_p(i,j,k,:) - phi_m(i,j,k+1,:)))
+                  f_m = 0.5d0 * (fp(i,j,k-1,:) + fm(i,j,k,:) + &
+                    alph * dxdt(3) * (phi_p(i,j,k-1,:) - phi_m(i,j,k,:)))
 
                   flxz(i,j,k,:) = -(f_p - f_m)
 
@@ -306,7 +315,7 @@ contains
       double precision, intent(in)  :: U(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
       double precision, intent(out) :: f(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
       integer, intent(in) :: x_dir
-      double precision, intent(out) :: alpha(glo(1):ghi(1),glo(2):ghi(2), glo(3):ghi(3))
+      double precision, intent(out) :: alpha(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3))
 
       integer :: i, j, k
       double precision :: v(2), W(glo(1):ghi(1),glo(2):ghi(2), glo(3):ghi(3))
@@ -567,7 +576,9 @@ contains
 
   end subroutine zbrent
 
-  subroutine cons_to_prim(U, clo, chi, U_prim, prlo, prhi, p, plo, phi, lo, hi, Ncomp, gamma, alpha0, M, R, dx, prob_lo) bind(C, name="cons_to_prim")
+  subroutine cons_to_prim(U, clo, chi, U_prim, prlo, prhi, p, plo, &
+          phi, lo, hi, Ncomp, gamma, alpha0, M, R, dx, prob_lo) &
+          bind(C, name="cons_to_prim")
       use utils_module, only : calc_gamma_up, calc_gamma_down
       ! convert from conserved variables (D, Sx, Sy, tau) to primitive variables (rho, v^x, v^y, eps). Also outputs the pressure
       implicit none
@@ -741,7 +752,8 @@ contains
 
   end subroutine cons_to_prim
 
-  subroutine gr_comp_flux(U, f, lo, hi, Ncomp, dir, gamma, glo, ghi, alpha, dx, alpha0, M, R, prob_lo)
+  subroutine gr_comp_flux(U, f, lo, hi, Ncomp, dir, &
+      gamma, glo, ghi, alpha, dx, alpha0, M, R, prob_lo)
       implicit none
 
       integer, intent(in) :: Ncomp, dir
@@ -749,7 +761,7 @@ contains
       double precision, intent(inout)  :: U(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
       double precision, intent(out) :: f(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3), Ncomp)
       double precision, intent(in)  :: gamma, dx(3), alpha0, M, R, prob_lo(3)
-      double precision, intent(out) :: alpha(glo(1):ghi(1),glo(2):ghi(2), glo(3):ghi(3))
+      double precision, intent(out) :: alpha(glo(1):ghi(1), glo(2):ghi(2), glo(3):ghi(3))
 
       integer :: i,j,k
       double precision :: p(lo(1)-1:hi(1)+1, lo(2)-1:hi(2)+1, lo(3)-1:hi(3)+1)
@@ -761,7 +773,7 @@ contains
 
       do k = glo(3), ghi(3)
           z = prob_lo(3) + (dble(k)+0.5d0) * dx(3)
-          alpha(:,:,k) = sqrt(1.0d0 - 2.0d0 * M * z / R)
+          alpha(:,:,k) = sqrt(1.0d0 - 2.0d0 * M / (R+z))
       end do
 
       beta = 0.0d0
@@ -808,8 +820,6 @@ contains
                            beta(i,j,k,1) / alpha(i,j,k))
                       f(i,j,k,5) = U(i,j,k,5) * (U_prim(i,j,k,2) - &
                            beta(i,j,k,1) / alpha(i,j,k)) + p(i,j,k) * U_prim(i,j,k,2)
-
-                      !f(i,j,k,:) = f(i,j,k,:)
                    end do
                end do
            end do
@@ -828,8 +838,6 @@ contains
                            beta(i,j,k,2) / alpha(i,j,k))
                       f(i,j,k,5) = U(i,j,k,5) * (U_prim(i,j,k,3) - &
                            beta(i,j,k,2) / alpha(i,j,k)) + p(i,j,k) * U_prim(i,j,k,3)
-
-                      !f(i,j,k,:) = f(i,j,k,:)
                    end do
                end do
            end do
@@ -848,8 +856,6 @@ contains
                             beta(i,j,k,3) / alpha(i,j,k)) + p(i,j,k)
                        f(i,j,k,5) = U(i,j,k,5) * (U_prim(i,j,k,4) - &
                             beta(i,j,k,2) / alpha(i,j,k)) + p(i,j,k) * U_prim(i,j,k,4)
-
-                       !f(i,j,k,:) = f(i,j,k,:)
                     end do
                 end do
             end do

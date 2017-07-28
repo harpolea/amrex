@@ -43,7 +43,7 @@ subroutine initdata(level, time, lo, hi, &
   Kk = 1.0d0
   rho_ref = 1.0d0
 
-  gamma_surf = (1.0d0 - M * z_surface / (R*alpha0)**2) / alpha0
+  gamma_surf = alpha0 * (1.0d0 - z_surface/R) + z_surface/R!(1.0d0 - M * z_surface / (R*alpha0)**2) / alpha0
 
   !$omp parallel do private(i,j,k,x,y,z,r2) collapse(2)
   do k = phi_lo(3),phi_hi(3)
@@ -58,7 +58,7 @@ subroutine initdata(level, time, lo, hi, &
            else
               r2 = ((x-0.5d0)**2 + (y-0.75d0)**2 + (z-0.5d0)**2) / 0.01d0
            end if
-           alpha = sqrt(1.0d0 - 2.0d0 * M / (1.0d0 + R))!exp(-r2) + R)) !alpha0 + M * (1.0d0 + exp(-r2)) / (R**2 * alpha0)
+           alpha = sqrt(1.0d0 - 2.0d0 * M / (z + R))!exp(-r2) + R)) !alpha0 + M * (1.0d0 + exp(-r2)) / (R**2 * alpha0)
            phi(i,j,k,1) = 1.d0! + exp(-r2)
            if (Ncomp == 4 .and. dm == 2) then ! compressible
                phi(i,j,k,1) = 1.d0! + exp(-r2)
@@ -67,9 +67,11 @@ subroutine initdata(level, time, lo, hi, &
                !phi(i,j,k,1) = 1.d0 + exp(-r2)
                !phi(i,j,k,5) = phi(i,j,k,1)
 
-               gamma_z = (1.0d0 - M * z / (R*alpha0)**2) / alpha0
+               gamma_z = alpha0 * (1.0d0 - z/R) + z/R!(1.0d0 - M * z / (R*alpha0)**2) / alpha0
 
-               rho = rho_ref * (gamma_z - gamma_surf)**(1.0d0/gamma)
+               rho = rho_ref * (gamma_surf - gamma_z)**(1.0d0/gamma)
+
+               !write(*,*) "gamma_z, rho, z, gamma_surf, delta gamma ", gamma_z, rho, z, gamma_surf, gamma_z - gamma_surf
                rhoh = rho + gamma * Kk * rho**gamma / (gamma - 1.0d0)
                W = 1.0d0
                phi(i,j,k,1) = rho * W
@@ -92,18 +94,19 @@ subroutine initdata(level, time, lo, hi, &
 
                    gamma_z = p(k) + gamma_surf
 
-                   z = (1.0d0 - gamma_z * alpha0) * (R*alpha0)**2 / M
+                   !z = (1.0d0 - gamma_z * alpha0) * (R*alpha0)**2 / M
                else if (k < 1) then
                    gamma_z = p(1) + gamma_surf
 
-                   z = (1.0d0 - gamma_z * alpha0) * (R*alpha0)**2 / M
+                   !z = (1.0d0 - gamma_z * alpha0) * (R*alpha0)**2 / M
                else
                    gamma_z = gamma_surf
 
-                   z = (1.0d0 - gamma_z * alpha0) * (R*alpha0)**2 / M
+                   !z = (1.0d0 - gamma_z * alpha0) * (R*alpha0)**2 / M
                end if
+               z = R * (gamma_z - alpha0) / (1.0d0 - alpha0)
 
-               phi(i,j,k,1) = -log(z * M / (alpha0 * R) + alpha0)
+               phi(i,j,k,1) = -log(alpha0 * (1.0d0 - z / R) + h / R) !-log(z * M / (alpha0 * R) + alpha0)
                !-0.5d0 * log(1.0d0 - 2.0d0 / h)
                !-log(alpha)
 
@@ -129,6 +132,7 @@ subroutine initdata(level, time, lo, hi, &
      end do
   end do
   !$omp end parallel do
+  !stop
 
   write(*,*) phi(lo(1), lo(2), lo(3), :)
 

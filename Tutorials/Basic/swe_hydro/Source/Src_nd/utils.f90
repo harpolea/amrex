@@ -6,7 +6,8 @@ module utils_module
 
 contains
 
-    subroutine W_swe(q, slo, shi, lo, hi, Ncomp, gamma_up, glo, ghi, W, wlo, whi)
+    subroutine W_swe(q, slo, shi, lo, hi, Ncomp, gamma_up, glo, ghi, &
+                     W, wlo, whi)
         ! Calculate lorentz factor
         implicit none
 
@@ -128,7 +129,7 @@ contains
                     U_prim(i,j,neighbour+1,4)**2 * gamma_up(i,j,neighbour+1,9)
 
                 W = ssq * zfrac + (1.0d0 - zfrac) / sqrt(1.0d0 - W)
-                U_swe(i,j,k,1) = -log(alpha0 + M * h / (R * alpha0)) * W
+                U_swe(i,j,k,1) = -log(alpha0 * (1.0d0 - h / R) + h / R) * W !-log(alpha0 + M * h / (R * alpha0)) * W
                 U_swe(i,j,k,2) = U_swe(i,j,k,1) * W * U_swe(i,j,k,2)
                 U_swe(i,j,k,3) = U_swe(i,j,k,1) * W * U_swe(i,j,k,3)
                 end do
@@ -168,7 +169,9 @@ contains
 
     end subroutine calc_gamma_up_swe
 
-    subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, rho, lo, hi, n_cons_comp, n_swe_comp, gamma, dx, alpha0, M, R, nghost, prob_lo) bind(C, name="comp_from_swe")
+    subroutine comp_from_swe(U_comp, clo, chi, U_swe, slo, shi, p, &
+        rho, lo, hi, n_cons_comp, n_swe_comp, gamma, dx, alpha0, &
+        M, R, nghost, prob_lo) bind(C, name="comp_from_swe")
         ! TODO: what do I do about vertical velocity component????
         use slope_module, only: slopez
         implicit none
@@ -218,7 +221,7 @@ contains
             h_swe = U_swe(nlo(1):nhi(1),nlo(2):nhi(2),slo(3):shi(3),4)
         else
             ! HACK
-            h_swe = alpha0 * R / M * (exp(-U_swe(nlo(1):nhi(1), nlo(2):nhi(2),slo(3):shi(3),1) / W(nlo(1):nhi(1), nlo(2):nhi(2),slo(3):shi(3))) - alpha0)
+            h_swe = R * (exp(-U_swe(nlo(1):nhi(1), nlo(2):nhi(2),slo(3):shi(3),1) / W(nlo(1):nhi(1), nlo(2):nhi(2),slo(3):shi(3))) - alpha0) / (1.0d0 - alpha0) !alpha0 * R / M * (exp(-U_swe(nlo(1):nhi(1), nlo(2):nhi(2),slo(3):shi(3),1) / W(nlo(1):nhi(1), nlo(2):nhi(2),slo(3):shi(3))) - alpha0)
         end if
 
         do         k = slo(3), shi(3)
@@ -349,7 +352,8 @@ contains
 
     end subroutine p_from_rho_eps
 
-    subroutine calc_gamma_up(gamma_up, glo, ghi, lo, hi, alpha0, M, R, dx, prob_lo)
+    subroutine calc_gamma_up(gamma_up, glo, ghi, lo, hi, alpha0, &
+        M, R, dx, prob_lo)
         implicit none
 
         integer, intent(in) :: glo(3), ghi(3), lo(3), hi(3)
@@ -366,11 +370,12 @@ contains
 
         do k = lo(3), hi(3)
             z = prob_lo(3) + (dble(k)+0.5d0) * dx(3)
-            gamma_up(:,:,k,9) = (alpha0 + M * z / (R * alpha0))**2
+            gamma_up(:,:,k,9) = alpha0 * (1.0d0 - z/R) + z/R !(alpha0 + M * z / (R * alpha0))**2
         end do
     end subroutine calc_gamma_up
 
-    subroutine calc_gamma_down(gamma_down, glo, ghi, lo, hi, alpha0, M, R, dx, prob_lo)
+    subroutine calc_gamma_down(gamma_down, glo, ghi, lo, hi, alpha0, &
+        M, R, dx, prob_lo)
         implicit none
 
         integer, intent(in) :: glo(3), ghi(3), lo(3), hi(3)
@@ -383,7 +388,9 @@ contains
         gamma_down(:,:,:,9) = 1.0 / gamma_down(:,:,:,9)
     end subroutine calc_gamma_down
 
-    subroutine gr_sources(S, slo, shi, U, ulo, uhi, p, plo, phi, alpha, alo, ahi, gamma_up, glo, ghi, M, R, gamma, Ncomp, lo, hi, dx)
+    subroutine gr_sources(S, slo, shi, U, ulo, uhi, p, plo, phi, &
+        alpha, alo, ahi, gamma_up, glo, ghi, M, R, gamma, Ncomp, &
+        lo, hi, dx)
         implicit none
 
         integer, intent(in) :: slo(3), shi(3), ulo(3), uhi(3), plo(3), phi(3), alo(3), ahi(3), glo(3), ghi(3), lo(3), hi(3), Ncomp

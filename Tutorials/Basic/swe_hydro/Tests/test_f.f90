@@ -23,7 +23,7 @@ subroutine test_cons_to_prim(passed) bind(C, name="test_cons_to_prim")
 
     alpha0 = sqrt(1.0d0 - 2.0d0 * M / R)
     prob_lo(3) = 0.0d0
-    gamma_z = (alpha0 + M * dx(3) * 1.5d0 / (R * alpha0))**2
+    gamma_z = alpha0 * (1.0d0 - dx(3) * 1.5d0 / R) + dx(3) * 1.5d0 / R
 
     do i = 1, hi(1)
         call random_number(rand)
@@ -252,8 +252,9 @@ subroutine test_gr_sources(passed) bind(C, name="test_gr_sources")
     gamma_up(:,:,:,:) = 0.0d0
     gamma_up(:,:,:,1) = 1.0d0
     gamma_up(:,:,:,5) = 1.0d0
-    alpha(:,:,:) = alpha0 + M * dx(3) * lo(3) / (R * alpha0)
-    gamma_up(:,:,:,9) = alpha**2
+    alpha(:,:,:) = alpha0 * (1.0d0 - dx(3) * 1.5d0 / R) + dx(3) * 1.5d0 / R ! alpha0 + M * dx(3) * lo(3) / (R * alpha0)
+    gamma_up(:,:,:,9) = alpha
+    alpha = sqrt(alpha)
 
     U(:,:,:,:) = 0.0d0
 
@@ -318,7 +319,7 @@ subroutine test_W_swe(passed) bind(C, name="test_W_swe")
     gamma_up(:,:,:,:) = 0.0d0
     gamma_up(:,:,:,1) = 1.0d0
     gamma_up(:,:,:,5) = 1.0d0
-    gamma_up(:,:,:,9) = (alpha0 + M * dx(3) * lo(3) / (R * alpha0))**2
+    gamma_up(:,:,:,9) = alpha0 * (1.0d0 - dx(3) * lo(3) / R) + dx(3) * lo(3) / R !(alpha0 + M * dx(3) * lo(3) / (R * alpha0))**2
 
     do i = 1, hi(1)
         call random_number(rand)
@@ -372,7 +373,7 @@ subroutine test_swe_from_comp(passed) bind(C, name="test_swe_from_comp")
 
     alpha0 = sqrt(1.0d0 - 2.0d0 * M / R)
     prob_lo(3) = 0.0d0
-    gamma_z = (alpha0 + M * dx(3) * 1.5d0 / (R * alpha0))**2
+    gamma_z = alpha0 * (1.0d0 - dx(3) * 1.5d0 / R) + dx(3) * 1.5d0 / R !(alpha0 + M * dx(3) * 1.5d0 / (R * alpha0))**2
 
     do i = lo(1)-1, hi(1)+1
         call random_number(rand)
@@ -487,7 +488,7 @@ subroutine test_comp_from_swe(passed) bind(C, name="test_comp_from_swe")
     character(len=*), parameter :: nullfile="/dev/null", terminal="/dev/stdout"
 
     alpha0 = sqrt(1.0d0 - 2.0d0 * M / R)
-    gamma_z = (alpha0 + M * dx(3) * lo(3) / (R * alpha0))**2
+    gamma_z = alpha0 * (1.0d0 - dx(3) * lo(3) / R) + dx(3) * lo(3) / R !(alpha0 + M * dx(3) * lo(3) / (R * alpha0))**2
 
     do i = lo(1)-1, hi(1)+1
         call random_number(rand)
@@ -512,14 +513,14 @@ subroutine test_comp_from_swe(passed) bind(C, name="test_comp_from_swe")
     !p = !(gamma - 1.0d0) * U_prim(:,:,:,1) * U_prim(:,:,:,5)
 
     z_surf = 1.0d0
-    gamma_surf = (1.0d0 - M * z_surf / (R*alpha0)**2) / alpha0
+    gamma_surf = alpha0 * (1.0d0 - z_surf / R) + z_surf / R !(1.0d0 - M * z_surf / (R*alpha0)**2) / alpha0
 
     prob_lo(3) = 0.25d0
 
     do  i = lo(3)-1, lo(3)+1
 
         z = (dble(i)+0.5d0) * dx(3) + prob_lo(3)
-        gamma_z = (1.0d0 - M * z / (R*alpha0)**2) / alpha0
+        gamma_z = alpha0 * (1.0d0 - z / R) + z / R ! (1.0d0 - M * z / (R*alpha0)**2) / alpha0
 
 
         rho_c = (gamma_z - gamma_surf)**(1.0d0/gamma)
@@ -559,13 +560,13 @@ subroutine test_comp_from_swe(passed) bind(C, name="test_comp_from_swe")
 
         gamma_z = rho(i) ** gamma + gamma_surf
 
-        z = (1.0d0 - gamma_z * alpha0) * (R*alpha0)**2 / M
+        z = R * (gamma_z - alpha0) / (1.0d0 - alpha0) !(1.0d0 - gamma_z * alpha0) * (R*alpha0)**2 / M
 
         !z = (dble(i)+0.5d0) * 0.4d0
 
         U_swe(slo(1)-1:shi(1)+1, slo(2)-1:shi(2)+1, i,1) = &
-            -log(z * M / (alpha0 * R) + alpha0) * &
-            W(slo(1)-1:shi(1)+1, slo(2)-1:shi(2)+1, i)
+            -log(alpha0 + z * (1.0d0 - alpha0) / R) !-log(z * M / (alpha0 * R) + alpha0) * &
+            !W(slo(1)-1:shi(1)+1, slo(2)-1:shi(2)+1, i)
         !write(*,*) "h: ", z
         !write(*,*) "W: ", W(slo(1)-1, slo(2)-1, i)
 
@@ -785,7 +786,7 @@ subroutine test_gr_comp_flux(passed) bind(C, name="test_gr_comp_flux")
     gamma_up(:,:,:,:) = 0.0d0
     gamma_up(:,:,:,1) = 1.0d0
     gamma_up(:,:,:,5) = 1.0d0
-    gamma_up(:,:,:,9) = (alpha0 + M * dx(3) * lo(3) / (R * alpha0))**2
+    gamma_up(:,:,:,9) = alpha0 * (1.0d0 - dx(3) * lo(3) / R) + dx(3) * lo(3) / R !(alpha0 + M * dx(3) * lo(3) / (R * alpha0))**2
 
     prob_lo(3) = 0.0d0
 
