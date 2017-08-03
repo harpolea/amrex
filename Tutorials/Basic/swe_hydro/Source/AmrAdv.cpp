@@ -139,8 +139,8 @@ AmrAdv::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 
     FillCoarsePatch(lev, time, *phi_new[lev], 0, ncomp);
 
-    phi_new[lev]->FillBoundary(geom[lev].periodicity());
-    fill_physbc(*phi_new[lev], geom[lev]);
+    //phi_new[lev]->FillBoundary(geom[lev].periodicity());
+    //fill_physbc(*phi_new[lev], geom[lev]);
 
     //if (lev == max_swe_level+1) {
         // do conversion from swe to comp
@@ -176,10 +176,10 @@ AmrAdv::RemakeLevel (int lev, Real time, const BoxArray& ba,
 	       flux_reg[lev].reset(new FluxRegister(ba, dm, refRatio(lev-1), lev, ncomp));
     }
 
-    phi_new[lev]->FillBoundary(geom[lev].periodicity());
-    fill_physbc(*phi_new[lev], geom[lev]);
-    phi_old[lev]->FillBoundary(geom[lev].periodicity());
-    fill_physbc(*phi_old[lev], geom[lev]);
+    //phi_new[lev]->FillBoundary(geom[lev].periodicity());
+    //fill_physbc(*phi_new[lev], geom[lev]);
+    //phi_old[lev]->FillBoundary(geom[lev].periodicity());
+    //fill_physbc(*phi_old[lev], geom[lev]);
 }
 
 void
@@ -219,16 +219,16 @@ AmrAdv::AverageDown ()
  			     geom[lev+1], geom[lev],
  			     0, n_swe_comp, refRatio(lev));
 
-                 phi_new[lev]->FillBoundary(geom[lev].periodicity());
-                 fill_physbc(*phi_new[lev], geom[lev]);
+            phi_new[lev]->FillBoundary(geom[lev].periodicity());
+            fill_physbc(*phi_new[lev], geom[lev]);
 
         } else {
             amrex::average_down(*phi_new[lev+1], *phi_new[lev],
  			     geom[lev+1], geom[lev],
  			     0, phi_new[lev]->nComp(), refRatio(lev));
 
-                 phi_new[lev]->FillBoundary(geom[lev].periodicity());
-                 fill_physbc(*phi_new[lev], geom[lev]);
+             //phi_new[lev]->FillBoundary(geom[lev].periodicity());
+             //fill_physbc(*phi_new[lev], geom[lev]);
         }
     }
 }
@@ -336,8 +336,8 @@ AmrAdv::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
         				   mapper, bcs);
         }
 
-        mf.FillBoundary(geom[lev].periodicity());
-        fill_physbc(mf, geom[lev]);
+        //mf.FillBoundary(geom[lev].periodicity());
+        //fill_physbc(mf, geom[lev]);
     }
 }
 
@@ -369,7 +369,7 @@ AmrAdv::FillCoarsePatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
 				 cphysbc, fphysbc, refRatio(lev-1),
 				 mapper, bcs);
 
-    if (lev-1 == max_swe_level) {
+    if (lev > 0 && lev-1 == max_swe_level) {
         Array<MultiFab*> swe_mf;
         GetData(lev, time, swe_mf, ctime);
         // do comp from swe conversion
@@ -377,8 +377,8 @@ AmrAdv::FillCoarsePatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
     }
 
     //amrex::FillDomainBoundary(mf, geom[lev-1], bcs);
-    mf.FillBoundary(geom[lev].periodicity());
-    fill_physbc(mf, geom[lev]);
+    //mf.FillBoundary(geom[lev].periodicity());
+    //fill_physbc(mf, geom[lev]);
 }
 
 void
@@ -531,8 +531,6 @@ void AmrAdv::InitAmrMesh (int max_level_in,
         geom[i].define(index_domain);
         //std::cout << "index domain " << index_domain << '\n';
         if (i < max_level) index_domain.refine(ref_ratio[i]);
-
-
     }
 
     Real offset[BL_SPACEDIM];

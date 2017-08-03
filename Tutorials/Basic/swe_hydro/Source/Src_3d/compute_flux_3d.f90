@@ -739,6 +739,9 @@ contains
                       write(*,*) "p, q(1), sq, W, h", p(i,j,k), q(2), sq, W2, h
                   end if
 
+                  ! HACK? fix p?
+                  p(i,j,k) = U_prim(i,j,k,1)**gamma
+
               end do
           end do
       end do

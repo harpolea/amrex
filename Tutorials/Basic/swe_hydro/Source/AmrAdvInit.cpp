@@ -24,11 +24,11 @@ AmrAdv::InitData ()
 
     for (int lev = 0; lev < maxLevel(); lev++) {
 
-        phi_old[lev]->FillBoundary(geom[lev].periodicity());
-        fill_physbc(*phi_old[lev], geom[lev]);
+        //phi_old[lev]->FillBoundary(geom[lev].periodicity());
+        //fill_physbc(*phi_old[lev], geom[lev]);
 
-        phi_new[lev]->FillBoundary(geom[lev].periodicity());
-        fill_physbc(*phi_new[lev], geom[lev]);
+        //phi_new[lev]->FillBoundary(geom[lev].periodicity());
+        //fill_physbc(*phi_new[lev], geom[lev]);
     }
 }
 
@@ -72,9 +72,9 @@ void AmrAdv::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
     		 ZFILL(prob_lo), &ncomp, &alpha0, &M, &R,
              p, &nlayers, &gamma, rho);
     }
-    state.FillBoundary(geom[lev].periodicity());
-    fill_physbc(state, geom[lev]);
+    //state.FillBoundary(geom[lev].periodicity());
+    //fill_physbc(state, geom[lev]);
 
-    phi_old[lev]->FillBoundary(geom[lev].periodicity());
-    fill_physbc(*phi_old[lev], geom[lev]);
+    //phi_old[lev]->FillBoundary(geom[lev].periodicity());
+    //fill_physbc(*phi_old[lev], geom[lev]);
 }
