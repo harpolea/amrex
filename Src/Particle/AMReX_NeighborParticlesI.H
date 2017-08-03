@@ -57,6 +57,7 @@ NeighborParticleContainer<NStructReal, NStructInt, NNeighborReal>
     BL_ASSERT(lev == 0);
     NeighborCommMap neighbors_to_comm;
     for (MyParIter pti(*this, lev); pti.isValid(); ++pti) {
+        PairIndex src_index(pti.index(), pti.LocalTileIndex());
         const Box& tile_box = pti.tilebox();
         const IntVect& lo = tile_box.smallEnd();
         const IntVect& hi = tile_box.bigEnd();
@@ -92,6 +93,7 @@ NeighborParticleContainer<NStructReal, NStructInt, NNeighborReal>
                 IntVect neighbor_cell = iv;
                 neighbor_cell.shift(idim, shift[idim]);
                 BL_ASSERT(mask[pti].box().contains(neighbor_cell));
+                cacheNeighborParticle(lev, src_index, i, neighbor_cell, mask[pti]);
                 packNeighborParticle(lev, neighbor_cell, mask[pti], p, neighbors_to_comm);
             }
             
@@ -103,6 +105,7 @@ NeighborParticleContainer<NStructReal, NStructInt, NNeighborReal>
                         neighbor_cell.shift(idim, shift[idim]);
                         neighbor_cell.shift(jdim, shift[jdim]);
                         BL_ASSERT(mask[pti].box().contains(neighbor_cell));
+                        cacheNeighborParticle(lev, src_index, i, neighbor_cell, mask[pti]);
                         packNeighborParticle(lev, neighbor_cell, mask[pti], p, neighbors_to_comm);
                     }
                 }
@@ -114,6 +117,7 @@ NeighborParticleContainer<NStructReal, NStructInt, NNeighborReal>
                 IntVect neighbor_cell = iv;
                 neighbor_cell.shift(shift);
                 BL_ASSERT(mask[pti].box().contains(neighbor_cell));
+                cacheNeighborParticle(lev, src_index, i, neighbor_cell, mask[pti]);
                 packNeighborParticle(lev, neighbor_cell, mask[pti], p, neighbors_to_comm);
             }
 #endif
@@ -121,6 +125,37 @@ NeighborParticleContainer<NStructReal, NStructInt, NNeighborReal>
     }
     
     fillNeighborsMPI(neighbors_to_comm);
+}
+
+template <int NStructReal, int NStructInt, int NNeighborReal>
+void 
+NeighborParticleContainer<NStructReal, NStructInt, NNeighborReal>
+::updateNeighbors(int lev) {
+
+    BL_PROFILE("NeighborParticleContainer::updateNeighbors");
+    BL_ASSERT(lev == 0);
+
+    neighbors.clear();
+    
+    NeighborCommMap neighbors_to_comm;
+    for (MyParIter pti(*this, lev); pti.isValid(); ++pti) {
+        PairIndex src_index(pti.index(), pti.LocalTileIndex());
+        const Box& tile_box = pti.tilebox();
+        const IntVect& lo = tile_box.smallEnd();
+        const IntVect& hi = tile_box.bigEnd();
+                
+        auto& particles = pti.GetArrayOfStructs();
+        const auto& ids = buffer_id_cache[src_index];
+        for (unsigned i = 0; i < buffer_id_cache[src_index].size(); ++i) {
+            int particle_index = buffer_id_cache[src_index][i];
+            const IntVect& neighbor_cell = buffer_cell_cache[src_index][i];
+            const ParticleType& p = particles[particle_index];
+            packNeighborParticle(lev, neighbor_cell, mask[pti], p, neighbors_to_comm);
+        }
+    }
+    
+    bool reuse_rcv_counts = true;
+    fillNeighborsMPI(neighbors_to_comm, reuse_rcv_counts);
 }
 
 template <int NStructReal, int NStructInt, int NNeighborReal>
@@ -133,6 +168,8 @@ NeighborParticleContainer<NStructReal, NStructInt, NNeighborReal>
     BL_ASSERT(lev == 0);
 
     neighbors.clear();
+    buffer_id_cache.clear();
+    buffer_cell_cache.clear();
 }
 
 template <int NStructReal, int NStructInt, int NNeighborReal>
@@ -197,9 +234,67 @@ packNeighborParticle(int lev,
 }
 
 template <int NStructReal, int NStructInt, int NNeighborReal>
+void 
+NeighborParticleContainer<NStructReal, NStructInt, NNeighborReal>::
+cacheNeighborParticle(int lev, const PairIndex& index, int particle_index,
+                      const IntVect& neighbor_cell, const BaseFab<int>& mask) {
+    
+    BL_ASSERT(lev == 0);
+    
+    const int neighbor_grid = mask(neighbor_cell, 0);
+    if (neighbor_grid >= 0) {
+        const int neighbor_tile = mask(neighbor_cell, 1);
+        PairIndex dst_index(neighbor_grid, neighbor_tile);
+        buffer_id_cache[index].push_back(particle_index);
+        buffer_cell_cache[index].push_back(neighbor_cell);
+    }
+}
+
+template <int NStructReal, int NStructInt, int NNeighborReal>
 void
 NeighborParticleContainer<NStructReal, NStructInt, NNeighborReal>::
-fillNeighborsMPI(NeighborCommMap& neighbors_to_comm) {
+getRcvCountsMPI(const std::map<int, Array<char> >& send_data) {
+
+#ifdef BL_USE_MPI
+    const int MyProc = ParallelDescriptor::MyProc();
+    const int NProcs = ParallelDescriptor::NProcs();
+
+    // each proc figures out how many bytes it will send, and how
+    // many it will receive
+    Array<long> snds(NProcs, 0);
+    rcvs.resize(NProcs, 0);
+
+    num_snds = 0;
+    for (const auto& kv : send_data) {
+        num_snds      += kv.second.size();
+        snds[kv.first] = kv.second.size();
+    }
+    ParallelDescriptor::ReduceLongMax(num_snds);
+    if (num_snds == 0) return;
+    
+    // communicate that information
+    BL_COMM_PROFILE(BLProfiler::Alltoall, sizeof(long),
+                    ParallelDescriptor::MyProc(), BLProfiler::BeforeCall());
+    
+    BL_MPI_REQUIRE( MPI_Alltoall(snds.dataPtr(),
+                                 1,
+                                 ParallelDescriptor::Mpi_typemap<long>::type(),
+                                 rcvs.dataPtr(),
+                                 1,
+                                 ParallelDescriptor::Mpi_typemap<long>::type(),
+                                 ParallelDescriptor::Communicator()) );
+    BL_ASSERT(rcvs[MyProc] == 0);
+    
+    BL_COMM_PROFILE(BLProfiler::Alltoall, sizeof(long),
+                    ParallelDescriptor::MyProc(), BLProfiler::AfterCall());
+
+#endif // BL_USE_MPI
+}
+
+template <int NStructReal, int NStructInt, int NNeighborReal>
+void
+NeighborParticleContainer<NStructReal, NStructInt, NNeighborReal>::
+fillNeighborsMPI(NeighborCommMap& neighbors_to_comm, bool reuse_rcv_counts) {
     
     BL_PROFILE("NeighborParticleContainer::fillNeighborsMPI");
     
@@ -241,30 +336,8 @@ fillNeighborsMPI(NeighborCommMap& neighbors_to_comm) {
     
     // each proc figures out how many bytes it will send, and how
     // many it will receive
-    Array<long> snds(NProcs, 0), rcvs(NProcs, 0);
-    long num_snds = 0;
-    for (const auto& kv : send_data) {
-        num_snds      += kv.second.size();
-        snds[kv.first] = kv.second.size();
-    }
-    ParallelDescriptor::ReduceLongMax(num_snds);
+    if (!reuse_rcv_counts) getRcvCountsMPI(send_data);
     if (num_snds == 0) return;
-    
-    // communicate that information
-    BL_COMM_PROFILE(BLProfiler::Alltoall, sizeof(long),
-                    ParallelDescriptor::MyProc(), BLProfiler::BeforeCall());
-    
-    BL_MPI_REQUIRE( MPI_Alltoall(snds.dataPtr(),
-                                 1,
-                                 ParallelDescriptor::Mpi_typemap<long>::type(),
-                                 rcvs.dataPtr(),
-                                 1,
-                                 ParallelDescriptor::Mpi_typemap<long>::type(),
-                                 ParallelDescriptor::Communicator()) );
-    BL_ASSERT(rcvs[MyProc] == 0);
-    
-    BL_COMM_PROFILE(BLProfiler::Alltoall, sizeof(long),
-                    ParallelDescriptor::MyProc(), BLProfiler::AfterCall());
     
     Array<int> RcvProc;
     Array<std::size_t> rOffset; // Offset (in bytes) in the receive buffer
@@ -348,9 +421,6 @@ buildNeighborList(int lev, bool sort) {
 
     neighbor_list.clear();
     
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
     for (MyParIter pti(*this, lev); pti.isValid(); ++pti) {
         
         PairIndex index(pti.index(), pti.LocalTileIndex());
@@ -421,11 +491,6 @@ buildNeighborList(int lev, bool sort) {
             p_start_index += num_neighbors + 1;
         }
 
-        // for (unsigned i = 0; i < nl.size(); ++i) {
-        //     std::cout << nl[i] << " ";
-        // }
-        // std::cout << std::endl;
-
         if (sort) {
             for (unsigned i = 0; i < nl.size(); i += nl[i] +1) {
                 std::sort(nl.begin() + i + 1,
@@ -449,9 +514,6 @@ buildNeighborListFort(int lev, bool sort) {
     const Real*     plo = gm.ProbLo();
     const Real*     dx  = gm.CellSize();
     
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
     for (MyParIter pti(*this, lev); pti.isValid(); ++pti) {
         
         PairIndex index(pti.index(), pti.LocalTileIndex());
@@ -484,11 +546,6 @@ buildNeighborListFort(int lev, bool sort) {
                        lo, hi, plo, dx);
 
         nl.resize(size_nl);
-
-        // for (unsigned i = 0; i < nl.size(); ++i) {
-        //     std::cout << nl[i] << " ";
-        // }
-        // std::cout << std::endl;
 
         if (sort) {
             for (unsigned i = 0; i < nl.size(); i += nl[i] +1) {

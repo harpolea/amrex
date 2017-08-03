@@ -50,6 +50,7 @@ namespace amrex
   {
     BL_PROFILE("NWOEBCFI::defineInternals");
 
+
     m_eblevelRedist.define(m_eblg, m_nComp, m_redistRad);
     m_normalizor.define(m_eblg, m_dataGhost);
 
@@ -82,7 +83,7 @@ namespace amrex
       const std::vector<VolIndex>& volvec = vofit.getVector();
 
       //destination vofs are the same for both open and boundary faces
-      std::vector< std::shared_ptr<BaseIndex  > > baseDstVoFs;
+      std::vector< std::shared_ptr<BaseIndex  > > baseDstVoFs(volvec.size());
       for(int ivec = 0; ivec < volvec.size(); ivec++)
       {
         baseDstVoFs [ivec]  = std::shared_ptr<BaseIndex  >((BaseIndex*)(&volvec[ivec]), &null_deleter_divs_ind);
@@ -136,35 +137,43 @@ namespace amrex
           (new AggStencil<EBFaceFAB, EBCellFAB >(baseDstVoFs, baseSten, fluxProxy[mfi][idir], cellProxy[mfi]));
       }
     }
+
   }
   /************************************/
   void
   DivergenceOp::
   hybridDivergence(FabArray<EBCellFAB>      & a_divF,
                    const FabArray<EBFluxFAB>& a_flux,
-                   int isrc, int idst, int inco)
+                   int isrc, int idst, int inco,
+                   bool a_trustRegDivF)
   {
     BL_ASSERT(isDefined());
+    BL_ASSERT(a_flux.nGrow() == m_dataGhost);
+    BL_ASSERT(a_divF.nGrow() == m_dataGhost);
+
     for(MFIter mfi(m_eblg.getDBL(), m_eblg.getDM()); mfi.isValid(); ++mfi)
     {
       EBCellFAB       & divF = m_kappaDivergence[mfi];
       const EBFluxFAB & flux = a_flux[mfi];
 
-      BaseFab<Real>       &  regDivF = divF.getSingleValuedFAB();
-      vector<const BaseFab<Real>*> regFlux(3, &(flux[0].getSingleValuedFAB()));
-      for(int idir = 0; idir < SpaceDim; idir++)
+      if(!a_trustRegDivF)
       {
-        regFlux[idir] = &(flux[idir].getSingleValuedFAB());
-      }
-      const Box& grid = m_eblg.getDBL()[mfi];
+        BaseFab<Real>       &  regDivF = divF.getSingleValuedFAB();
+        vector<const BaseFab<Real>*> regFlux(3, &(flux[0].getSingleValuedFAB()));
+        for(int idir = 0; idir < SpaceDim; idir++)
+        {
+          regFlux[idir] = &(flux[idir].getSingleValuedFAB());
+        }
+        const Box& grid = m_eblg.getDBL()[mfi];
       
-      //first do everything as if it has no eb.
-      ebfnd_divflux(BL_TO_FORTRAN_FAB(regDivF),
-                    BL_TO_FORTRAN_FAB((*regFlux[0])),
-                    BL_TO_FORTRAN_FAB((*regFlux[1])),
-                    BL_TO_FORTRAN_FAB((*regFlux[2])),
-                    BL_TO_FORTRAN_BOX(grid),
-                    &m_dx, &isrc, &idst, &inco);
+        //first do everything as if it has no eb.
+        ebfnd_divflux(BL_TO_FORTRAN_FAB(regDivF),
+                      BL_TO_FORTRAN_FAB((*regFlux[0])),
+                      BL_TO_FORTRAN_FAB((*regFlux[1])),
+                      BL_TO_FORTRAN_FAB((*regFlux[2])),
+                      BL_TO_FORTRAN_BOX(grid),
+                      &m_dx, &isrc, &idst, &inco);
+      }
       //turn off increment only for bndry flux.  This sets the initial divergence at 
       //cut cells to zero
       bool incrementOnly = false;
