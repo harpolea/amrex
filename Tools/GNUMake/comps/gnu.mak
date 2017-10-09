@@ -6,7 +6,7 @@ CC  = gcc
 FC  = gfortran
 F90 = gfortran
 
-CXXFLAGS =
+CXXFLAGS = #-D_GLIBCXX_USE_CXX11_ABI=0
 CFLAGS   =
 FFLAGS   =
 F90FLAGS =
@@ -66,7 +66,7 @@ F90FLAGS += -ffree-line-length-none -fno-range-check -fno-second-underscore -J$(
 
 ########################################################################
 
-GENERIC_COMP_FLAGS =
+GENERIC_COMP_FLAGS = -fPIC
 
 ifeq ($(THREAD_SANITIZER),TRUE)
   GENERIC_COMP_FLAGS += -fsanitize=thread

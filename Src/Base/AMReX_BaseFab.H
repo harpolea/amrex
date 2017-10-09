@@ -43,17 +43,17 @@ namespace amrex
 
 /**
 *  \brief A Fortran Array-like Object
-*  BaseFab emulates the Fortran array concept.  
+*  BaseFab emulates the Fortran array concept.
 *  Useful operations can be performed upon
 *  BaseFabs in C++, and they provide a convenient interface to
 *  Fortran when it is necessary to retreat into that language.
-        
+
 *  BaseFab is a template class.  Through use of the
 *  template, a BaseFab may be based upon any class.  So far at least,
 *  most applications have been based upon simple types like integers,
-*  real*4s, or real*8s.  Most applications do not use BaseFabs 
+*  real*4s, or real*8s.  Most applications do not use BaseFabs
 *  directly, but utilize specialized classes derived from BaseFab.
-        
+
 *  BaseFab objects depend on the dimensionality of space
 *  (indirectly through the DOMAIN Box member).  It is
 *  typical to define the macro SPACEDIM to be 1, 2, or 3 to indicate
@@ -64,19 +64,19 @@ namespace amrex
 *  point in the rectangular indexing space, there are NVAR values
 *  associated with that point.  A Fortran array corresponding to a
 *  BaseFab would have (SPACEDIM+1) dimensions.
-        
+
 *  By design, the array layout in a BaseFab mirrors that of a
 *  Fortran array.  The first index (x direction for example) varies
 *  most rapidly, the next index (y direction), if any, varies next
 *  fastest. The component index varies last, after all the spatial
 *  indices.
-        
+
 *  It is sometimes convenient to be able to treat a sub-array within an
 *  existing BaseFab as a BaseFab in its own right.  This is often
-*  referred to as aliasing the BaseFab.  Note that when aliasing is 
-*  used, the BaseFabs domain will not, in general, be the same as the 
+*  referred to as aliasing the BaseFab.  Note that when aliasing is
+*  used, the BaseFabs domain will not, in general, be the same as the
 *  parent BaseFabs domain, nor will the number of components.
-*  BaseFab is a dimension dependent class, so SPACEDIM must be 
+*  BaseFab is a dimension dependent class, so SPACEDIM must be
 *  defined as either 1, 2, or 3 when compiling.
 
 *  This is NOT a polymorphic class.
@@ -123,7 +123,7 @@ public:
 
     /**
     * \brief This function resizes a BaseFab so it covers the Box b
-    * with N components.  
+    * with N components.
 
     * The default action is that under resizing, the memory allocated for the
     * BaseFab only grows and never shrinks.  This function is
@@ -177,10 +177,10 @@ public:
     //! Returns the number of components
     int nComp () const { return nvar; }
 
-    //! for calls to fortran.  
+    //! for calls to fortran.
     const int* nCompPtr() const {return &nvar;}
 
-    //! Returns the number of points 
+    //! Returns the number of points
     long nPts () const { return numpts; }
 
     //! Returns the total number of points of all components
@@ -205,8 +205,8 @@ public:
     const IntVect& bigEnd () const { return domain.bigEnd(); }
 
     /**
-    * \brief Returns the lower corner of the domain.  
-  
+    * \brief Returns the lower corner of the domain.
+
     *Instead of returning them in the form of INTVECTs, as in smallEnd and
     * bigEnd, it returns the values as a pointer to an array of
     * constant integers.  This is useful when interfacing to
@@ -215,7 +215,7 @@ public:
     const int* loVect () const { return domain.loVect(); }
 
     /**
-    * \brief Returns the upper corner of the domain.  
+    * \brief Returns the upper corner of the domain.
 
     *Instead of returning them in the form of INTVECTs, as in smallEnd and
     * bigEnd, it returns the values as a pointer to an array of
@@ -253,7 +253,7 @@ public:
     //! Same as above except works on const FABs.
     const T* dataPtr (int n = 0) const { BL_ASSERT(!(dptr == 0)); return &dptr[n*numpts]; }
 
-    
+
     void setPtr (T* p, long sz) { BL_ASSERT(dptr == 0 && truesize == 0); dptr = p; truesize = sz; }
 
     //! Returns true if the data for the FAB has been allocated.
@@ -307,6 +307,8 @@ public:
                  int N);
     //! Same as above, except all components are set.
     void setVal (T x);
+    void setValArray (T   &       x,
+                 const Box& bx);
 
     /**
     * \brief This function is analogous to the fourth form of
@@ -425,7 +427,7 @@ public:
     Real norm (int p,
                int scomp = 0,
                int ncomp = 1) const;
-    
+
     //! Same as above except only on given subbox.
     Real norm (const Box& subbox,
                int        p,
@@ -493,7 +495,7 @@ public:
     int maskLE (BaseFab<int>& mask,
                 T             val,
                 int           comp = 0) const;
-    
+
     //! Same as above except mark cells with value equal to val.
     int maskEQ (BaseFab<int>& mask,
                 T             val,
@@ -877,7 +879,7 @@ public:
 
     //! Change the Box type without change the length
     void SetBoxType(const IndexType& typ) { domain.setType(typ); }
-    
+
 protected:
     //! Allocates memory for the BaseFab<T>.
     void define ();
@@ -892,6 +894,11 @@ protected:
 
     //! This function is called by the BaseFab setVal operations.
     void performSetVal (T          x,
+                        const Box& bx,
+                        int        nstart,
+                        int        numcomp);
+
+    void performSetValArray (T      &    x,
                         const Box& bx,
                         int        nstart,
                         int        numcomp);
@@ -1048,6 +1055,14 @@ BaseFab<T>::setVal (T          x,
                     int        num)
 {
     performSetVal(x,b,ns,num);
+}
+
+template <class T>
+void
+BaseFab<T>::setValArray (T  &        x,
+                    const Box& bx)
+{
+    performSetValArray(x,bx,0,nvar);
 }
 
 template <class T>
@@ -1316,7 +1331,7 @@ BaseFab<T>::clear ()
 		ptr->~T();
 	    }
 	    amrex::The_Arena()->free(dptr);
-	    
+
 	    if (nvar > 1) {
 		amrex::update_fab_stats(-truesize/nvar, -truesize, sizeof(T));
 	    } else {
@@ -1351,109 +1366,109 @@ BaseFab<T>::performCopy (const BaseFab<T>& src,
     BL_ASSERT(destcomp >= 0 && destcomp+numcomp <= nComp());
 
 #if (BL_SPACEDIM == 1)
-{                                                                       
+{
     BL_ASSERT((destcomp) >= 0 && (destcomp) + (numcomp) <= nComp());
     BL_ASSERT((srccomp) >= 0 && (srccomp) + (numcomp) <= (src).nComp());
-    Box _subbox_ = box(); 
-    _subbox_ &= destbox; 
-    BL_ASSERT(srcbox.sameSize(_subbox_)); 
-    if (_subbox_.ok()) 
-    { 
-        const int *_th_plo = loVect(); 
-        const int *_th_plen = length(); 
-        const int *_x_plo = (src).loVect(); 
-        const int *_x_plen = (src).length(); 
+    Box _subbox_ = box();
+    _subbox_ &= destbox;
+    BL_ASSERT(srcbox.sameSize(_subbox_));
+    if (_subbox_.ok())
+    {
+        const int *_th_plo = loVect();
+        const int *_th_plen = length();
+        const int *_x_plo = (src).loVect();
+        const int *_x_plen = (src).length();
         const int *_subbox_lo = _subbox_.loVect();
         IntVect _subbox_length = _subbox_.size();
-        const int *_subbox_len = _subbox_length.getVect(); 
-        const int *_bx_lo = (srcbox).loVect(); 
-        T* _th_p = dataPtr(destcomp); 
-        const T* _x_p  = (src).dataPtr(srccomp); 
+        const int *_subbox_len = _subbox_length.getVect();
+        const int *_bx_lo = (srcbox).loVect();
+        T* _th_p = dataPtr(destcomp);
+        const T* _x_p  = (src).dataPtr(srccomp);
         for (int _n = 0; _n < (numcomp); ++_n)
-        { 
-            T *_th_pp = _th_p + ((_subbox_lo[0]-_th_plo[0])+_n*_th_plen[0]); 
+        {
+            T *_th_pp = _th_p + ((_subbox_lo[0]-_th_plo[0])+_n*_th_plen[0]);
             const T *_x_pp = _x_p + ((_bx_lo[0]-_x_plo[0])+_n*_x_plen[0]);
             for (int _i = 0; _i < _subbox_len[0]; ++_i, ++_th_pp)
-            { 
-                int iR = _i + _subbox_lo[0]; iR += 0; 
-                int ixR = _i + _bx_lo[0]; ixR += 0; 
+            {
+                int iR = _i + _subbox_lo[0]; iR += 0;
+                int ixR = _i + _bx_lo[0]; ixR += 0;
                 T &thisR = * _th_pp; const T & srcR = _x_pp[_i];
 #elif (BL_SPACEDIM == 2)
-{                                                                       
-    BL_ASSERT((destcomp) >= 0 && (destcomp) + (numcomp) <= nComp()); 
-    BL_ASSERT((srccomp) >= 0 && (srccomp) + (numcomp) <= (src).nComp()); 
-    Box _subbox_ = box(); 
-    _subbox_ &= destbox; 
-    BL_ASSERT(srcbox.sameSize(_subbox_)); 
+{
+    BL_ASSERT((destcomp) >= 0 && (destcomp) + (numcomp) <= nComp());
+    BL_ASSERT((srccomp) >= 0 && (srccomp) + (numcomp) <= (src).nComp());
+    Box _subbox_ = box();
+    _subbox_ &= destbox;
+    BL_ASSERT(srcbox.sameSize(_subbox_));
     if (_subbox_.ok())
-    { 
-        const int *_th_plo = loVect(); 
-        const int *_th_plen = length(); 
-        const int *_x_plo = (src).loVect(); 
-        const int *_x_plen = (src).length(); 
+    {
+        const int *_th_plo = loVect();
+        const int *_th_plen = length();
+        const int *_x_plo = (src).loVect();
+        const int *_x_plen = (src).length();
         const int *_subbox_lo = _subbox_.loVect();
         IntVect _subbox_length = _subbox_.size();
-        const int *_subbox_len = _subbox_length.getVect(); 
-        const int *_bx_lo = (srcbox).loVect(); 
-        T* _th_p = dataPtr(destcomp); 
-        const T* _x_p  = (src).dataPtr(srccomp); 
+        const int *_subbox_len = _subbox_length.getVect();
+        const int *_bx_lo = (srcbox).loVect();
+        T* _th_p = dataPtr(destcomp);
+        const T* _x_p  = (src).dataPtr(srccomp);
         for (int _n = 0; _n < (numcomp); ++_n)
-        { 
+        {
             for(int _j = 0; _j < _subbox_len[1]; ++_j)
-            { 
-                const int jR = _j + _subbox_lo[1]; 
-                const int jxR = _j + _bx_lo[1]; 
-                T *_th_pp = _th_p + ((_subbox_lo[0] - _th_plo[0]) 
-                                     + _th_plen[0]*((jR - _th_plo[1]) 
-                                                    + _n * _th_plen[1])); 
-                const T *_x_pp = _x_p + ((_bx_lo[0] - _x_plo[0]) 
-                                         + _x_plen[0]*((jxR - _x_plo[1]) 
-                                                       + _n * _x_plen[1])); 
+            {
+                const int jR = _j + _subbox_lo[1];
+                const int jxR = _j + _bx_lo[1];
+                T *_th_pp = _th_p + ((_subbox_lo[0] - _th_plo[0])
+                                     + _th_plen[0]*((jR - _th_plo[1])
+                                                    + _n * _th_plen[1]));
+                const T *_x_pp = _x_p + ((_bx_lo[0] - _x_plo[0])
+                                         + _x_plen[0]*((jxR - _x_plo[1])
+                                                       + _n * _x_plen[1]));
                 for (int _i = 0; _i < _subbox_len[0]; ++_i, ++_th_pp)
-                {  
-                    T &thisR = * _th_pp; const T & srcR = _x_pp[_i]; 
+                {
+                    T &thisR = * _th_pp; const T & srcR = _x_pp[_i];
 #elif (BL_SPACEDIM == 3)
-{ 
-    BL_ASSERT((destcomp) >= 0 && (destcomp) + (numcomp) <= nComp()); 
-    BL_ASSERT((srccomp) >= 0 && (srccomp) + (numcomp) <= (src).nComp()); 
-    Box _subbox_(box()); 
-    _subbox_ &= destbox; 
-    BL_ASSERT((srcbox).sameSize(_subbox_)); 
+{
+    BL_ASSERT((destcomp) >= 0 && (destcomp) + (numcomp) <= nComp());
+    BL_ASSERT((srccomp) >= 0 && (srccomp) + (numcomp) <= (src).nComp());
+    Box _subbox_(box());
+    _subbox_ &= destbox;
+    BL_ASSERT((srcbox).sameSize(_subbox_));
     if (_subbox_.ok())
-    { 
-        const int *_th_plo = loVect(); 
-        const int *_th_plen = length(); 
-        const int *_x_plo = (src).loVect(); 
-        const int *_x_plen = (src).length(); 
+    {
+        const int *_th_plo = loVect();
+        const int *_th_plen = length();
+        const int *_x_plo = (src).loVect();
+        const int *_x_plen = (src).length();
         const int *_subbox_lo = _subbox_.loVect();
         IntVect _subbox_length = _subbox_.size();
-        const int *_subbox_len = _subbox_length.getVect(); 
-        const int *_bx_lo = (srcbox).loVect(); 
-        T* _th_p = dataPtr(destcomp); 
-        const T* _x_p  = (src).dataPtr(srccomp); 
+        const int *_subbox_len = _subbox_length.getVect();
+        const int *_bx_lo = (srcbox).loVect();
+        T* _th_p = dataPtr(destcomp);
+        const T* _x_p  = (src).dataPtr(srccomp);
         for (int _n = 0; _n < (numcomp); ++_n)
-        { 
+        {
             for (int _k = 0; _k < _subbox_len[2]; ++_k)
-            { 
-                const int kR = _k + _subbox_lo[2]; 
-                const int kxR = _k + _bx_lo[2]; 
+            {
+                const int kR = _k + _subbox_lo[2];
+                const int kxR = _k + _bx_lo[2];
                 for(int _j = 0; _j < _subbox_len[1]; ++_j)
-                { 
-                    const int jR = _j + _subbox_lo[1]; 
-                    const int jxR = _j + _bx_lo[1]; 
-                    T *_th_pp = _th_p + ((_subbox_lo[0] - _th_plo[0]) 
-                                         + _th_plen[0]*((jR - _th_plo[1]) 
+                {
+                    const int jR = _j + _subbox_lo[1];
+                    const int jxR = _j + _bx_lo[1];
+                    T *_th_pp = _th_p + ((_subbox_lo[0] - _th_plo[0])
+                                         + _th_plen[0]*((jR - _th_plo[1])
                                                         + _th_plen[1]*(
-                                                            (kR - _th_plo[2]) 
-                                                        + _n * _th_plen[2]))); 
-                    const T *_x_pp = _x_p + ((_bx_lo[0] - _x_plo[0]) 
-                                             + _x_plen[0]*((jxR - _x_plo[1]) 
-                                                           + _x_plen[1]*( 
+                                                            (kR - _th_plo[2])
+                                                        + _n * _th_plen[2])));
+                    const T *_x_pp = _x_p + ((_bx_lo[0] - _x_plo[0])
+                                             + _x_plen[0]*((jxR - _x_plo[1])
+                                                           + _x_plen[1]*(
                                                             (kxR - _x_plo[2])
                                                          + _n * _x_plen[2])));
                     for (int _i = 0; _i < _subbox_len[0]; ++_i, ++_th_pp)
                     {
-                        T &thisR = * _th_pp; const T & srcR = _x_pp[_i]; 
+                        T &thisR = * _th_pp; const T & srcR = _x_pp[_i];
 #endif
     {
         thisR = srcR;
@@ -1496,6 +1511,34 @@ BaseFab<T>::performSetVal (T          val,
 }
 
 template <class T>
+void
+BaseFab<T>::performSetValArray (T  &        arr,
+                           const Box& bx,
+                           int        ns,
+                           int        num)
+{
+    BL_ASSERT(domain.contains(bx));
+    BL_ASSERT(ns >= 0 && ns + num <= nvar);
+
+    if (bx == domain)
+    {
+        T* data = &dptr[ns*numpts];
+
+        for (long i = 0, N = num*numpts; i < N; i++)
+        {
+            *data++ = arr[i];
+        }
+    }
+    /*else
+    {
+        ForAllThisBNN(T,bx,ns,num)
+        {
+            thisR = val;
+        } EndFor
+    }*/
+}
+
+template <class T>
 std::size_t
 BaseFab<T>::copyToMem (const Box& srcbox,
                        int        srccomp,
@@ -1505,24 +1548,24 @@ BaseFab<T>::copyToMem (const Box& srcbox,
     BL_ASSERT(box().contains(srcbox));
     BL_ASSERT(srccomp >= 0 && srccomp+numcomp <= nComp());
 
-    if (srcbox.ok()) 
-    { 
-        const int* _x_plo         = loVect(); 
-        const int* _x_plen        = length(); 
+    if (srcbox.ok())
+    {
+        const int* _x_plo         = loVect();
+        const int* _x_plen        = length();
         IntVect    _subbox_length = srcbox.size();
-        const int* _subbox_len    = _subbox_length.getVect(); 
-        const int* _bx_lo         = (srcbox).loVect(); 
+        const int* _subbox_len    = _subbox_length.getVect();
+        const int* _bx_lo         = (srcbox).loVect();
         T*         _th_p          = static_cast<T*>(dst);
-        const T*   _x_p           = dataPtr(srccomp); 
+        const T*   _x_p           = dataPtr(srccomp);
 
 #if (BL_SPACEDIM == 1)
 
         for (int _n = 0; _n < (numcomp); ++_n)
-        { 
+        {
             const T* _x_pp = _x_p + ((_bx_lo[0]-_x_plo[0])+_n*_x_plen[0]);
 
             for (int _i = 0; _i < _subbox_len[0]; ++_i)
-            { 
+            {
                 *_th_p++ = *_x_pp++;
             }
         }
@@ -1530,15 +1573,15 @@ BaseFab<T>::copyToMem (const Box& srcbox,
 #elif (BL_SPACEDIM == 2)
 
         for (int _n = 0; _n < (numcomp); ++_n)
-        { 
+        {
             for (int _j = 0; _j < _subbox_len[1]; ++_j)
-            { 
-                const int jxR   = _j + _bx_lo[1]; 
-                const T*  _x_pp = _x_p + ((_bx_lo[0] - _x_plo[0]) 
-                                          + _x_plen[0]*((jxR - _x_plo[1]) 
-                                                        + _n * _x_plen[1])); 
+            {
+                const int jxR   = _j + _bx_lo[1];
+                const T*  _x_pp = _x_p + ((_bx_lo[0] - _x_plo[0])
+                                          + _x_plen[0]*((jxR - _x_plo[1])
+                                                        + _n * _x_plen[1]));
                 for (int _i = 0; _i < _subbox_len[0]; ++_i)
-                {  
+                {
                     *_th_p++ = *_x_pp++;
                 }
             }
@@ -1547,16 +1590,16 @@ BaseFab<T>::copyToMem (const Box& srcbox,
 #elif (BL_SPACEDIM == 3)
 
         for (int _n = 0; _n < (numcomp); ++_n)
-        { 
+        {
             for (int _k = 0; _k < _subbox_len[2]; ++_k)
-            { 
+            {
                 const int kxR = _k + _bx_lo[2];
                 for(int _j = 0; _j < _subbox_len[1]; ++_j)
-                { 
-                    const int jxR   = _j + _bx_lo[1]; 
-                    const T*  _x_pp = _x_p + ((_bx_lo[0] - _x_plo[0]) 
-                                              + _x_plen[0]*((jxR - _x_plo[1]) 
-                                                           + _x_plen[1]*( 
+                {
+                    const int jxR   = _j + _bx_lo[1];
+                    const T*  _x_pp = _x_p + ((_bx_lo[0] - _x_plo[0])
+                                              + _x_plen[0]*((jxR - _x_plo[1])
+                                                           + _x_plen[1]*(
                                                                (kxR - _x_plo[2])
                                                             + _n * _x_plen[2])));
                     for (int _i = 0; _i < _subbox_len[0]; ++_i)
@@ -1585,24 +1628,24 @@ BaseFab<T>::copyFromMem (const Box&  dstbox,
     BL_ASSERT(box().contains(dstbox));
     BL_ASSERT(dstcomp >= 0 && dstcomp+numcomp <= nComp());
 
-    if (dstbox.ok()) 
-    { 
-        const int* _x_plo         = loVect(); 
-        const int* _x_plen        = length(); 
+    if (dstbox.ok())
+    {
+        const int* _x_plo         = loVect();
+        const int* _x_plen        = length();
         IntVect    _subbox_length = dstbox.size();
-        const int* _subbox_len    = _subbox_length.getVect(); 
-        const int* _bx_lo         = (dstbox).loVect(); 
+        const int* _subbox_len    = _subbox_length.getVect();
+        const int* _bx_lo         = (dstbox).loVect();
         const T*   _th_p          = static_cast<const T*>(src);
-        T*         _x_p           = dataPtr(dstcomp); 
+        T*         _x_p           = dataPtr(dstcomp);
 
 #if (BL_SPACEDIM == 1)
 
         for (int _n = 0; _n < (numcomp); ++_n)
-        { 
+        {
             T* _x_pp = _x_p + ((_bx_lo[0]-_x_plo[0])+_n*_x_plen[0]);
 
             for (int _i = 0; _i < _subbox_len[0]; ++_i)
-            { 
+            {
                 *_x_pp++ = *_th_p++;
             }
         }
@@ -1610,13 +1653,13 @@ BaseFab<T>::copyFromMem (const Box&  dstbox,
 #elif (BL_SPACEDIM == 2)
 
         for (int _n = 0; _n < (numcomp); ++_n)
-        { 
+        {
             for (int _j = 0; _j < _subbox_len[1]; ++_j)
-            { 
-                const int jxR   = _j + _bx_lo[1]; 
-                T*        _x_pp = _x_p + ((_bx_lo[0] - _x_plo[0]) + _x_plen[0]*((jxR - _x_plo[1]) + _n * _x_plen[1])); 
+            {
+                const int jxR   = _j + _bx_lo[1];
+                T*        _x_pp = _x_p + ((_bx_lo[0] - _x_plo[0]) + _x_plen[0]*((jxR - _x_plo[1]) + _n * _x_plen[1]));
                 for (int _i = 0; _i < _subbox_len[0]; ++_i)
-                {  
+                {
                     *_x_pp++ = *_th_p++;
                 }
             }
@@ -1625,15 +1668,15 @@ BaseFab<T>::copyFromMem (const Box&  dstbox,
 #elif (BL_SPACEDIM == 3)
 
         for (int _n = 0; _n < (numcomp); ++_n)
-        { 
+        {
             for (int _k = 0; _k < _subbox_len[2]; ++_k)
-            { 
+            {
                 const int kxR = _k + _bx_lo[2];
                 for(int _j = 0; _j < _subbox_len[1]; ++_j)
-                { 
-                    const int jxR   = _j + _bx_lo[1]; 
-                    T*        _x_pp = _x_p + ((_bx_lo[0] - _x_plo[0]) 
-                                              + _x_plen[0]*((jxR - _x_plo[1]) 
+                {
+                    const int jxR   = _j + _bx_lo[1];
+                    T*        _x_pp = _x_p + ((_bx_lo[0] - _x_plo[0])
+                                              + _x_plen[0]*((jxR - _x_plo[1])
                                                             + _x_plen[1]*( (kxR - _x_plo[2]) + _n * _x_plen[2])));
                     for (int _i = 0; _i < _subbox_len[0]; ++_i)
                     {
@@ -1688,6 +1731,13 @@ BaseFab<Real>::performSetVal (Real       val,
                               const Box& bx,
                               int        ns,
                               int        num);
+
+template <>
+void
+BaseFab<Real>::performSetValArray (Real   &    val,
+                            const Box& bx,
+                            int        ns,
+                            int        num);
 template <>
 Real
 BaseFab<Real>::norm (const Box& subbox,

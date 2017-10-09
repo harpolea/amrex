@@ -1,4 +1,4 @@
-# This file defines which_site and which_computer. 
+# This file defines which_site and which_computer.
 # Thus this decides which Make.$(which_site) file is included by Make.defs.
 
 which_site := unknown
@@ -59,4 +59,14 @@ endif
 ifeq ($(findstring nrel, $(host_name)), nrel)
   which_site := nrel
   which_computer := anymachine
+endif
+
+ifeq ($(findstring cyan, $(host_name)), cyan)
+  which_site := iridis
+  which_computer := iridis
+endif
+
+ifeq ($(findstring Excalibur, $(host_name)), Excalibur)
+  which_site := iridis
+  which_computer := iridis
 endif

@@ -122,7 +122,7 @@ FORTLINK  	= UNDERSCORE
 FORT_CPP        = cpp -E -traditional-cpp -P
 FORTPREP  	= perl $(AMREX_HOME)/Tools/C_scripts/strip72 -c
 F90PREP  	= cat  # a placeholder in case we have to write something later
-CPP_PREFIX      = 
+CPP_PREFIX      =
 MKDEP		= perl $(AMREX_HOME)/Tools/C_scripts/mkdep
 MODDEP		= $(AMREX_HOME)/Tools/F_scripts/dep.py
 CHECKFORT       = $(AMREX_HOME)/Tools/typechecker/typechecker.py
@@ -258,10 +258,10 @@ else
 endif
 
 ifeq ($(USE_UPCXX),TRUE)
-    CPPFLAGS  += -DBL_USE_TEAM 
+    CPPFLAGS  += -DBL_USE_TEAM
 else
   ifeq ($(USE_MPI3),TRUE)
-    CPPFLAGS  += -DBL_USE_TEAM 
+    CPPFLAGS  += -DBL_USE_TEAM
   endif
 endif
 
@@ -436,4 +436,3 @@ ifneq ("$(wildcard $(AMREX_HOME)/Tools/GNUMake/Make.local)","")
   $(info Loading $(AMREX_HOME)/Tools/GNUMake/Make.local...)
   include        $(AMREX_HOME)/Tools/GNUMake/Make.local
 endif
-

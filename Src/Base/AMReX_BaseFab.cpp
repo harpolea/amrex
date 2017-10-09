@@ -67,7 +67,7 @@ BF_init::~BF_init ()
         delete the_arena;
 }
 
-long 
+long
 TotalBytesAllocatedInFabs()
 {
 #ifdef _OPENMP
@@ -82,7 +82,7 @@ TotalBytesAllocatedInFabs()
 #endif
 }
 
-long 
+long
 TotalBytesAllocatedInFabsHWM()
 {
 #ifdef _OPENMP
@@ -97,7 +97,7 @@ TotalBytesAllocatedInFabsHWM()
 #endif
 }
 
-long 
+long
 TotalCellsAllocatedInFabs()
 {
 #ifdef _OPENMP
@@ -112,7 +112,7 @@ TotalCellsAllocatedInFabs()
 #endif
 }
 
-long 
+long
 TotalCellsAllocatedInFabsHWM()
 {
 #ifdef _OPENMP
@@ -127,7 +127,7 @@ TotalCellsAllocatedInFabsHWM()
 #endif
 }
 
-void 
+void
 ResetTotalBytesAllocatedInFabsHWM()
 {
 #ifdef _OPENMP
@@ -143,13 +143,13 @@ update_fab_stats (long n, long s, size_t szt)
 {
     long tst = s*szt;
     amrex::private_total_bytes_allocated_in_fabs += tst;
-    amrex::private_total_bytes_allocated_in_fabs_hwm 
+    amrex::private_total_bytes_allocated_in_fabs_hwm
 	= std::max(amrex::private_total_bytes_allocated_in_fabs_hwm,
 		   amrex::private_total_bytes_allocated_in_fabs);
-	
+
     if(szt == sizeof(Real)) {
 	amrex::private_total_cells_allocated_in_fabs += n;
-	amrex::private_total_cells_allocated_in_fabs_hwm 
+	amrex::private_total_cells_allocated_in_fabs_hwm
 	    = std::max(amrex::private_total_cells_allocated_in_fabs_hwm,
 		       amrex::private_total_cells_allocated_in_fabs);
     }
@@ -220,7 +220,7 @@ BaseFab<Real>::copyFromMem (const Box&  dstbox,
     BL_ASSERT(box().contains(dstbox));
     BL_ASSERT(dstcomp >= 0 && dstcomp+numcomp <= nComp());
 
-    if (dstbox.ok()) 
+    if (dstbox.ok())
     {
 	long nreal = fort_fab_copyfrommem(ARLIM_3D(dstbox.loVect()), ARLIM_3D(dstbox.hiVect()),
                                           BL_TO_FORTRAN_N_3D(*this,dstcomp), &numcomp,
@@ -246,6 +246,21 @@ BaseFab<Real>::performSetVal (Real       val,
     fort_fab_setval(ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()),
 		    BL_TO_FORTRAN_N_3D(*this,comp), &ncomp,
 		    &val);
+}
+
+template<>
+void
+BaseFab<Real>::performSetValArray (Real    &   arr,
+                              const Box& bx,
+                              int        comp,
+                              int        ncomp)
+{
+    BL_ASSERT(domain.contains(bx));
+    BL_ASSERT(comp >= 0 && comp + ncomp <= nvar);
+
+    fort_fab_setvalarray(ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()),
+		    BL_TO_FORTRAN_N_3D(*this,comp), &ncomp,
+		    &arr);
 }
 
 template<>
@@ -529,7 +544,7 @@ BaseFab<Real>::linComb (const BaseFab<Real>& f1,
 
 template <>
 Real
-BaseFab<Real>::dot (const Box& xbx, int xcomp, 
+BaseFab<Real>::dot (const Box& xbx, int xcomp,
 		    const BaseFab<Real>& y, const Box& ybx, int ycomp,
 		    int numcomp) const
 {
@@ -602,7 +617,7 @@ BaseFab<int>::copyFromMem (const Box&  dstbox,
     BL_ASSERT(box().contains(dstbox));
     BL_ASSERT(dstcomp >= 0 && dstcomp+numcomp <= nComp());
 
-    if (dstbox.ok()) 
+    if (dstbox.ok())
     {
 	long nints = fort_ifab_copyfrommem(ARLIM_3D(dstbox.loVect()), ARLIM_3D(dstbox.hiVect()),
                                            BL_TO_FORTRAN_N_3D(*this,dstcomp), &numcomp,
@@ -631,6 +646,21 @@ BaseFab<int>::performSetVal (int        val,
 }
 
 template<>
+void
+BaseFab<int>::performSetValArray (int   &     arr,
+                             const Box& bx,
+                             int        comp,
+                             int        ncomp)
+{
+    BL_ASSERT(domain.contains(bx));
+    BL_ASSERT(comp >= 0 && comp + ncomp <= nvar);
+
+    fort_ifab_setvalarray(ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()),
+                     BL_TO_FORTRAN_N_3D(*this,comp), &ncomp,
+                     &arr);
+}
+
+template<>
 BaseFab<int>&
 BaseFab<int>::plus (const BaseFab<int>& src,
                     const Box&           srcbox,
@@ -650,7 +680,7 @@ BaseFab<int>::plus (const BaseFab<int>& src,
                    BL_TO_FORTRAN_N_3D(*this,destcomp),
                    BL_TO_FORTRAN_N_3D(src,srccomp), ARLIM_3D(srcbox.loVect()),
                    &numcomp);
-    
+
     return *this;
 }
 

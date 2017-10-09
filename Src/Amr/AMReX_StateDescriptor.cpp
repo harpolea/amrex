@@ -196,7 +196,7 @@ DescriptorList::addDescriptor (int                         indx,
                                IndexType                   typ,
                                StateDescriptor::TimeCenter ttyp,
                                int                         nextra,
-                               int                         num_comp, 
+                               int                         num_comp,
                                Interpolater*               interp,
                                bool                        extrap,
                                bool                        store_in_checkpoint)
@@ -204,7 +204,7 @@ DescriptorList::addDescriptor (int                         indx,
     if (indx >= desc.size())
         desc.resize(indx+1);
     desc[indx].reset(new StateDescriptor(typ,ttyp,indx,nextra,num_comp,interp,extrap,store_in_checkpoint));
-}  
+}
 
 
 void
@@ -215,7 +215,6 @@ DescriptorList::Print () const
       d->Print();
   }
 }
-
 
 StateDescriptor::StateDescriptor ()
     :
@@ -231,7 +230,7 @@ StateDescriptor::StateDescriptor ()
 StateDescriptor::StateDescriptor (IndexType                   btyp,
                                   StateDescriptor::TimeCenter ttyp,
                                   int                         ident,
-                                  int                         nextra, 
+                                  int                         nextra,
                                   int                         num_comp,
                                   Interpolater*               interp,
                                   bool                        extrap,
@@ -247,7 +246,7 @@ StateDescriptor::StateDescriptor (IndexType                   btyp,
     m_store_in_checkpoint(store_in_checkpoint)
 {
     BL_ASSERT (num_comp > 0);
-   
+
     names.resize(num_comp);
     bc.resize(num_comp);
     bc_func.resize(num_comp);
@@ -361,7 +360,7 @@ StateDescriptor::define (IndexType                   btyp,
                          int                         num_comp,
                          Interpolater*               interp,
                          bool                        extrap,
-                         bool                        store_in_checkpoint) 
+                         bool                        store_in_checkpoint)
 {
     type     = btyp;
     t_type   = ttyp;
@@ -373,7 +372,7 @@ StateDescriptor::define (IndexType                   btyp,
     m_store_in_checkpoint = store_in_checkpoint;
 
     BL_ASSERT (num_comp > 0);
-   
+
     names.resize(num_comp);
     bc.resize(num_comp);
     bc_func.resize(num_comp);
@@ -389,7 +388,7 @@ StateDescriptor::setComponent (int                               comp,
                                const std::string&                nm,
                                const BCRec&                      bcr,
                                const StateDescriptor::BndryFunc& func,
-                               Interpolater*                     interp, 
+                               Interpolater*                     interp,
                                int                               max_map_start_comp_,
                                int                               min_map_end_comp_)
 {
@@ -450,10 +449,10 @@ StateDescriptor::setUpMaps (int&                use_default_map,
                             const Interpolater* default_map,
                             int                 start_comp,
                             int                 num_comp,
-                            Interpolater**&     maps, 
+                            Interpolater**&     maps,
                             int&                nmaps,
                             int*&               map_start_comp,
-                            int*&               map_num_comp, 
+                            int*&               map_num_comp,
                             int*&               max_start_comp,
                             int*&               min_end_comp) const
 {
@@ -469,7 +468,7 @@ StateDescriptor::setUpMaps (int&                use_default_map,
     //
     Interpolater* map = mapper_comp[start_comp];
     if (!map) map = (Interpolater*) default_map;
-    nmaps = 1; 
+    nmaps = 1;
     int icomp = start_comp+1;
 
     use_default_map = 1;
@@ -550,7 +549,7 @@ StateDescriptor::setUpMaps (int&                use_default_map,
 }
 
 void
-StateDescriptor::cleanUpMaps (Interpolater**& maps, 
+StateDescriptor::cleanUpMaps (Interpolater**& maps,
                               int*&           map_start_comp,
                               int*&           map_num_comp,
                               int*&           max_start_comp,
@@ -665,4 +664,3 @@ StateDescriptor::Print () const
 }
 
 }
-

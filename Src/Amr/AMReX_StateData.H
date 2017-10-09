@@ -1,6 +1,6 @@
 
 #ifndef _StateData_H_
-#define _StateData_H_ 
+#define _StateData_H_
 
 #include <memory>
 
@@ -56,7 +56,7 @@ public:
     void define (const Box&             p_domain,
                  const BoxArray&        grds,
 		 const DistributionMapping& dm,
-                 const StateDescriptor& d, 
+                 const StateDescriptor& d,
                  Real                   cur_time,
                  Real                   dt);
     //
@@ -312,11 +312,12 @@ public:
     StateDataPhysBCFunct (StateData& sd, int sc, const Geometry& geom_);
     virtual void FillBoundary (MultiFab& mf, int dcomp, int ncomp, Real time) override;
     using PhysBCFunctBase::FillBoundary;
+    StateData* get_state_data() { return statedata; };
 private:
     StateData* statedata;
     int src_comp;
     const Geometry& geom;
-    
+
 };
 
 }

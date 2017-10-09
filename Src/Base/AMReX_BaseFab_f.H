@@ -22,9 +22,13 @@ extern "C"
                                const amrex_real* dst, const int* dlo, const int* dhi, const int* ncomp,
                                const amrex_real* src);
 
-    void fort_fab_setval (const int* lo, const int* hi, 
+    void fort_fab_setval (const int* lo, const int* hi,
 			  const amrex_real* dst, const int* dlo, const int* dhi, const int* ncomp,
 			  const amrex_real* val);
+
+    void fort_fab_setvalarray (const int* lo, const int* hi,
+    		  const amrex_real* dst, const int* dlo, const int* dhi, const int* ncomp,
+    		  const amrex_real* val);
 
     amrex_real fort_fab_norm (const int* lo, const int* hi,
 			const amrex_real* src, const int* slo, const int* shi, const int* ncomp,
@@ -36,27 +40,27 @@ extern "C"
     void fort_fab_plus (const int* lo, const int* hi,
 			amrex_real* dst, const int* dlo, const int* dhi,
 			const amrex_real* src, const int* slo, const int* shi, const int* sblo,
-			const int* ncomp);    
+			const int* ncomp);
 
     void fort_fab_minus (const int* lo, const int* hi,
 			 amrex_real* dst, const int* dlo, const int* dhi,
 			 const amrex_real* src, const int* slo, const int* shi, const int* sblo,
-			 const int* ncomp);    
+			 const int* ncomp);
 
     void fort_fab_mult (const int* lo, const int* hi,
 			amrex_real* dst, const int* dlo, const int* dhi,
 			const amrex_real* src, const int* slo, const int* shi, const int* sblo,
-			const int* ncomp);    
+			const int* ncomp);
 
     void fort_fab_divide (const int* lo, const int* hi,
 			  amrex_real* dst, const int* dlo, const int* dhi,
 			  const amrex_real* src, const int* slo, const int* shi, const int* sblo,
-			  const int* ncomp);    
+			  const int* ncomp);
 
     void fort_fab_protdivide (const int* lo, const int* hi,
 			      amrex_real* dst, const int* dlo, const int* dhi,
 			      const amrex_real* src, const int* slo, const int* shi, const int* sblo,
-			      const int* ncomp);        
+			      const int* ncomp);
 
     void fort_fab_invert (const int* lo, const int* hi,
 			  amrex_real* dst, const int* dlo, const int* dhi, const int* ncomp,
@@ -105,20 +109,24 @@ extern "C"
     long fort_ifab_copyfrommem (const int* lo, const int* hi,
                                 const int* dst, const int* dlo, const int* dhi, const int* ncomp,
                                 const int* src);
-    
-    void fort_ifab_setval (const int* lo, const int* hi, 
+
+    void fort_ifab_setval (const int* lo, const int* hi,
                            const int* dst, const int* dlo, const int* dhi, const int* ncomp,
                            const int* val);
+
+    void fort_ifab_setvalarray (const int* lo, const int* hi,
+                          const int* dst, const int* dlo, const int* dhi, const int* ncomp,
+                          const int* val);
 
     void fort_ifab_plus (const int* lo, const int* hi,
                          int* dst, const int* dlo, const int* dhi,
                          const int* src, const int* slo, const int* shi, const int* sblo,
-                         const int* ncomp);    
+                         const int* ncomp);
 
     void fort_ifab_minus (const int* lo, const int* hi,
                           int* dst, const int* dlo, const int* dhi,
                           const int* src, const int* slo, const int* shi, const int* sblo,
-                          const int* ncomp);    
+                          const int* ncomp);
 
     void amrex_fab_setval_ifnot (const int* lo, const int* hi,
                                  amrex_real* dst, const int* dlo, const int* dhi, const int* ncomp,

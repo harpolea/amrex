@@ -12,7 +12,7 @@ contains
     integer, intent(in) :: lo(3), hi(3), dlo(3), dhi(3), slo(3), shi(3), sblo(3), ncomp
     real(amrex_real), intent(in   ) :: src(slo(1):shi(1),slo(2):shi(2),slo(3):shi(3),ncomp)
     real(amrex_real), intent(inout) :: dst(dlo(1):dhi(1),dlo(2):dhi(2),dlo(3):dhi(3),ncomp)
-    
+
     integer :: i,j,k,n,off(3)
 
     off = sblo - lo
@@ -27,8 +27,8 @@ contains
        end do
     end do
   end subroutine fort_fab_copy
-    
-  
+
+
   ! copy from multi-d array to 1d array
   function fort_fab_copytomem (lo, hi, dst, src, slo, shi, ncomp) result(nelems) &
        bind(c,name='fort_fab_copytomem')
@@ -47,12 +47,12 @@ contains
        do       k = lo(3), hi(3)
           do    j = lo(2), hi(2)
              do i = lo(1), hi(1)
-                dst(offset+i) = src(i,j,k,n) 
+                dst(offset+i) = src(i,j,k,n)
              end do
              offset = offset + nx
           end do
        end do
-    end do    
+    end do
 
     nelems = offset - (1-lo(1))
   end function fort_fab_copytomem
@@ -81,11 +81,11 @@ contains
              offset = offset + nx
           end do
        end do
-    end do    
+    end do
 
     nelems = offset - (1-lo(1))
   end function fort_fab_copyfrommem
-  
+
 
 
   subroutine fort_fab_setval(lo, hi, dst, dlo, dhi, ncomp, val) &
@@ -106,6 +106,25 @@ contains
        end do
     end do
   end subroutine fort_fab_setval
+
+  subroutine fort_fab_setvalarray(lo, hi, dst, dlo, dhi, ncomp, valarr) &
+       bind(c,name='fort_fab_setvalarray')
+    integer, intent(in) :: lo(3), hi(3), dlo(3), dhi(3), ncomp
+    real(amrex_real), intent(in) :: valarr(dlo(1):dhi(1),dlo(2):dhi(2),dlo(3):dhi(3),ncomp)
+    real(amrex_real), intent(inout) :: dst(dlo(1):dhi(1),dlo(2):dhi(2),dlo(3):dhi(3),ncomp)
+
+    integer :: i, j, k, n
+
+    do n = 1, ncomp
+       do       k = lo(3), hi(3)
+          do    j = lo(2), hi(2)
+             do i = lo(1), hi(1)
+                dst(i,j,k,n) = valarr(i,j,k,n)
+             end do
+          end do
+       end do
+    end do
+end subroutine fort_fab_setvalarray
 
 
   function fort_fab_norm (lo, hi, src, slo, shi, ncomp, p) result(nrm) &
@@ -167,7 +186,7 @@ contains
     integer, intent(in) :: lo(3), hi(3), dlo(3), dhi(3), slo(3), shi(3), sblo(3), ncomp
     real(amrex_real), intent(in   ) :: src(slo(1):shi(1),slo(2):shi(2),slo(3):shi(3),ncomp)
     real(amrex_real), intent(inout) :: dst(dlo(1):dhi(1),dlo(2):dhi(2),dlo(3):dhi(3),ncomp)
-    
+
     integer :: i,j,k,n,off(3)
 
     off = sblo - lo
@@ -189,7 +208,7 @@ contains
     integer, intent(in) :: lo(3), hi(3), dlo(3), dhi(3), slo(3), shi(3), sblo(3), ncomp
     real(amrex_real), intent(in   ) :: src(slo(1):shi(1),slo(2):shi(2),slo(3):shi(3),ncomp)
     real(amrex_real), intent(inout) :: dst(dlo(1):dhi(1),dlo(2):dhi(2),dlo(3):dhi(3),ncomp)
-    
+
     integer :: i,j,k,n,off(3)
 
     off = sblo - lo
@@ -211,7 +230,7 @@ contains
     integer, intent(in) :: lo(3), hi(3), dlo(3), dhi(3), slo(3), shi(3), sblo(3), ncomp
     real(amrex_real), intent(in   ) :: src(slo(1):shi(1),slo(2):shi(2),slo(3):shi(3),ncomp)
     real(amrex_real), intent(inout) :: dst(dlo(1):dhi(1),dlo(2):dhi(2),dlo(3):dhi(3),ncomp)
-    
+
     integer :: i,j,k,n,off(3)
 
     off = sblo - lo
@@ -233,7 +252,7 @@ contains
     integer, intent(in) :: lo(3), hi(3), dlo(3), dhi(3), slo(3), shi(3), sblo(3), ncomp
     real(amrex_real), intent(in   ) :: src(slo(1):shi(1),slo(2):shi(2),slo(3):shi(3),ncomp)
     real(amrex_real), intent(inout) :: dst(dlo(1):dhi(1),dlo(2):dhi(2),dlo(3):dhi(3),ncomp)
-    
+
     integer :: i,j,k,n,off(3)
 
     off = sblo - lo
@@ -255,7 +274,7 @@ contains
     integer, intent(in) :: lo(3), hi(3), dlo(3), dhi(3), slo(3), shi(3), sblo(3), ncomp
     real(amrex_real), intent(in   ) :: src(slo(1):shi(1),slo(2):shi(2),slo(3):shi(3),ncomp)
     real(amrex_real), intent(inout) :: dst(dlo(1):dhi(1),dlo(2):dhi(2),dlo(3):dhi(3),ncomp)
-    
+
     integer :: i,j,k,n,off(3)
 
     off = sblo - lo
@@ -280,7 +299,7 @@ contains
     integer, intent(in) :: lo(3), hi(3), dlo(3), dhi(3), ncomp
     real(amrex_real), intent(in   ) :: a
     real(amrex_real), intent(inout) :: dst(dlo(1):dhi(1),dlo(2):dhi(2),dlo(3):dhi(3),ncomp)
-    
+
     integer :: i,j,k,n
 
     do n = 1, ncomp
@@ -302,7 +321,7 @@ contains
     real(amrex_real), intent(in   ) :: a
     real(amrex_real), intent(in   ) :: src(slo(1):shi(1),slo(2):shi(2),slo(3):shi(3),ncomp)
     real(amrex_real), intent(inout) :: dst(dlo(1):dhi(1),dlo(2):dhi(2),dlo(3):dhi(3),ncomp)
-    
+
     integer :: i,j,k,n,off(3)
 
     off = sblo - lo
@@ -326,7 +345,7 @@ contains
     real(amrex_real), intent(in   ) :: a
     real(amrex_real), intent(in   ) :: src(slo(1):shi(1),slo(2):shi(2),slo(3):shi(3),ncomp)
     real(amrex_real), intent(inout) :: dst(dlo(1):dhi(1),dlo(2):dhi(2),dlo(3):dhi(3),ncomp)
-    
+
     integer :: i,j,k,n,off(3)
 
     off = sblo - lo
@@ -352,7 +371,7 @@ contains
     real(amrex_real), intent(inout) :: dst(dlo(1):dhi(1),dlo(2):dhi(2),dlo(3):dhi(3),ncomp)
     real(amrex_real), intent(in   ) ::   x(xlo(1):xhi(1),xlo(2):xhi(2),xlo(3):xhi(3),ncomp)
     real(amrex_real), intent(in   ) ::   y(ylo(1):yhi(1),ylo(2):yhi(2),ylo(3):yhi(3),ncomp)
-    
+
     integer :: i,j,k,n,xoff(3),yoff(3)
 
     xoff = xblo - lo
@@ -377,7 +396,7 @@ contains
     real(amrex_real), intent(in   ) :: src1(s1lo(1):s1hi(1),s1lo(2):s1hi(2),s1lo(3):s1hi(3),ncomp)
     real(amrex_real), intent(in   ) :: src2(s2lo(1):s2hi(1),s2lo(2):s2hi(2),s2lo(3):s2hi(3),ncomp)
     real(amrex_real), intent(inout) ::  dst( dlo(1): dhi(1), dlo(2): dhi(2), dlo(3): dhi(3),ncomp)
-    
+
     integer :: i,j,k,n
 
     do n = 1, ncomp
@@ -390,7 +409,7 @@ contains
        end do
     end do
   end subroutine fort_fab_addproduct
-  
+
   ! dot_product
   function fort_fab_dot(lo, hi, x, xlo, xhi, y, ylo, yhi, yblo, ncomp) result(dp) &
        bind(c,name='fort_fab_dot')
@@ -423,7 +442,7 @@ contains
     integer, intent(in) :: lo(3), hi(3), dlo(3), dhi(3), slo(3), shi(3), sblo(3), ncomp
     integer, intent(in   ) :: src(slo(1):shi(1),slo(2):shi(2),slo(3):shi(3),ncomp)
     integer, intent(inout) :: dst(dlo(1):dhi(1),dlo(2):dhi(2),dlo(3):dhi(3),ncomp)
-    
+
     integer :: i,j,k,n,off(3)
 
     off = sblo - lo
@@ -457,12 +476,12 @@ contains
        do       k = lo(3), hi(3)
           do    j = lo(2), hi(2)
              do i = lo(1), hi(1)
-                dst(offset+i) = src(i,j,k,n) 
+                dst(offset+i) = src(i,j,k,n)
              end do
              offset = offset + nx
           end do
        end do
-    end do    
+    end do
 
     nelems = offset - (1-lo(1))
   end function fort_ifab_copytomem
@@ -491,11 +510,11 @@ contains
              offset = offset + nx
           end do
        end do
-    end do    
+    end do
 
     nelems = offset - (1-lo(1))
   end function fort_ifab_copyfrommem
-  
+
 
   subroutine fort_ifab_setval(lo, hi, dst, dlo, dhi, ncomp, val) &
        bind(c,name='fort_ifab_setval')
@@ -516,13 +535,32 @@ contains
     end do
   end subroutine fort_ifab_setval
 
+  subroutine fort_ifab_setvalarray(lo, hi, dst, dlo, dhi, ncomp, val) &
+       bind(c,name='fort_ifab_setvalarray')
+    integer, intent(in) :: lo(3), hi(3), dlo(3), dhi(3), ncomp
+    integer, intent(in) :: val(dlo(1):dhi(1),dlo(2):dhi(2),dlo(3):dhi(3),ncomp)
+    integer, intent(inout) :: dst(dlo(1):dhi(1),dlo(2):dhi(2),dlo(3):dhi(3),ncomp)
+
+    integer :: i, j, k, n
+
+    do n = 1, ncomp
+       do       k = lo(3), hi(3)
+          do    j = lo(2), hi(2)
+             do i = lo(1), hi(1)
+                dst(i,j,k,n) = val(i,j,k,n)
+             end do
+          end do
+       end do
+    end do
+end subroutine fort_ifab_setvalarray
+
 
   subroutine fort_ifab_plus(lo, hi, dst, dlo, dhi, src, slo, shi, sblo, ncomp) &
        bind(c,name='fort_ifab_plus')
     integer, intent(in) :: lo(3), hi(3), dlo(3), dhi(3), slo(3), shi(3), sblo(3), ncomp
     integer, intent(in   ) :: src(slo(1):shi(1),slo(2):shi(2),slo(3):shi(3),ncomp)
     integer, intent(inout) :: dst(dlo(1):dhi(1),dlo(2):dhi(2),dlo(3):dhi(3),ncomp)
-    
+
     integer :: i,j,k,n,off(3)
 
     off = sblo - lo
@@ -544,7 +582,7 @@ contains
     integer, intent(in) :: lo(3), hi(3), dlo(3), dhi(3), slo(3), shi(3), sblo(3), ncomp
     integer, intent(in   ) :: src(slo(1):shi(1),slo(2):shi(2),slo(3):shi(3),ncomp)
     integer, intent(inout) :: dst(dlo(1):dhi(1),dlo(2):dhi(2),dlo(3):dhi(3),ncomp)
-    
+
     integer :: i,j,k,n,off(3)
 
     off = sblo - lo
@@ -566,7 +604,7 @@ contains
     integer, intent(in) :: lo(3), hi(3), dlo(3), dhi(3), mlo(3), mhi(3), ncomp
     real(amrex_real), intent(inout) :: dst(dlo(1):dhi(1),dlo(2):dhi(2),dlo(3):dhi(3),ncomp)
     integer         , intent(in   ) :: msk(mlo(1):mhi(1),mlo(2):mhi(2),mlo(3):mhi(3))
-    
+
     integer :: i,j,k,n
 
     do n = 1, ncomp
@@ -580,7 +618,7 @@ contains
           end do
        end do
     end do
-    
+
   end subroutine amrex_fab_setval_ifnot
-    
+
 end module basefab_nd_module

@@ -62,7 +62,7 @@ ifeq ($(FSANITIZER),TRUE)
 endif
 
 ifeq ($(USE_OMP),TRUE)
-  GENERIC_COMP_FLAGS += -fopenmp
+  #GENERIC_COMP_FLAGS += -fopenmp
 endif
 
 CXXFLAGS += $(GENERIC_COMP_FLAGS)

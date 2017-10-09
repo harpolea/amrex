@@ -1,6 +1,6 @@
 
 module backtrace_module
-  
+
   use iso_c_binding
   use parallel
 
@@ -85,4 +85,3 @@ contains
   end subroutine set_fpe_trap
 
 end module backtrace_module
-

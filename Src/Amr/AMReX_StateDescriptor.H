@@ -1,6 +1,6 @@
 
 #ifndef _StateDescriptor_H_
-#define _StateDescriptor_H_ 
+#define _StateDescriptor_H_
 
 #include <utility>
 #include <memory>
@@ -144,16 +144,16 @@ public:
                     const Interpolater* default_map,
                     int                 start_comp,
                     int                 num_comp,
-                    Interpolater**&     maps, 
+                    Interpolater**&     maps,
                     int&                nmaps,
-                    int*&               map_start_comp, 
+                    int*&               map_start_comp,
                     int*&               map_num_comp,
                     int*&               max_start_comp,
                     int*&               min_end_comp) const;
     //
     // Cleanup interpolaters for a subset of the state vector components.
     //
-    void cleanUpMaps (Interpolater**& maps, 
+    void cleanUpMaps (Interpolater**& maps,
                       int*&           map_start_comp,
                       int*&           map_num_comp,
                       int*&           max_start_comp,
