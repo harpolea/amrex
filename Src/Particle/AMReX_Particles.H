@@ -22,6 +22,7 @@
 #include <AMReX_REAL.H>
 #include <AMReX_IntVect.H>
 #include <AMReX_Array.H>
+#include <AMReX_Vector.H>
 #include <AMReX_Utility.H>
 #include <AMReX_Geometry.H>
 #include <AMReX_VisMF.H>
@@ -192,8 +193,8 @@ struct Particle
     static int CIC_Cells_Fracs (const Particle<NReal, NInt>& p,
                                 const Real*                  plo,
                                 const Real*                  dx,
-                                Array<Real>&                 fracs,
-                                Array<IntVect>&              cells);
+                                Vector<Real>&                 fracs,
+                                Vector<IntVect>&              cells);
     //
     // Does CIC computations for arbitrary particle/grid dx's.
     //
@@ -201,20 +202,22 @@ struct Particle
                                 const Real*                  plo,
                                 const Real*                  dx_geom,
                                 const Real*                  dx_part,
-                                Array<Real>&                 fracs,
-                                Array<IntVect>&              cells);
+                                Vector<Real>&                 fracs,
+                                Vector<IntVect>&              cells);
 };
 
 template <int NReal, int NInt>
 class ArrayOfStructs {
 public:
-    using ParticleType = Particle<NReal, NInt>;
-    using RealType     = typename ParticleType::RealType;
+    using ParticleType  = Particle<NReal, NInt>;
+    using RealType      = typename ParticleType::RealType;
+    using Iterator      = typename Vector<ParticleType>::iterator;
+    using ConstIterator = typename Vector<ParticleType>::const_iterator;
 
     static constexpr int SizeInReal = sizeof(ParticleType) / sizeof(RealType);
 
-    const Array<ParticleType>& operator()() const { return m_data; }
-    Array      <ParticleType>& operator()()       { return m_data; }
+    const Vector<ParticleType>& operator()() const { return m_data; }
+    Vector      <ParticleType>& operator()()       { return m_data; }
 
     std::size_t size () const { return m_data.size(); }
     int numParticles () const { return m_data.size(); }
@@ -238,16 +241,21 @@ public:
     const ParticleType& operator[] (int i) const { return m_data[i]; }
     ParticleType      & operator[] (int i)       { return m_data[i]; }
     
-    typename Array<ParticleType>::iterator begin () { return m_data.begin(); }
-    typename Array<ParticleType>::const_iterator begin () const { return m_data.begin(); }
-    typename Array<ParticleType>::const_iterator cbegin () const { return m_data.cbegin(); }
+    Iterator erase( ConstIterator first, ConstIterator second) { return m_data.erase(first, second); }
+
+    template< class InputIt >
+    void insert( Iterator pos, InputIt first, InputIt last ) { m_data.insert(pos, first, last); }
+
+    typename Vector<ParticleType>::iterator begin () { return m_data.begin(); }
+    typename Vector<ParticleType>::const_iterator begin () const { return m_data.begin(); }
+    typename Vector<ParticleType>::const_iterator cbegin () const { return m_data.cbegin(); }
         
-    typename Array<ParticleType>::iterator end () { return m_data.end(); }
-    typename Array<ParticleType>::const_iterator end () const { return m_data.end(); }
-    typename Array<ParticleType>::const_iterator cend () const { return m_data.cend(); }
+    typename Vector<ParticleType>::iterator end () { return m_data.end(); }
+    typename Vector<ParticleType>::const_iterator end () const { return m_data.end(); }
+    typename Vector<ParticleType>::const_iterator cend () const { return m_data.cend(); }
 
 private:
-    Array<ParticleType> m_data;
+    Vector<ParticleType> m_data;
 };
 template <int NReal, int NInt> constexpr int ArrayOfStructs<NReal, NInt>::SizeInReal;
 
@@ -255,28 +263,28 @@ template <int NReal, int NInt> constexpr int ArrayOfStructs<NReal, NInt>::SizeIn
 template <int NReal, int NInt>
 struct StructOfArrays {
   
-    std::array<Array<Real>, NReal>& GetRealData () { return m_rdata; }
-    std::array<Array<int>,   NInt>& GetIntData  () { return m_idata; }
+    std::array<Vector<Real>, NReal>& GetRealData () { return m_rdata; }
+    std::array<Vector<int>,   NInt>& GetIntData  () { return m_idata; }
 
-    const std::array<Array<Real>, NReal>& GetRealData () const { return m_rdata; }
-    const std::array<Array<int>,   NInt>& GetIntData  () const { return m_idata; }
+    const std::array<Vector<Real>, NReal>& GetRealData () const { return m_rdata; }
+    const std::array<Vector<int>,   NInt>& GetIntData  () const { return m_idata; }
 
-    Array<Real>& GetRealData (const int index) {
+    Vector<Real>& GetRealData (const int index) {
         BL_ASSERT(index < NReal);
         return m_rdata[index];
     }
     
-    const Array<Real>& GetRealData (const int index) const {
+    const Vector<Real>& GetRealData (const int index) const {
         BL_ASSERT(index < NReal);
         return m_rdata[index];
     }
 
-    Array<int>& GetIntData (const int index) {
+    Vector<int>& GetIntData (const int index) {
         BL_ASSERT(index < NInt);
         return m_idata[index];
     }
     
-    const Array<int>& GetIntData (const int index) const {
+    const Vector<int>& GetIntData (const int index) const {
         BL_ASSERT(index < NInt);
         return m_idata[index];
     }
@@ -292,8 +300,8 @@ struct StructOfArrays {
 
 private:
 
-    std::array<Array<Real>, NReal> m_rdata;
-    std::array<Array<int>,  NInt>  m_idata;
+    std::array<Vector<Real>, NReal> m_rdata;
+    std::array<Vector<int>,  NInt>  m_idata;
 };
 
 
@@ -403,22 +411,22 @@ private:
 /// This struct is used to pass initial data into the various Init methods
 /// of the particle container. That data should be initialized in the order
 /// real struct data, int struct data, real array data, int array data. 
-/// If fewer components are specified than the sum of the template parameters,
-/// the extra values will be set to zero. If more components are specified, it 
-/// is a compile-time error.
+/// If fewer components are specified than the template parameters specify for,
+/// a given component, then the extra values will be set to zero. If more components 
+/// are specified, it is a compile-time error.
 ///
 /// Example usage:
 ///
-///     ParticleInitType<0, 2, 4, 1> pdata = {7, 9, 1.5, 2.5, 3.5, 4.5, 11}; 
+///     ParticleInitType<0, 2, 4, 1> pdata = {{}, {7, 9}, {1.5, 2.5, 3.5, 4.5}, {11}}; 
 ///
 template<int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 struct ParticleInitType
-{
-    double real_struct_data[NStructReal];
-    int    int_struct_data[NStructInt];
-    double real_array_data[NArrayReal];
-    int    int_array_data[NArrayInt];
-};
+    {
+        std::array<double, NStructReal> real_struct_data;
+        std::array<int,    NStructInt > int_struct_data;
+        std::array<double, NArrayReal > real_array_data;
+        std::array<int,    NArrayInt  > int_array_data;
+    };
 
 template <bool is_const, int NStructReal, int NStructInt, int NArrayReal, int NArrayInt> class ParIterBase;
 
@@ -484,10 +492,10 @@ public:
         resizeData();
     }
 
-    ParticleContainer (const Array<Geometry>            & geom, 
-		       const Array<DistributionMapping> & dmap,
-		       const Array<BoxArray>            & ba,
-		       const Array<int>                 & rr)
+    ParticleContainer (const Vector<Geometry>            & geom, 
+		       const Vector<DistributionMapping> & dmap,
+		       const Vector<BoxArray>            & ba,
+		       const Vector<int>                 & rr)
 	:
         communicate_real_comp(NArrayReal, true),
         communicate_int_comp(NArrayInt, true),
@@ -520,10 +528,10 @@ public:
       resizeData();
   }
 
-    void Define (const Array<Geometry>            & geom, 
-		 const Array<DistributionMapping> & dmap,
-		 const Array<BoxArray>            & ba,
-		 const Array<int>                 & rr)
+    void Define (const Vector<Geometry>            & geom, 
+		 const Vector<DistributionMapping> & dmap,
+		 const Vector<BoxArray>            & ba,
+		 const Vector<int>                 & rr)
     {
 	m_gdb_object = ParGDB(geom, dmap, ba, rr);
 	m_gdb = &m_gdb_object;
@@ -606,13 +614,13 @@ public:
     ///
     void InitNRandomPerCell (int n_per_cell, const ParticleInitData& pdata);
 
-    void GetParticleIDs        (Array<int> & part_ids);
-    void GetParticleCPU        (Array<int> & part_cpu);
-    void GetParticleLocations  (Array<Real>& part_locs);
-    void GetParticleData       (Array<Real>& part_data, int start_comp, int num_comp);
-    void GetArrayData          (Array<Real>& part_data, int start_comp, int num_comp);
+    void GetParticleIDs        (Vector<int> & part_ids);
+    void GetParticleCPU        (Vector<int> & part_cpu);
+    void GetParticleLocations  (Vector<Real>& part_locs);
+    void GetParticleData       (Vector<Real>& part_data, int start_comp, int num_comp);
+    void GetArrayData          (Vector<Real>& part_data, int start_comp, int num_comp);
 
-    void SetParticleLocations  (Array<Real>& part_locs);
+    void SetParticleLocations  (Vector<Real>& part_locs);
 
     void MoveRandom ();
     void MoveRandom (int level);
@@ -643,7 +651,7 @@ public:
     // If "only_valid" is true it only counts valid particles.
     //
     long NumberOfParticlesAtLevel (int level, bool only_valid = true, bool only_local = false) const;
-    Array<long> NumberOfParticlesInGrid  (int level, bool only_valid = true, bool only_local = false) const;
+    Vector<long> NumberOfParticlesInGrid  (int level, bool only_valid = true, bool only_local = false) const;
     //
     // Returns # of particles at all levels
     //
@@ -675,14 +683,14 @@ public:
     void AddParticlesAtLevel (AoS& particles, int level, int nGrow=0);
 
     void Checkpoint (const std::string& dir, const std::string& name, bool is_checkpoint = true,
-                     const Array<std::string>& real_comp_names = Array<std::string>(),
-                     const Array<std::string>&  int_comp_names = Array<std::string>()) const;
+                     const Vector<std::string>& real_comp_names = Vector<std::string>(),
+                     const Vector<std::string>&  int_comp_names = Vector<std::string>()) const;
 
     void Restart (const std::string& dir, const std::string& file, bool is_checkpoint = true);
 
     void WritePlotFile (const std::string& dir, const std::string& name, 
-                        const Array<std::string>& real_comp_names = Array<std::string>(),
-                        const Array<std::string>&  int_comp_names = Array<std::string>()) const;
+                        const Vector<std::string>& real_comp_names = Vector<std::string>(),
+                        const Vector<std::string>&  int_comp_names = Vector<std::string>()) const;
 
     void WriteAsciiFile (const std::string& file);
 
@@ -692,8 +700,8 @@ public:
 
     void SetVerbose (int verbose) { m_verbose = verbose; }
 
-    const Array<ParticleLevel>& GetParticles () const { return m_particles; }
-    Array      <ParticleLevel>& GetParticles ()       { return m_particles; }
+    const Vector<ParticleLevel>& GetParticles () const { return m_particles; }
+    Vector      <ParticleLevel>& GetParticles ()       { return m_particles; }
 
     const ParticleLevel& GetParticles (int lev) const { return m_particles[lev]; }
     ParticleLevel      & GetParticles (int lev)       { return m_particles[lev]; }
@@ -707,17 +715,17 @@ public:
     // Functions depending the layout of the data.  Use with caution.
     //
     // Multi-level version
-    void AssignDensity (int rho_index, bool sub_cycle, Array<std::unique_ptr<MultiFab> >& mf, 
+    void AssignDensity (int rho_index, bool sub_cycle, Vector<std::unique_ptr<MultiFab> >& mf, 
 			int lev_min = 0, int ncomp = 1, int finest_level = -1) const;
     // Single-level version
     void AssignDensitySingleLevel (int rho_index, MultiFab& mf, int level,
 				   int ncomp=1, int particle_lvl_offset = 0) const;
     
     void AssignDensityFort (int rho_index,
-                            Array<std::unique_ptr<MultiFab> >& mf_to_be_filled, 
+                            Vector<std::unique_ptr<MultiFab> >& mf_to_be_filled, 
                             int lev_min, int ncomp, int finest_level) const;
 
-    void InterpolateFort (Array<std::unique_ptr<MultiFab> >& mesh_data, 
+    void InterpolateFort (Vector<std::unique_ptr<MultiFab> >& mesh_data, 
                           int lev_min, int lev_max);
 
     void InterpolateSingleLevelFort (MultiFab& mesh_data, int lev);
@@ -751,31 +759,31 @@ public:
     // Used by AssignDensity.
     //
     bool CrseToFine (const BoxArray&       cfba, 
-		     const Array<IntVect>& cells, 
-		     Array<IntVect>&       cfshifts, 
+		     const Vector<IntVect>& cells, 
+		     Vector<IntVect>&       cfshifts, 
 		     const Geometry&       gm, 
-		     Array<int>&           which, 
-		     Array<IntVect>&       pshifts) const;
+		     Vector<int>&           which, 
+		     Vector<IntVect>&       pshifts) const;
 
     bool FineToCrse (const ParticleType&                p,
 		     int                                flev,
-		     const Array<IntVect>&              fcells,
+		     const Vector<IntVect>&              fcells,
 		     const BoxArray&                    fvalid,
 		     const BoxArray&                    compfvalid_grown,
-		     Array<IntVect>&                    ccells,
-		     Array<Real>&                       cfracs,
-		     Array<int>&                        which,
-		     Array<int>&                        cgrid,
-		     Array<IntVect>&                    pshifts,
+		     Vector<IntVect>&                    ccells,
+		     Vector<Real>&                       cfracs,
+		     Vector<int>&                        which,
+		     Vector<int>&                        cgrid,
+		     Vector<IntVect>&                    pshifts,
 		     std::vector< std::pair<int,Box> >& isects) const;
 
     void FineCellsToUpdateFromCrse (const ParticleType&                p,
 				    int                                lev,
 				    const IntVect&                     ccell,
 				    const IntVect&                     cshift,
-				    Array<int>&                        fgrid,
-				    Array<Real>&                       ffrac,
-				    Array<IntVect>&                    fcells,
+				    Vector<int>&                        fgrid,
+				    Vector<Real>&                       ffrac,
+				    Vector<IntVect>&                    fcells,
 				    std::vector< std::pair<int,Box> >& isects) const;
 
     MFIter MakeMFIter (int lev) const {
@@ -816,9 +824,9 @@ protected:
     void WriteParticles (int            level,
                          std::ofstream& ofs,
                          int            fnum,
-                         Array<int>&    which,
-                         Array<int>&    count,
-                         Array<long>&   where,
+                         Vector<int>&    which,
+                         Vector<int>&    count,
+                         Vector<long>&   where,
                          bool           is_checkpoint) const;
 
     template <class RTYPE>
@@ -838,13 +846,13 @@ protected:
     
 private:
     void AssignDensityDoit (int rho_index, 
-			    Array<std::unique_ptr<MultiFab> >& mf, 
-			    std::map<int, Array<ParticleCommData> >& data,
+			    Vector<std::unique_ptr<MultiFab> >& mf, 
+			    std::map<int, Vector<ParticleCommData> >& data,
 			    int ncomp, int lev_min = 0) const;
 
     std::pair<long,long> StartIndexInGlobalArray () const;
 
-    void RedistributeMPI (std::map<int, Array<char> >& not_ours,
+    void RedistributeMPI (std::map<int, Vector<char> >& not_ours,
 			  int lev_min = 0, int lev_max = 0, int nGrow = 0);
 
     void locateParticle(ParticleType& p, ParticleLocData& pld,
@@ -856,8 +864,8 @@ private:
 
     size_t particle_size, superparticle_size;
     int num_real_comm_comps, num_int_comm_comps;
-    Array<ParticleLevel> m_particles;
-    Array<std::unique_ptr<MultiFab> > m_dummy_mf;
+    Vector<ParticleLevel> m_particles;
+    Vector<std::unique_ptr<MultiFab> > m_dummy_mf;
 };
 
 
@@ -879,11 +887,24 @@ private:
 
 public:
     ParIterBase (ContainerRef pc, int level);
+    ParIterBase (ContainerRef pc, int level, MFItInfo& info);
 
+#ifdef _OPENMP
+    void operator++ () {
+        if (dynamic) {
+#pragma omp atomic capture
+            m_pariter_index = nextDynamicIndex++;
+        } else {
+            ++m_pariter_index;
+        }
+        currentIndex = m_valid_index[m_pariter_index];
+    }
+#else
     void operator++ () {
         ++m_pariter_index;
         currentIndex = m_valid_index[m_pariter_index];
     }
+#endif
     
     ParticleTileRef GetParticleTile () const { return *m_particle_tiles[m_pariter_index]; }
 
@@ -892,16 +913,16 @@ public:
     SoARef GetStructOfArrays () const { return GetParticleTile().GetStructOfArrays(); }
 
 
-    void GetPosition (AMREX_D_DECL(Array<Real>& x,
-                                   Array<Real>& y,
-                                   Array<Real>& z)) const;
+    void GetPosition (AMREX_D_DECL(Vector<Real>& x,
+                                   Vector<Real>& y,
+                                   Vector<Real>& z)) const;
 
     int numParticles () const { return GetArrayOfStructs().numParticles(); }    
 protected:
     int m_level;
     int m_pariter_index;
-    Array<int> m_valid_index;
-    Array<ParticleTilePtr> m_particle_tiles;
+    Vector<int> m_valid_index;
+    Vector<ParticleTilePtr> m_particle_tiles;
 };
 
 
@@ -920,9 +941,13 @@ public:
         : ParIterBase<false,NStructReal,NStructInt, NArrayReal, NArrayInt>(pc,level)
         {}
 
-    void SetPosition (AMREX_D_DECL(const Array<Real>& x,
-                                   const Array<Real>& y,
-                                   const Array<Real>& z)) const;
+    ParIter (ContainerType& pc, int level, MFItInfo& info)
+        : ParIterBase<false,NStructReal,NStructInt,NArrayReal,NArrayInt>(pc,level,info)
+        {}
+
+    void SetPosition (AMREX_D_DECL(const Vector<Real>& x,
+                                   const Vector<Real>& y,
+                                   const Vector<Real>& z)) const;
 };
 
 template <int NStructReal, int NStructInt=0, int NArrayReal=0, int NArrayInt=0>
@@ -939,6 +964,11 @@ public:
     ParConstIter (ContainerType const& pc, int level)
         : ParIterBase<true,NStructReal,NStructInt, NArrayReal, NArrayInt>(pc,level)
         {}
+
+    ParConstIter (ContainerType const& pc, int level, MFItInfo& info)
+        : ParIterBase<true,NStructReal,NStructInt,NArrayReal,NArrayInt>(pc,level,info)
+        {}
+
 };
 
 

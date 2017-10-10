@@ -216,7 +216,7 @@ namespace amrex
   PolyGeom::bndryArea(const VolIndex& a_vof,
                       const EBISBox& a_ebisBox)
   {
-    Real retval;
+    Real retval=0.;
 
     Real irregArea=0.0;
     for (int idir=0; idir < SpaceDim; idir++)
@@ -250,8 +250,8 @@ namespace amrex
 //using Cramer's rule.
 /**************/
   Real
-  PolyGeom::matrixSolveComp(const std::vector<std::vector<Real> >& a_A,
-                            const std::vector<Real>& a_rhs,
+  PolyGeom::matrixSolveComp(const Vector<Vector<Real> >& a_A,
+                            const Vector<Real>& a_rhs,
                             const int& a_icomp)
   {
     int nVar = a_A.size();
@@ -262,7 +262,7 @@ namespace amrex
     assert(a_icomp >= 0);
     assert(a_icomp< nVar);
 
-    std::vector<std::vector<Real> > topMat(a_A);
+    Vector<Vector<Real> > topMat(a_A);
     for (int irow = 0; irow< nVar; irow++)
     {
       topMat[irow][a_icomp] = a_rhs[irow];
@@ -279,7 +279,7 @@ namespace amrex
 /***************/
 /***************/
   Real
-  PolyGeom::determinant(const std::vector<std::vector< Real> >& a_A)
+  PolyGeom::determinant(const Vector<Vector< Real> >& a_A)
   {
     int nVar = a_A.size();
     assert(nVar >= 2);

@@ -34,7 +34,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt> :: Initialize 
         
         ParmParse pp("particles");
         pp.query("do_tiling", do_tiling);
-        Array<int> tilesize(BL_SPACEDIM);
+        Vector<int> tilesize(BL_SPACEDIM);
         if (pp.queryarr("tile_size", tilesize, 0, BL_SPACEDIM)) {
             for (int i=0; i<BL_SPACEDIM; ++i) tile_size[i] = tilesize[i];
         }
@@ -228,7 +228,8 @@ template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 bool
 ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::PeriodicShift (ParticleType& p) const
 {
-    BL_PROFILE("ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::PeriodicShift()");
+    //    BL_PROFILE("ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::PeriodicShift()");
+
     //
     // This routine should only be called when Where() returns false.
     //
@@ -425,11 +426,11 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::TotalNumberOf
 }
 
 template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
-Array<long>
+Vector<long>
 ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::NumberOfParticlesInGrid (int lev, bool only_valid, bool only_local) const
 {
     auto ngrids = ParticleBoxArray(lev).size();
-    Array<long> nparticles(ngrids, 0);
+    Vector<long> nparticles(ngrids, 0);
 
     if (lev >= 0 && lev < int(m_particles.size())) {
         for (const auto& kv : GetParticles(lev)) {
@@ -556,9 +557,9 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::MoveRandom (i
 	  
 	  if (p.m_idata.id <= 0) continue;
 	  
-	  for (int i = 0; i < BL_SPACEDIM; i++)
+	  for (int j = 0; j < BL_SPACEDIM; j++)
               {
-                  p.m_rdata.pos[i] += dist[i]*(2*amrex::Random()-1);
+                  p.m_rdata.pos[j] += dist[j]*(2*amrex::Random()-1);
               }
 	  
 	  Reset(p, true);
@@ -668,7 +669,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::StartIndexInG
     long lcnt = TotalNumberOfParticles(true,true);
 
 #if BL_USE_MPI
-    Array<long> cnts(ParallelDescriptor::NProcs());
+    Vector<long> cnts(ParallelDescriptor::NProcs());
         
     // This accumulates the "lcnt" values into "cnts"
     MPI_Gather(&lcnt,1,              
@@ -695,7 +696,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::StartIndexInG
 
 template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 void
-ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetParticleIDs (Array<int>& part_ids)
+ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetParticleIDs (Vector<int>& part_ids)
 {
   BL_PROFILE("ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetParticleIDs()");
 
@@ -722,7 +723,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetParticleID
 
 template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 void
-ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetParticleCPU (Array<int>& part_cpu)
+ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetParticleCPU (Vector<int>& part_cpu)
 {
   BL_PROFILE("ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetParticleCPU()");
 
@@ -749,7 +750,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetParticleCP
 
 template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 void
-ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetParticleLocations (Array<Real>& part_data)
+ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetParticleLocations (Vector<Real>& part_data)
 {
   BL_PROFILE("ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetParticleLocations()");
  
@@ -782,7 +783,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetParticleLo
 
 template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 void
-ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetParticleData (Array<Real>& part_data, int start_comp, int num_comp)
+ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetParticleData (Vector<Real>& part_data, int start_comp, int num_comp)
 {
   BL_PROFILE("ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetParticleData()");
 
@@ -813,7 +814,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetParticleDa
 
 template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 void
-ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetArrayData (Array<Real>& part_data, int start_comp, int num_comp)
+ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetArrayData (Vector<Real>& part_data, int start_comp, int num_comp)
 {
   BL_PROFILE("ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetArrayData()");
 
@@ -830,7 +831,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::GetArrayData 
           for (auto& kv : pmap) {
               const auto& pbx = kv.second.GetArrayOfStructs();
               const auto& soa = kv.second.GetStructOfArrays();
-              const Array<Real>& arr = soa[start_comp + comp];
+              const Vector<Real>& arr = soa[start_comp + comp];
               for (unsigned i = 0; i < arr.size(); ++i) {
                   if (pbx[i].m_idata.id > 0) {
                       part_data[start++] = arr[i];
@@ -852,7 +853,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::SetAllowParti
 
 template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 void
-ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::SetParticleLocations (Array<Real>& part_data)
+ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::SetParticleLocations (Vector<Real>& part_data)
 {
   BL_PROFILE("ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::SetParticleLocations()");
 
@@ -1047,9 +1048,9 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::CreateVirtual
 	//
 	// Add the aggregated particles to the virtuals.
 	//
-	for (const auto& kv : agg_map)
+	for (const auto& agg_particle : agg_map)
 	  {
-	    virts.push_back(kv.second);
+	    virts.push_back(agg_particle.second);
 	  }
       }
   }
@@ -1119,179 +1120,291 @@ template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 void
 ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::Redistribute (int lev_min, int lev_max, int nGrow)
 {
+
   BL_PROFILE("ParticleContainer::Redistribute()");
   const int MyProc    = ParallelDescriptor::MyProc();
   Real      strttime  = ParallelDescriptor::second();
   
-  //
   // On startup there are cases where Redistribute() could be called
   // with a given finestLevel() where that AmrLevel has yet to be defined.
-  //
   int theEffectiveFinestLevel = m_gdb->finestLevel();
 
   while (!m_gdb->LevelDefined(theEffectiveFinestLevel))
       theEffectiveFinestLevel--;
 
-  if (int(m_particles.size()) < theEffectiveFinestLevel+1)
-      {
-          if (Verbose()) {
-              amrex::Print() << "ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::Redistribute() resizing containers from "
-                             << m_particles.size() << " to " 
-                             << theEffectiveFinestLevel + 1 << '\n';
-          }
-          m_particles.resize(theEffectiveFinestLevel+1);
-          m_dummy_mf.resize(theEffectiveFinestLevel+1);
+  if (int(m_particles.size()) < theEffectiveFinestLevel+1) {
+      if (Verbose()) {
+          amrex::Print() << "ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::Redistribute() resizing containers from "
+                         << m_particles.size() << " to " 
+                         << theEffectiveFinestLevel + 1 << '\n';
       }
-
+      m_particles.resize(theEffectiveFinestLevel+1);
+      m_dummy_mf.resize(theEffectiveFinestLevel+1);
+  }
+  
   // It is important to do this even if we don't have more levels because we may have changed the 
-  //    grids at this level in a regrid.
+  // grids at this level in a regrid.
   for (int lev = 0; lev < theEffectiveFinestLevel+1; ++lev) 
       RedefineDummyMF(lev);
   
-  if (lev_max == -1)
+  int nlevs_particles;
+  if (lev_max == -1) {
       lev_max = theEffectiveFinestLevel;
-  
+      nlevs_particles = m_particles.size() - 1; 
+  } else {
+      nlevs_particles = lev_max;
+  }
   BL_ASSERT(lev_max <= finestLevel());
-  
-  // The valid particles that we don't own.
-  std::map<int, Array<char> > not_ours;
-  ParticleLocData pld;
-  for (int lev = lev_min; lev <= lev_max; lev++)
-  {
-      auto& pmap = m_particles[lev];
-      for (auto pmap_it = pmap.begin(); pmap_it != pmap.end(); /* no ++ */)
-      {
-          int grid = pmap_it->first.first;
-          int tile = pmap_it->first.second;
-          auto& aos = pmap_it->second.GetArrayOfStructs();
-          auto& soa = pmap_it->second.GetStructOfArrays();
-          unsigned first = 0;
-          unsigned npart = aos.numParticles();
-          if (npart != 0)
-          {
-              for (unsigned pindex = 0; pindex < npart; ++pindex)
-              {
-                  ParticleType& p = aos[pindex];
-                  if (p.m_idata.id > 0)
-                  {
-                      locateParticle(p, pld, lev_min, lev_max, nGrow);
 
-                      if (p.m_idata.id > 0)
-                      {
-                          // The owner of the particle is the CPU owning the finest grid
-                          // in state data that contains the particle.
-                          const int who = ParticleDistributionMap(pld.m_lev)[pld.m_grid];
-                          if (who == MyProc) 
-                          {
-                              if (pld.m_lev != lev || pld.m_grid != grid || pld.m_tile != tile)
-                              {
-                                  // We own it but must shift it to another place.
-                                  auto& ptile = m_particles[pld.m_lev][std::make_pair(pld.m_grid, pld.m_tile)];
-                                  ptile.push_back(p);
-                                  for (int comp = 0; comp < NArrayReal; ++comp) {
-                                      ptile.push_back_real(comp, soa.GetRealData(comp)[pindex]);
+  // This will hold the valid particles that go to another process
+  std::map<int, Vector<char> > not_ours;
+  
+  int num_threads = 1;
+#ifdef _OPENMP
+#pragma omp parallel
+#pragma omp single
+  num_threads = omp_get_num_threads();
+#endif
+  
+  // these are temporary buffers for each thread
+  std::map<int, Vector<Vector<char> > > tmp_remote;
+  Vector<std::map<std::pair<int, int>, Vector<Vector<ParticleType> > > > tmp_local;
+  Vector<std::map<std::pair<int, int>, Vector<StructOfArrays<NArrayReal, NArrayInt> > > > soa_local;
+  tmp_local.resize(theEffectiveFinestLevel+1);
+  soa_local.resize(theEffectiveFinestLevel+1);
+
+  // we resize these buffers outside the parallel region
+  for (int lev = lev_min; lev <= lev_max; lev++) {
+      for (MFIter mfi(*m_dummy_mf[lev], tile_size); mfi.isValid(); ++mfi) {
+          auto index = std::make_pair(mfi.index(), mfi.LocalTileIndex());
+          tmp_local[lev][index].resize(num_threads);
+          soa_local[lev][index].resize(num_threads);
+      }
+  }
+  for (int i = 0; i < ParallelDescriptor::NProcs(); ++i) {
+      tmp_remote[i].resize(num_threads);
+  }
+
+  // first pass: for each tile in parallel, in each thread copies the particles that
+  // need to be moved into it's own, temporary buffer.
+  for (int lev = lev_min; lev <= nlevs_particles; lev++) {
+      auto& pmap = m_particles[lev];
+      typename std::map<std::pair<int, int>, ParticleTileType >::iterator pmap_it;
+#ifdef _OPENMP
+#pragma omp parallel
+#pragma omp single nowait
+#endif
+      for (pmap_it = pmap.begin(); pmap_it != pmap.end(); pmap_it++) {
+#ifdef _OPENMP
+#pragma omp task firstprivate(pmap_it)
+#endif
+          {
+#ifdef _OPENMP
+              int thread_num = omp_get_thread_num();
+#else
+              int thread_num = 0;
+#endif
+              int grid = pmap_it->first.first;
+              int tile = pmap_it->first.second;
+              auto& aos = pmap_it->second.GetArrayOfStructs();
+              auto& soa = pmap_it->second.GetStructOfArrays();
+              unsigned first = 0;
+              unsigned npart = aos.numParticles();
+              ParticleLocData pld;
+              if (npart != 0) {
+                  for (unsigned pindex = 0; pindex < npart; ++pindex) {
+                      ParticleType& p = aos[pindex];
+                      if (p.m_idata.id > 0) {
+                      
+                          locateParticle(p, pld, lev_min, lev_max, nGrow);
+                      
+                          if (p.m_idata.id > 0) {
+                              // The owner of the particle is the CPU owning the finest grid
+                              // in state data that contains the particle.
+                              const int who = ParticleDistributionMap(pld.m_lev)[pld.m_grid];
+                              if (who == MyProc) {
+                                  if (pld.m_lev != lev || pld.m_grid != grid || pld.m_tile != tile) {
+                                      // We own it but must shift it to another place.
+                                      auto index = std::make_pair(pld.m_grid, pld.m_tile);
+                                      BL_ASSERT(tmp_local[pld.m_lev][index].size() == num_threads);
+                                      tmp_local[pld.m_lev][index][thread_num].push_back(p);
+                                      for (int comp = 0; comp < NArrayReal; ++comp) {
+                                          Vector<Real>& arr = soa_local[pld.m_lev][index][thread_num].GetRealData(comp);
+                                          arr.push_back(soa.GetRealData(comp)[pindex]);
+                                      }
+                                      for (int comp = 0; comp < NArrayInt; ++comp) {
+                                          Vector<int>& arr = soa_local[pld.m_lev][index][thread_num].GetIntData(comp);
+                                          arr.push_back(soa.GetIntData(comp)[pindex]);
+                                      }
+
+                                      // Invalidate the particle so we can reclaim its space.
+                                      p.m_idata.id = -p.m_idata.id;
                                   }
-                                  for (int comp = 0; comp < NArrayInt; ++comp) {
-                                      ptile.push_back_int(comp, soa.GetIntData(comp)[pindex]);
+                               }
+
+                              else {
+                                  auto& particles_to_send = tmp_remote[who][thread_num];
+                                  auto old_size = particles_to_send.size();
+                                  auto new_size = old_size + superparticle_size;
+                                  particles_to_send.resize(new_size);
+                                  std::memcpy(&particles_to_send[old_size], &p, particle_size);
+                                  char* dst = &particles_to_send[old_size] + particle_size;
+                                  for (int comp = 0; comp < NArrayReal; comp++) {
+                                      if (communicate_real_comp[comp]) {
+                                          std::memcpy(dst, &soa.GetRealData(comp)[pindex], sizeof(Real));
+                                          dst += sizeof(Real);
+                                      }
                                   }
-                                  //
+                                  for (int comp = 0; comp < NArrayInt; comp++) {
+                                      if (communicate_int_comp[comp]) {
+                                          std::memcpy(dst, &soa.GetIntData(comp)[pindex], sizeof(int));
+                                          dst += sizeof(int);
+                                      }
+                                   }
                                   // Invalidate the particle so we can reclaim its space.
-                                  //
                                   p.m_idata.id = -p.m_idata.id;
                               }
                           }
-                          else
-                          {
-                              auto& particles_to_send = not_ours[who];
-                              auto old_size = particles_to_send.size();
-                              auto new_size = old_size + superparticle_size;
-                              particles_to_send.resize(new_size);
-                              std::memcpy(&particles_to_send[old_size], &p, particle_size);
-                              char* dst = &particles_to_send[old_size] + particle_size;
-                              for (int comp = 0; comp < NArrayReal; comp++)
-                              {
-                                  if (communicate_real_comp[comp])
-                                  {
-                                      std::memcpy(dst, &soa.GetRealData(comp)[pindex], sizeof(Real));
-                                      dst += sizeof(Real);
-                                  }
-                              }
-                              for (int comp = 0; comp < NArrayInt; comp++)
-                                  {
-                                      if (communicate_int_comp[comp])
-                                          {
-                                              std::memcpy(dst, &soa.GetIntData(comp)[pindex], sizeof(int));
-                                              dst += sizeof(int);
-                                          }
-                                  }
-                              // Invalidate the particle so we can reclaim its space.
-                              p.m_idata.id = -p.m_idata.id;
-                          }
                       }
-                  }
-                  // this is a valid particle
-                  if (p.m_idata.id > 0)
-                  {
-                      if (pindex != first)
-                      {
-                          aos[first] = p;
-                          for (int comp = 0; comp < NArrayReal; comp++)
-                              soa.GetRealData(comp)[first] = soa.GetRealData(comp)[pindex];
-                          for (int comp = 0; comp < NArrayInt; comp++)
-                              soa.GetIntData(comp)[first] = soa.GetIntData(comp)[pindex];
-                      }
-                      ++first;
-                  }
-              }
 
-              aos().erase(aos().begin() + first, aos().begin() + npart);
-              for (int comp = 0; comp < NArrayReal; comp++) {
-                  Array<Real>& rdata = soa.GetRealData(comp);
-                  rdata.erase(rdata.begin() + first, rdata.begin() + npart);
+                      // this is a valid particle
+                      if (p.m_idata.id > 0) {
+                          if (pindex != first) {
+                              aos[first] = p;
+                              for (int comp = 0; comp < NArrayReal; comp++)
+                                  soa.GetRealData(comp)[first] = soa.GetRealData(comp)[pindex];
+                              for (int comp = 0; comp < NArrayInt; comp++)
+                                  soa.GetIntData(comp)[first] = soa.GetIntData(comp)[pindex];
+                          }
+                          ++first;
+                      }
+                  }
+              
+                  aos().erase(aos().begin() + first, aos().begin() + npart);
+                  for (int comp = 0; comp < NArrayReal; comp++) {
+                      Vector<Real>& rdata = soa.GetRealData(comp);
+                      rdata.erase(rdata.begin() + first, rdata.begin() + npart);
+                  }
+                  for (int comp = 0; comp < NArrayInt; comp++) {
+                      Vector<int>& idata = soa.GetIntData(comp);
+                      idata.erase(idata.begin() + first, idata.begin() + npart);
+                  }
               }
-              for (int comp = 0; comp < NArrayInt; comp++) {
-                  Array<int>& idata = soa.GetIntData(comp);
-                  idata.erase(idata.begin() + first, idata.begin() + npart);
-              }
-          }
-	
-          //
+           }
+        }
+    }
+
+    for (int lev = lev_min; lev <= lev_max; lev++) {
+        auto& pmap = m_particles[lev];
+        for (auto pmap_it = pmap.begin(); pmap_it != pmap.end(); /* no ++ */) {
+
           // Remove any map entries for which the particle container is now empty.
-          //
           if (pmap_it->second.empty()) {
               pmap.erase(pmap_it++);
           }
           else {
               ++pmap_it;
           }
+        }
+    }
+
+    // Second pass - for each tile in parallel, collect the particles we are owed from all thread's buffers.
+    for (int lev = lev_min; lev <= lev_max; lev++) {
+        typename std::map<std::pair<int, int>, Vector<Vector<ParticleType> > >::iterator pmap_it;
+
+        // we need to create any missing map entries in serial here
+        for (pmap_it=tmp_local[lev].begin(); pmap_it != tmp_local[lev].end(); pmap_it++)
+            m_particles[lev][pmap_it->first];
+
+#ifdef _OPENMP
+#pragma omp parallel
+#pragma omp single nowait
+#endif
+      for (pmap_it=tmp_local[lev].begin(); pmap_it != tmp_local[lev].end(); pmap_it++) {
+#ifdef _OPENMP
+#pragma omp task firstprivate(pmap_it)
+#endif
+          {
+              auto index = pmap_it->first;
+              auto& aos = m_particles[lev][index].GetArrayOfStructs();
+              auto& soa = m_particles[lev][index].GetStructOfArrays();
+              auto& aos_tmp = pmap_it->second;
+              auto& soa_tmp = soa_local[lev][index];
+              for (int i = 0; i < num_threads; ++i) {
+                  aos.insert(aos.end(), aos_tmp[i].begin(), aos_tmp[i].end());
+                  aos_tmp[i].erase(aos_tmp[i].begin(), aos_tmp[i].end());
+                  for (int comp = 0; comp < NArrayReal; ++comp) {
+                      Vector<Real>& arr = soa.GetRealData(comp);
+                      Vector<Real>& tmp = soa_tmp[i].GetRealData(comp);
+                      arr.insert(arr.end(), tmp.begin(), tmp.end());
+                      tmp.erase(tmp.begin(), tmp.end());
+                  }
+                  for (int comp = 0; comp < NArrayInt; ++comp) {
+                      Vector<int>& arr = soa.GetIntData(comp);
+                      Vector<int>& tmp = soa_tmp[i].GetIntData(comp);
+                      arr.insert(arr.end(), tmp.begin(), tmp.end());
+                      tmp.erase(tmp.begin(), tmp.end());
+                  }
+              }
+          }
+      }
+  }
+
+  for (auto& map_it : tmp_remote) {
+      int who = map_it.first;
+      not_ours[who];
+  }  
+
+  std::map<int, Vector<Vector<char> > >::iterator it;
+#ifdef _OPENMP
+#pragma omp parallel
+#pragma omp single nowait
+#endif
+  for (it=tmp_remote.begin(); it != tmp_remote.end(); it++) {
+#ifdef _OPENMP
+#pragma omp task firstprivate(it)
+#endif
+      {
+          int who = it->first;
+          Vector<Vector<char> >& tmp = it->second;
+          for (int i = 0; i < num_threads; ++i) {
+              not_ours[who].insert(not_ours[who].begin(), tmp[i].begin(), tmp[i].end());
+              tmp[i].erase(tmp[i].begin(), tmp[i].end());
+          }
       }
   }
   
-  if (int(m_particles.size()) > theEffectiveFinestLevel+1)
-  {
+  // remove any empty map entries from not_ours
+  for (auto pmap_it = not_ours.begin(); pmap_it != not_ours.end(); /* no ++ */) {        
+      if (pmap_it->second.empty()) {
+          not_ours.erase(pmap_it++);
+      }
+      else {
+          ++pmap_it;
+      }
+  }
+
+  if (int(m_particles.size()) > theEffectiveFinestLevel+1) {
       // Looks like we lost an AmrLevel on a regrid.
       amrex::Print() << "ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::Redistribute() resizing m_particles from "
                      << m_particles.size() << " to " << theEffectiveFinestLevel+1 << '\n';
       BL_ASSERT(int(m_particles.size()) >= 2);
       BL_ASSERT(m_particles[m_particles.size()-1].empty());
-
+      
       m_particles.resize(theEffectiveFinestLevel + 1);
       m_dummy_mf.resize(theEffectiveFinestLevel + 1);
   }
   
-  if (ParallelDescriptor::NProcs() == 1)
-  {
+  if (ParallelDescriptor::NProcs() == 1) {
       BL_ASSERT(not_ours.empty());
   }
-  else
-  {
+  else {
       RedistributeMPI(not_ours, lev_min, lev_max, nGrow);
   }
   
   BL_ASSERT(OK(lev_min, lev_max, nGrow));
   
-  if (m_verbose > 0)
-  {
+  if (m_verbose > 0) {
       Real stoptime = ParallelDescriptor::second() - strttime;
       
       ByteSpread();
@@ -1299,17 +1412,17 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::Redistribute 
 #ifdef BL_LAZY
       Lazy::QueueReduction( [=] () mutable {
 #endif
-	  ParallelDescriptor::ReduceRealMax(stoptime,ParallelDescriptor::IOProcessorNumber());
-          amrex::Print() << "ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::Redistribute() time: " << stoptime << "\n\n";
+              ParallelDescriptor::ReduceRealMax(stoptime,ParallelDescriptor::IOProcessorNumber());
+              amrex::Print() << "ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::Redistribute() time: " << stoptime << "\n\n";
 #ifdef BL_LAZY
-	});
+          });
 #endif
   }
 }
 
 template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 void
-ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::RedistributeMPI (std::map<int, Array<char> >& not_ours,
+ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::RedistributeMPI (std::map<int, Vector<char> >& not_ours,
                                                                                     int lev_min, int lev_max, int nGrow)
 {
     BL_PROFILE("ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::RedistributeMPI()");
@@ -1318,7 +1431,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::RedistributeM
     const int NProcs = ParallelDescriptor::NProcs();
 
     // We may now have particles that are rightfully owned by another CPU.
-    Array<long> Snds(NProcs, 0), Rcvs(NProcs, 0);  // bytes!
+    Vector<long> Snds(NProcs, 0), Rcvs(NProcs, 0);  // bytes!
 
     long NumSnds = 0;
     
@@ -1349,8 +1462,8 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::RedistributeM
     BL_COMM_PROFILE(BLProfiler::Alltoall, sizeof(long),
                     ParallelDescriptor::MyProc(), BLProfiler::AfterCall());
 
-    Array<int> RcvProc;
-    Array<std::size_t> rOffset; // Offset (in bytes) in the receive buffer
+    Vector<int> RcvProc;
+    Vector<std::size_t> rOffset; // Offset (in bytes) in the receive buffer
     
     std::size_t TotRcvBytes = 0;
     for (int i = 0; i < NProcs; ++i) {
@@ -1362,13 +1475,13 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::RedistributeM
     }
     
     const int nrcvs = RcvProc.size();
-    Array<MPI_Status>  stats(nrcvs);
-    Array<MPI_Request> rreqs(nrcvs);
+    Vector<MPI_Status>  stats(nrcvs);
+    Vector<MPI_Request> rreqs(nrcvs);
 
     const int SeqNum = ParallelDescriptor::SeqNum();
 
     // Allocate data for rcvs as one big chunk.
-    Array<char> recvdata(TotRcvBytes);
+    Vector<char> recvdata(TotRcvBytes);
 
     // Post receives.
     for (int i = 0; i < nrcvs; ++i) {
@@ -1561,8 +1674,8 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>
 ::Checkpoint (const std::string&        dir,
               const std::string&        name,
               bool                      is_checkpoint,
-              const Array<std::string>& real_comp_names,
-              const Array<std::string>& int_comp_names) const
+              const Vector<std::string>& real_comp_names,
+              const Vector<std::string>& int_comp_names) const
 {
     BL_PROFILE("ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::Checkpoint()");
     BL_ASSERT(OK());
@@ -1767,9 +1880,9 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>
         // We eventually want to write out the file name and the offset
         // into that file into which each grid of particles is written.
         //
-        Array<int>  which(state.size(),0);
-        Array<int > count(state.size(),0);
-        Array<long> where(state.size(),0);
+        Vector<int>  which(state.size(),0);
+        Vector<int > count(state.size(),0);
+        Vector<long> where(state.size(),0);
 	
         if (gotsome)
 	  {
@@ -1869,7 +1982,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>
                 //
                 // Unlink any zero-length data files.
                 //
-                Array<long> cnt(nOutFiles,0);
+                Vector<long> cnt(nOutFiles,0);
 
                 for (int i = 0, N=count.size(); i < N; i++)
                     cnt[which[i]] += count[i];
@@ -1916,8 +2029,8 @@ void
 ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::
 WritePlotFile ( const std::string&        dir,
                 const std::string&        name,
-                const Array<std::string>& real_comp_names,
-                const Array<std::string>& int_comp_names) const
+                const Vector<std::string>& real_comp_names,
+                const Vector<std::string>& int_comp_names) const
 {
     BL_PROFILE("ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::WritePlotFile()");
     BL_ASSERT(OK());
@@ -1935,16 +2048,16 @@ void
 ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::WriteParticles (int            lev,
                                                                                    std::ofstream& ofs,
                                                                                    int            fnum,
-                                                                                   Array<int>&    which,
-                                                                                   Array<int>&    count,
-                                                                                   Array<long>&   where,
+                                                                                   Vector<int>&    which,
+                                                                                   Vector<int>&    count,
+                                                                                   Vector<long>&   where,
                                                                                    bool           is_checkpoint) const
 {
 
     BL_PROFILE("ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::WriteParticles()");
 
     // For a each grid, the tiles it contains
-    std::map<int, Array<int> > tile_map;
+    std::map<int, Vector<int> > tile_map;
 
     for (const auto& kv : m_particles[lev])
     {
@@ -1979,7 +2092,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::WriteParticle
       if (is_checkpoint) {
 	// First write out the integer data in binary.
 	const int iChunkSize = 2 + NStructInt + NArrayInt;
-	Array<int> istuff(count[grid]*iChunkSize);
+	Vector<int> istuff(count[grid]*iChunkSize);
 	int* iptr = istuff.dataPtr();
 
 	for (unsigned i = 0; i < tile_map[grid].size(); i++) {
@@ -2004,7 +2117,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::WriteParticle
       
       // Write the Real data in binary.
       const int rChunkSize = BL_SPACEDIM + NStructReal + NArrayReal;
-      Array<typename ParticleType::RealType> rstuff(count[grid]*rChunkSize);
+      Vector<typename ParticleType::RealType> rstuff(count[grid]*rChunkSize);
       typename ParticleType::RealType* rptr = rstuff.dataPtr();
       
       for (unsigned i = 0; i < tile_map[grid].size(); i++) {
@@ -2051,7 +2164,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::Restart (cons
     HdrFileName += '/';
   HdrFileName += "Header";
   
-  Array<char> fileCharPtr;
+  Vector<char> fileCharPtr;
   ParallelDescriptor::ReadAndBcastFile(HdrFileName, fileCharPtr);
   std::string fileCharPtrString(fileCharPtr.dataPtr());
   std::istringstream HdrFile(fileCharPtrString, std::istringstream::in);
@@ -2128,7 +2241,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::Restart (cons
   HdrFile >> finest_level;
   BL_ASSERT(finest_level >= 0);
   
-  Array<int> ngrids(finest_level+1);
+  Vector<int> ngrids(finest_level+1);
   BL_ASSERT(finest_level == finestLevel());
   for (int lev = 0; lev <= finest_level; lev++) {
     HdrFile >> ngrids[lev];
@@ -2139,9 +2252,9 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::Restart (cons
   resizeData();
   
   for (int lev = 0; lev <= finest_level; lev++) {
-    Array<int>  which(ngrids[lev]);
-    Array<int>  count(ngrids[lev]);
-    Array<long> where(ngrids[lev]);
+    Vector<int>  which(ngrids[lev]);
+    Vector<int>  count(ngrids[lev]);
+    Vector<long> where(ngrids[lev]);
     for (int i = 0; i < ngrids[lev]; i++) {
       HdrFile >> which[i] >> count[i] >> where[i];
     }
@@ -2220,13 +2333,13 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::ReadParticles
     // the m_lev and m_grid data on disk.  We can easily recreate
     // that given the structure of the checkpoint file.
     const int iChunkSize = 2 + NStructInt + NArrayInt;
-    Array<int> istuff(cnt*iChunkSize);
+    Vector<int> istuff(cnt*iChunkSize);
     if (is_checkpoint)
         ifs.read((char*)istuff.dataPtr(),istuff.size()*sizeof(int));
 
     // Then the real data in binary.
     const int rChunkSize = BL_SPACEDIM + NStructReal + NArrayReal;
-    Array<RTYPE> rstuff(cnt*rChunkSize);
+    Vector<RTYPE> rstuff(cnt*rChunkSize);
     ifs.read((char*)rstuff.dataPtr(),rstuff.size()*sizeof(RTYPE));
 
     // Now reassemble the particles.
@@ -2351,9 +2464,9 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::WriteAsciiFil
 
     const int MyProc = ParallelDescriptor::MyProc();
 
-    for (int i = 0; i < ParallelDescriptor::NProcs(); i++)
+    for (int proc = 0; proc < ParallelDescriptor::NProcs(); proc++)
     {
-        if (MyProc == i)
+        if (MyProc == proc)
         {
             //
             // Each CPU opens the file for appending and adds its particles.
@@ -2491,9 +2604,9 @@ ParticleContainer<NStructReal,NStructInt,NArrayReal, NArrayInt>::WriteCoarsenedA
 
     const int MyProc = ParallelDescriptor::MyProc();
 
-    for (int i = 0; i < ParallelDescriptor::NProcs(); i++)
+    for (int proc = 0; proc < ParallelDescriptor::NProcs(); proc++)
     {
-        if (MyProc == i)
+        if (MyProc == proc)
         {
             //
             // Each CPU opens the file for appending and adds its particles.
@@ -2586,11 +2699,11 @@ ParticleContainer<NStructReal,NStructInt,NArrayReal, NArrayInt>::WriteCoarsenedA
 template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 bool
 ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::CrseToFine (const BoxArray&       cfba,
-                                                                               const Array<IntVect>& cells,
-                                                                               Array<IntVect>&       cfshifts,
+                                                                               const Vector<IntVect>& cells,
+                                                                               Vector<IntVect>&       cfshifts,
                                                                                const Geometry&       gm,
-                                                                               Array<int>&           which,
-                                                                               Array<IntVect>&       pshifts) const
+                                                                               Vector<int>&           which,
+                                                                               Vector<IntVect>&       pshifts) const
 {
     BL_PROFILE("ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::CrseToFine()");
     //
@@ -2657,14 +2770,14 @@ template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 bool
 ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::FineToCrse (const ParticleType&                p,
 					   int                                flev,
-					   const Array<IntVect>&              fcells,
+					   const Vector<IntVect>&              fcells,
 					   const BoxArray&                    fvalid,
 					   const BoxArray&                    compfvalid_grown,
-					   Array<IntVect>&                    ccells,
-					   Array<Real>&                       cfracs,
-					   Array<int>&                        which,
-					   Array<int>&                        cgrid,
-					   Array<IntVect>&                    pshifts,
+					   Vector<IntVect>&                    ccells,
+					   Vector<Real>&                       cfracs,
+					   Vector<int>&                        which,
+					   Vector<int>&                        cgrid,
+					   Vector<IntVect>&                    pshifts,
 					   std::vector< std::pair<int,Box> >& isects) const
 {
     BL_PROFILE("ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::FineToCrse()");
@@ -2777,9 +2890,9 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::FineCellsToUp
 						      int                                lev,
 						      const IntVect&                     ccell,
 						      const IntVect&                     cshift,
-						      Array<int>&                        fgrid,
-						      Array<Real>&                       ffrac,
-						      Array<IntVect>&                    fcells,
+						      Vector<int>&                        fgrid,
+						      Vector<Real>&                       ffrac,
+						      Vector<IntVect>&                    fcells,
 						      std::vector< std::pair<int,Box> >& isects) const
 {
     BL_PROFILE("ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::FineCellsToUpdateFromCrse()");
@@ -2901,7 +3014,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::FineCellsToUp
 template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 void
 ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::AssignDensity (int rho_index, bool sub_cycle,
-					      Array<std::unique_ptr<MultiFab> >& mf_to_be_filled, 
+					      Vector<std::unique_ptr<MultiFab> >& mf_to_be_filled, 
 					      int lev_min, int ncomp, int finest_level) const
 {
     if (rho_index != 0) amrex::Abort("AssignDensity only works if rho_index = 0");
@@ -2944,7 +3057,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::AssignDensity
 	}
     }
 
-    Array<std::unique_ptr<MultiFab> > mf_part;
+    Vector<std::unique_ptr<MultiFab> > mf_part;
     if (!all_grids_the_same)
     { 
         // Create the space for the temporary, mf_part
@@ -2979,29 +3092,29 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::AssignDensity
     //
     // This is the "data" needed by other MPI procs.
     //
-    std::map<int, Array<ParticleCommData> > data;
+    std::map<int, Vector<ParticleCommData> > data;
 
     const Real stime = ParallelDescriptor::second();
     //
-    // Minimum M required.
+    // Minimum NUMCELLS required.
     //
-    const int M = AMREX_D_TERM(2,+2,+4);
+    const int NUM_CELLS = AMREX_D_TERM(2,+2,+4);
 
-    Array<int>     cgrid(M);
-    Array<int>    cwhich(M),  fwhich(M);
-    Array<Real>    fracs(M),  cfracs(M);
-    Array<IntVect> cells(M),  ccells(M), cfshifts(M);
+    Vector<int>     cgrid(NUM_CELLS);
+    Vector<int>    cwhich(NUM_CELLS),  fwhich(NUM_CELLS);
+    Vector<Real>    fracs(NUM_CELLS),  cfracs(NUM_CELLS);
+    Vector<IntVect> cells(NUM_CELLS),  ccells(NUM_CELLS), cfshifts(NUM_CELLS);
 
     ParticleCommData pb;
     //
     // I'm going to allocate these badboys here & pass'm into routines that use'm.
     // This should greatly cut down on memory allocation/deallocation.
     //
-    Array<IntVect>                    pshifts(27);
+    Vector<IntVect>                    pshifts(27);
     std::vector< std::pair<int,Box> > isects;
-    Array<int>                        fgrid(M);
-    Array<Real>                       ffracs(M);
-    Array<IntVect>                    fcells;
+    Vector<int>                        fgrid(NUM_CELLS);
+    Vector<Real>                       ffracs(NUM_CELLS);
+    Vector<IntVect>                    fcells;
     //
     // "fvalid" contains all the valid region of the MultiFab at this level, together
     // with any ghost cells lying outside the domain, that can be periodically shifted into the
@@ -3163,13 +3276,13 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::AssignDensity
         // Do the grids at this level cover the full domain? If they do
         // there can be no Fine->Crse interactions at this level.
         //
-        const bool GridsCoverDomain = fvalid.contains(Geom(lev).Domain());
+        const bool GridsCoverDomain = fvalid.numPts() == Geom(lev).Domain().numPts();
 
 	const auto& pmap = m_particles[lev];
 	for (const auto& kv : pmap) {
-	  const int grid = kv.first.first;
+	  const int gid = kv.first.first;
 	  const auto& aos = kv.second.GetArrayOfStructs();
-	  FArrayBox&  fab = (*mf[lev_index])[grid];
+	  FArrayBox&  fab = (*mf[lev_index])[gid];
 	  for (const auto& p : aos)
             {
                 if (p.m_idata.id <= 0) {
@@ -3758,7 +3871,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::AssignDensity
 }
 
 //
-// Used by AssignDensity (Array<std::unique_ptr<MultiFab> >& mf).
+// Used by AssignDensity (Vector<std::unique_ptr<MultiFab> >& mf).
 //
 // Passes data needed by Crse->Fine or Fine->Crse to CPU that needs it.
 //
@@ -3770,8 +3883,8 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::AssignDensity
 template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 void
 ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::AssignDensityDoit (int               rho_index,
-					       Array<std::unique_ptr<MultiFab> >&             mf,
-					       std::map<int, Array<ParticleCommData> >& data,
+					       Vector<std::unique_ptr<MultiFab> >&             mf,
+					       std::map<int, Vector<ParticleCommData> >& data,
 					       int               ncomp,
 					       int               lev_min) const
 {
@@ -3794,7 +3907,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::AssignDensity
     //
     const int MyProc = ParallelDescriptor::MyProc();
 
-    Array<int> Snds(NProcs,0), Rcvs(NProcs,0);
+    Vector<int> Snds(NProcs,0), Rcvs(NProcs,0);
 
     int NumSnds = 0, NumRcvs = 0;
 
@@ -3850,20 +3963,20 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::AssignDensity
     //
     // Don't need these anymore.
     //
-    Array<int>().swap(Snds);
-    Array<int>().swap(Rcvs);
+    Vector<int>().swap(Snds);
+    Vector<int>().swap(Rcvs);
     //
     // The data we want to receive.
     //
     const int iChunkSize = 2 + BL_SPACEDIM;
     const int rChunkSize = ncomp;
 
-    Array<int>                    irecvdata (NumRcvs*iChunkSize);
-    Array<typename ParticleType::RealType> rrecvdata (NumRcvs*rChunkSize);
+    Vector<int>                    irecvdata (NumRcvs*iChunkSize);
+    Vector<typename ParticleType::RealType> rrecvdata (NumRcvs*rChunkSize);
 
-    Array<int>         index(2*RcvCnts.size());
-    Array<MPI_Status>  stats(2*RcvCnts.size());
-    Array<MPI_Request> rreqs(2*RcvCnts.size());
+    Vector<int>         index(2*RcvCnts.size());
+    Vector<MPI_Status>  stats(2*RcvCnts.size());
+    Vector<MPI_Request> rreqs(2*RcvCnts.size());
 
     const int SeqNumI = ParallelDescriptor::SeqNum();
     const int SeqNumR = ParallelDescriptor::SeqNum();
@@ -3891,8 +4004,8 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::AssignDensity
     //
     // Send the data.
     //
-    Array<int>                             isenddata;
-    Array<typename ParticleType::RealType> rsenddata;
+    Vector<int>                             isenddata;
+    Vector<typename ParticleType::RealType> rsenddata;
 
     for (const auto& kv : SndCnts)
     {
@@ -3930,7 +4043,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::AssignDensity
 	  roff += ncomp;
         }
 
-	Array<ParticleCommData>().swap(pbox);
+	Vector<ParticleCommData>().swap(pbox);
 
         ParallelDescriptor::Send(isenddata.dataPtr(),iCnt,Who,SeqNumI);
         ParallelDescriptor::Send(rsenddata.dataPtr(),rCnt,Who,SeqNumR);
@@ -3974,7 +4087,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::AssignDensity
 template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 void
 ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::AssignDensityFort (int rho_index,
-                                                                                      Array<std::unique_ptr<MultiFab> >& mf_to_be_filled, 
+                                                                                      Vector<std::unique_ptr<MultiFab> >& mf_to_be_filled, 
                                                                                       int lev_min, int ncomp, int finest_level) const
 {
 
@@ -4013,7 +4126,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::AssignDensity
 	}
     }
 
-    Array<std::unique_ptr<MultiFab> > mf_part;
+    Vector<std::unique_ptr<MultiFab> > mf_part;
     if (!all_grids_the_same)
     { 
         // Create the space for the temporary, mf_part
@@ -4047,10 +4160,10 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::AssignDensity
     PhysBCFunct cphysbc, fphysbc;
     int lo_bc[] = {INT_DIR, INT_DIR, INT_DIR}; // periodic boundaries
     int hi_bc[] = {INT_DIR, INT_DIR, INT_DIR};
-    Array<BCRec> bcs(1, BCRec(lo_bc, hi_bc));
+    Vector<BCRec> bcs(1, BCRec(lo_bc, hi_bc));
     PCInterp mapper;
     
-    Array<std::unique_ptr<MultiFab> > tmp(finest_level+1);
+    Vector<std::unique_ptr<MultiFab> > tmp(finest_level+1);
     for (int lev = lev_min; lev <= finest_level; ++lev) {
         const BoxArray& ba = mf[lev]->boxArray();
         const DistributionMapping& dm = mf[lev]->DistributionMap();
@@ -4170,7 +4283,9 @@ AssignCellDensitySingleLevelFort (int rho_index,
     if (mf_pointer->nGrow() < 1) 
        amrex::Error("Must have at least one ghost cell when in AssignDensitySingleLevel");
 
+#ifdef _OPENMP
     const int       ng          = mf_pointer->nGrow();
+#endif
     const Real      strttime    = ParallelDescriptor::second();
     const Geometry& gm          = Geom(lev);
     const Real*     plo         = gm.ProbLo();
@@ -4268,7 +4383,7 @@ AssignCellDensitySingleLevelFort (int rho_index,
 
 template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 void
-ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::InterpolateFort (Array<std::unique_ptr<MultiFab> >& mesh_data, 
+ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::InterpolateFort (Vector<std::unique_ptr<MultiFab> >& mesh_data, 
                                                                                     int lev_min, int lev_max)
 {
     BL_PROFILE("ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::InterpolateFort()");
@@ -4364,8 +4479,8 @@ AssignCellDensitySingleLevel (int rho_index,
       FArrayBox& fab = (*mf_pointer)[grid];
       auto N = pbx.size();
 	
-        Array<Real>    fracs;
-        Array<IntVect> cells;
+        Vector<Real>    fracs;
+        Vector<IntVect> cells;
 	
 #ifdef _OPENMP
 #pragma omp parallel for default(none) private(fracs,cells) shared(N,plo,dx,dx_particle,gm,fab,ncomp,pbx)
@@ -4493,20 +4608,20 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::NodalDepositi
 
     mf_pointer->setVal(0.0);
 
-    Array<IntVect> cells;
+    Vector<IntVect> cells;
     cells.resize(8);
 
-    Array<Real> fracs;
+    Vector<Real> fracs;
     fracs.resize(8);
 
 #if (BL_SPACEDIM > 1)
-    Array<Real> sx;
+    Vector<Real> sx;
     sx.resize(2);
-    Array<Real> sy;
+    Vector<Real> sy;
     sy.resize(2);
 #endif
 #if (BL_SPACEDIM > 2)
-    Array<Real> sz;
+    Vector<Real> sz;
     sz.resize(2);
 #endif
 
@@ -4565,9 +4680,9 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::NodalDepositi
             fracs[2] = sx[0] * sy[1];
             fracs[3] = sx[1] * sy[1];
 
-            for (int i = 0; i < 4; i++)
+            for (int ind = 0; ind < 4; ind++)
             {
-               fab(cells[i],0) += p.m_rdata.arr[BL_SPACEDIM+rho_index] * fracs[i];
+               fab(cells[ind],0) += p.m_rdata.arr[BL_SPACEDIM+rho_index] * fracs[ind];
             }
 #else
             cells[0] = pld.m_cell;

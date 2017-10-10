@@ -220,7 +220,7 @@ LinOp::applyBC (MultiFab&      inout,
         BL_ASSERT(level<undrrelxr.size());
 
         const BndryData::RealTuple&      bdl = bgb->bndryLocs(gn);
-        const Array< Array<BoundCond> >& bdc = bgb->bndryConds(gn);
+        const Vector< Vector<BoundCond> >& bdc = bgb->bndryConds(gn);
 
         for (OrientationIter oitr; oitr; ++oitr)
         {
@@ -412,7 +412,7 @@ LinOp::makeCoefficients (MultiFab&       cs,
     //
     const int nComp=1;
     const int nGrow=0;
-    cs.define(d, fn.DistributionMap(), nComp, nGrow);
+    cs.define(d, fn.DistributionMap(), nComp, nGrow, MFInfo(), FArrayBoxFactory());
 
     const bool tiling = true;
 

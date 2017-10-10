@@ -7,6 +7,7 @@
 #include <sstream>
 #include <iomanip>
 #include <limits>
+#include <cmath>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -19,6 +20,7 @@
 #include <AMReX_Geometry.H>
 #include <AMReX_TagBox.H>
 #include <AMReX_Array.H>
+#include <AMReX_Vector.H>
 #include <AMReX_CoordSys.H>
 #include <AMReX_ParmParse.H>
 #include <AMReX_BoxDomain.H>
@@ -59,10 +61,11 @@ namespace amrex {
 std::list<std::string> Amr::state_plot_vars;
 std::list<std::string> Amr::state_small_plot_vars;
 std::list<std::string> Amr::derive_plot_vars;
+std::list<std::string> Amr::derive_small_plot_vars;
 bool                   Amr::first_plotfile;
 bool                   Amr::first_smallplotfile;
-Array<BoxArray>        Amr::initial_ba;
-Array<BoxArray>        Amr::regrid_ba;
+Vector<BoxArray>        Amr::initial_ba;
+Vector<BoxArray>        Amr::regrid_ba;
 
 namespace
 {
@@ -129,6 +132,7 @@ Amr::Finalize ()
 {
     Amr::state_plot_vars.clear();
     Amr::derive_plot_vars.clear();
+    Amr::derive_small_plot_vars.clear();
     Amr::regrid_ba.clear();
     Amr::initial_ba.clear();
 
@@ -156,13 +160,13 @@ Amr::RegridOnRestart () const
 }
 
 void
-Amr::setDtMin (const Array<Real>& dt_min_in)
+Amr::setDtMin (const Vector<Real>& dt_min_in)
 {
     for (int i = 0; i <= finest_level; i++)
         dt_min[i] = dt_min_in[i];
 }
 
-Array<std::unique_ptr<AmrLevel> >&
+Vector<std::unique_ptr<AmrLevel> >&
 Amr::getAmrLevels ()
 {
     return amr_level;
@@ -197,7 +201,7 @@ Amr::Amr ()
     InitAmr();
 }
 
-Amr::Amr (const RealBox* rb, int max_level_in, const Array<int>& n_cell_in, int coord)
+Amr::Amr (const RealBox* rb, int max_level_in, const Vector<int>& n_cell_in, int coord)
     :
     AmrCore(rb,max_level_in,n_cell_in,coord)
 {
@@ -223,7 +227,7 @@ Amr::InitAmr ()
     plot_int               = -1;
     small_plot_int         = -1;
     last_plotfile          = 0;
-    last_smallplotfile     = 0;
+    last_smallplotfile     = -1;
     last_checkpoint        = 0;
     record_run_info        = false;
     record_grid_info       = false;
@@ -376,7 +380,7 @@ Amr::InitAmr ()
 
     if (max_level > 0 && !initial_grids_file.empty())
     {
-#define STRIP while( is.get() != '\n' )
+#define STRIP while( is.get() != '\n' ) {}
         std::ifstream is(initial_grids_file.c_str(),std::ios::in);
 
         if (!is.good())
@@ -415,7 +419,7 @@ Amr::InitAmr ()
 
     if (max_level > 0 && !regrid_grids_file.empty())
     {
-#define STRIP while( is.get() != '\n' )
+#define STRIP while( is.get() != '\n' ) {}
         std::ifstream is(regrid_grids_file.c_str(),std::ios::in);
 
         if (!is.good())
@@ -456,6 +460,14 @@ Amr::InitAmr ()
     rebalance_grids = 0;
     pp.query("rebalance_grids", rebalance_grids);
 
+    loadbalance_with_workestimates = 0;
+    pp.query("loadbalance_with_workestimates", loadbalance_with_workestimates);
+
+    loadbalance_level0_int = 2;
+    pp.query("loadbalance_level0_int", loadbalance_level0_int);
+
+    loadbalance_max_fac = 1.5;
+    pp.query("loadbalance_max_fac", loadbalance_max_fac);
 }
 
 bool
@@ -549,6 +561,21 @@ Amr::isDerivePlotVar (const std::string& name)
     return false;
 }
 
+bool
+Amr::isDeriveSmallPlotVar (const std::string& name)
+{
+    for (std::list<std::string>::const_iterator li = derive_small_plot_vars.begin(), End = derive_small_plot_vars.end();
+         li != End;
+         ++li)
+    {
+        if (*li == name) {
+            return true;
+	}
+    }
+
+    return false;
+}
+
 void 
 Amr::fillDerivePlotVarList ()
 {
@@ -566,10 +593,33 @@ Amr::fillDerivePlotVarList ()
     }
 }
 
+void 
+Amr::fillDeriveSmallPlotVarList ()
+{
+    derive_small_plot_vars.clear();
+    DeriveList& derive_lst = AmrLevel::get_derive_lst();
+    std::list<DeriveRec>& dlist = derive_lst.dlist();
+    for (std::list<DeriveRec>::const_iterator it = dlist.begin(), End = dlist.end();
+         it != End;
+         ++it)
+    {
+        if (it->deriveType() == IndexType::TheCellType())
+        {
+            derive_small_plot_vars.push_back(it->name());
+        }
+    }
+}
+
 void
 Amr::clearDerivePlotVarList ()
 {
     derive_plot_vars.clear();
+}
+
+void
+Amr::clearDeriveSmallPlotVarList ()
+{
+    derive_small_plot_vars.clear();
 }
 
 void
@@ -580,10 +630,24 @@ Amr::addDerivePlotVar (const std::string& name)
 }
 
 void
+Amr::addDeriveSmallPlotVar (const std::string& name)
+{
+    if (!isDeriveSmallPlotVar(name))
+        derive_small_plot_vars.push_back(name);
+}
+
+void
 Amr::deleteDerivePlotVar (const std::string& name)
 {
     if (isDerivePlotVar(name))
         derive_plot_vars.remove(name);
+}
+
+void
+Amr::deleteDeriveSmallPlotVar (const std::string& name)
+{
+    if (isDeriveSmallPlotVar(name))
+        derive_small_plot_vars.remove(name);
 }
 
 Amr::~Amr ()
@@ -646,7 +710,7 @@ Amr::setRecordDataInfo (int i, const std::string& filename)
 }
 
 void
-Amr::setDtLevel (const Array<Real>& dt_lev)
+Amr::setDtLevel (const Vector<Real>& dt_lev)
 {
     for (int i = 0; i <= finest_level; i++)
         dt_level[i] = dt_lev[i];
@@ -659,7 +723,7 @@ Amr::setDtLevel (Real dt, int lev)
 }
 
 void
-Amr::setNCycle (const Array<int>& ns)
+Amr::setNCycle (const Vector<int>& ns)
 {
     for (int i = 0; i <= finest_level; i++)
         n_cycle[i] = ns[i];
@@ -742,7 +806,9 @@ Amr::writePlotFile ()
 
     if(precreateDirectories) {    // ---- make all directories at once
       amrex::UtilRenameDirectoryToOld(pltfile, false);      // dont call barrier
-      amrex::Print() << "IOIOIOIO:  precreating directories for " << pltfileTemp << "\n";
+      if (verbose > 1) {
+          amrex::Print() << "IOIOIOIO:  precreating directories for " << pltfileTemp << "\n";
+      }
       amrex::PreBuildDirectorHierarchy(pltfileTemp, "Level_", finest_level + 1, true);  // call barrier
     } else {
       amrex::UtilRenameDirectoryToOld(pltfile, false);     // dont call barrier
@@ -1035,7 +1101,7 @@ Amr::init (Real strt_time,
 #endif
 
 #ifdef BL_COMM_PROFILING
-    Array<Box> probDomain(maxLevel()+1);
+    Vector<Box> probDomain(maxLevel()+1);
     for(int i(0); i < probDomain.size(); ++i) {
 	probDomain[i] = Geom(i).Domain();
     }
@@ -1045,7 +1111,7 @@ Amr::init (Real strt_time,
 }
 
 void
-Amr::readProbinFile (int& init)
+Amr::readProbinFile (int& a_init)
 {
     BL_PROFILE("Amr::readProbinFile()");
     //
@@ -1053,13 +1119,13 @@ Amr::readProbinFile (int& init)
     //
     int probin_file_length = probin_file.length();
 
-    Array<int> probin_file_name(probin_file_length);
+    Vector<int> probin_file_name(probin_file_length);
 
     for (int i = 0; i < probin_file_length; i++)
         probin_file_name[i] = probin_file[i];
 
     if (verbose > 0)
-	amrex::Print() << "Starting to read probin ... \n";
+	amrex::Print() << "Starting to call amrex_probinit ... \n";
 
     const int nAtOnce = probinit_natonce;
     const int MyProc  = ParallelDescriptor::MyProc();
@@ -1080,7 +1146,7 @@ Amr::readProbinFile (int& init)
 
 #ifdef DIMENSION_AGNOSTIC
 
-            amrex_probinit(&init,
+            amrex_probinit(&a_init,
 			   probin_file_name.dataPtr(),
 			   &probin_file_length,
 			   ZFILL(Geometry::ProbLo()),
@@ -1088,7 +1154,7 @@ Amr::readProbinFile (int& init)
 
 #else
 
-            amrex_probinit(&init,
+            amrex_probinit(&a_init,
 			   probin_file_name.dataPtr(),
 			   &probin_file_length,
 			   Geometry::ProbLo(),
@@ -1123,19 +1189,19 @@ Amr::readProbinFile (int& init)
         ParallelDescriptor::ReduceRealMax(piTotal,    IOProc);
         ParallelDescriptor::ReduceRealMax(piTotalAll, IOProc);
 
-	amrex::Print() << "MFRead::: PROBINIT max time   = " << piTotal    << '\n'
-		       << "MFRead::: PROBINIT total time = " << piTotalAll << '\n';
+	amrex::Print() << "amrex_probinit max time   = " << piTotal    << '\n'
+		       << "amrex_probinit total time = " << piTotalAll << '\n';
     }
 
     if (verbose > 0)
-	amrex::Print() << "Successfully read probin file: \"" << probin_file << "\"\n";
+	amrex::Print() << "Successfully run amrex_probinit\n";
 }
 
 void
 Amr::initialInit (Real              strt_time,
                   Real              stop_time,
                   const BoxArray*   lev0_grids,
-                  const Array<int>* pmap)
+                  const Vector<int>* pmap)
 {
     BL_PROFILE("Amr::initialInit()");
     InitializeInit(strt_time, stop_time, lev0_grids, pmap);
@@ -1153,11 +1219,11 @@ void
 Amr::InitializeInit(Real              strt_time,
                     Real              stop_time,
                     const BoxArray*   lev0_grids,
-                    const Array<int>* pmap)
+                    const Vector<int>* pmap)
 {
     BL_PROFILE("Amr::InitializeInit()");
     BL_COMM_PROFILE_NAMETAG("Amr::InitializeInit TOP");
-    checkInput();
+    if (check_input) checkInput();
     //
     // Generate internal values from user-supplied values.
     //
@@ -1165,10 +1231,10 @@ Amr::InitializeInit(Real              strt_time,
     //
     // Init problem dependent data.
     //
-    int init = true;
+    int linit = true;
 
     if (!probin_file.empty()) {
-        readProbinFile(init);
+        readProbinFile(linit);
     }
 
     cumtime = strt_time;
@@ -1273,9 +1339,9 @@ Amr::restart (const std::string& filename)
     //
     // Init problem dependent data.
     //
-    int init = false;
+    int linit = false;
 
-    readProbinFile(init);
+    readProbinFile(linit);
     //
     // Start calculation from given restart file.
     //
@@ -1284,11 +1350,11 @@ Amr::restart (const std::string& filename)
     }
 
     // ---- preread and broadcast all FabArray headers if this file exists
-    std::map<std::string, Array<char> > faHeaderMap;
+    std::map<std::string, Vector<char> > faHeaderMap;
     if(prereadFAHeaders) {
       // ---- broadcast the file with the names of the fabarray headers
       std::string faHeaderFilesName(filename + "/FabArrayHeaders.txt");
-      Array<char> faHeaderFileChars;
+      Vector<char> faHeaderFileChars;
       bool bExitOnError(false);  // ---- dont exit if this file does not exist
       ParallelDescriptor::ReadAndBcastFile(faHeaderFilesName, faHeaderFileChars,
                                            bExitOnError);
@@ -1300,9 +1366,9 @@ Amr::restart (const std::string& filename)
           fais >> faHeaderName;
           if( ! fais.eof()) {
             std::string faHeaderFullName(filename + '/' + faHeaderName + "_H");
-            Array<char> &tempCharArray = faHeaderMap[faHeaderFullName];
+            Vector<char> &tempCharArray = faHeaderMap[faHeaderFullName];
             ParallelDescriptor::ReadAndBcastFile(faHeaderFullName, tempCharArray);
-	    if(verbose > 0) {
+	    if(verbose > 2) {
 		amrex::Print() 
 		    << ":::: faHeaderName faHeaderFullName tempCharArray.size() = " << faHeaderName
 		    << "  " << faHeaderFullName << "  " << tempCharArray.size() << "\n";
@@ -1320,7 +1386,7 @@ Amr::restart (const std::string& filename)
 
     VisMF::IO_Buffer io_buffer(VisMF::GetIOBufferSize());
 
-    Array<char> fileCharPtr;
+    Vector<char> fileCharPtr;
     ParallelDescriptor::ReadAndBcastFile(File, fileCharPtr);
     std::string fileCharPtrString(fileCharPtr.dataPtr());
     std::istringstream is(fileCharPtrString, std::istringstream::in);
@@ -1356,7 +1422,7 @@ Amr::restart (const std::string& filename)
     is >> mx_lev;
     is >> finest_level;
 
-    Array<Box> inputs_domain(max_level+1);
+    Vector<Box> inputs_domain(max_level+1);
     for (int lev = 0; lev <= max_level; ++lev)
     {
 	Box bx(Geom(lev).Domain().smallEnd(),Geom(lev).Domain().bigEnd());
@@ -1378,7 +1444,7 @@ Amr::restart (const std::string& filename)
            for (int i(0); i <= mx_lev; ++i) { dt_min[i] = dt_level[i]; }
        }
 
-       Array<int>  n_cycle_in;
+       Vector<int>  n_cycle_in;
        n_cycle_in.resize(mx_lev+1);  
        for (int i(0); i <= mx_lev; ++i) { is >> n_cycle_in[i]; }
        bool any_changed = false;
@@ -1668,7 +1734,7 @@ Amr::checkPoint ()
     }
 
     if (ParallelDescriptor::IOProcessor()) {
-	const Array<std::string> &FAHeaderNames = StateData::FabArrayHeaderNames();
+	const Vector<std::string> &FAHeaderNames = StateData::FabArrayHeaderNames();
 	if(FAHeaderNames.size() > 0) {
           std::string FAHeaderFilesName = ckfileTemp + "/FabArrayHeaders.txt";
           std::ofstream FAHeaderFile(FAHeaderFilesName.c_str(),
@@ -1812,6 +1878,14 @@ Amr::timeStep (int  level,
                 lev_top = std::min(finest_level, max_level - 1);
 	    }
         }
+
+        if (max_level == 0 && loadbalance_level0_int > 0 && loadbalance_with_workestimates)
+        {
+            if (level_steps[0] == 1 || level_count[0] >= loadbalance_level0_int) {
+                LoadBalanceLevel0(time);
+                level_count[0] = 0;
+            }
+        }
     }
     //
     // Check to see if should write plotfile.
@@ -1910,6 +1984,7 @@ Amr::coarseTimeStep (Real stop_time)
     stepName << "timeStep STEP " << level_steps[0];
 
     const Real run_strt = ParallelDescriptor::second() ;
+
     //
     // Compute new dt.
     //
@@ -2034,6 +2109,7 @@ Amr::coarseTimeStep (Real stop_time)
     int to_stop       = 0;    
     int to_checkpoint = 0;
     int to_plot       = 0;
+    int to_small_plot = 0;
     if (message_int > 0 && level_steps[0] % message_int == 0) {
 	if (ParallelDescriptor::IOProcessor())
 	{
@@ -2064,13 +2140,24 @@ Amr::coarseTimeStep (Real stop_time)
 		to_plot = 1;
 		fclose(fp);
 	    }
+
+            if ((fp=fopen("small_plot_and_continue","r")) != 0)
+            {
+                remove("small_plot_and_continue");
+                to_small_plot = 1;
+                fclose(fp);
+            }
 	}
-	int packed_data[2];
+        int packed_data[4];
 	packed_data[0] = to_stop;
 	packed_data[1] = to_checkpoint;
-	ParallelDescriptor::Bcast(packed_data, 2, ParallelDescriptor::IOProcessorNumber());
+        packed_data[2] = to_plot;
+        packed_data[3] = to_small_plot;
+	ParallelDescriptor::Bcast(packed_data, 4, ParallelDescriptor::IOProcessorNumber());
 	to_stop = packed_data[0];
 	to_checkpoint = packed_data[1];
+        to_plot = packed_data[2];
+        to_small_plot = packed_data[3];
 
     }
 
@@ -2094,7 +2181,7 @@ Amr::coarseTimeStep (Real stop_time)
         writePlotFile();
     }
 
-    if (writeSmallPlotNow())
+    if (writeSmallPlotNow() || to_small_plot)
     {
         writeSmallPlotFile();
     }
@@ -2171,7 +2258,7 @@ Amr::writeSmallPlotNow()
 void
 Amr::defBaseLevel (Real              strt_time, 
                    const BoxArray*   lev0_grids,
-                   const Array<int>* pmap)
+                   const Vector<int>* pmap)
 {
     BL_PROFILE("Amr::defBaseLevel()");
     // Just initialize this here for the heck of it
@@ -2204,8 +2291,6 @@ Amr::defBaseLevel (Real              strt_time,
 	if (refine_grid_layout) {
 	    ChopGrids(0,lev0,ParallelDescriptor::NProcs());
 	}
-
-        DistributionMapping dmap(*pmap);
     }
     else
     {
@@ -2241,13 +2326,13 @@ Amr::regrid (int  lbase,
     // Compute positions of new grids.
     //
     int             new_finest;
-    Array<BoxArray> new_grid_places(max_level+1);
-    Array<DistributionMapping> new_dmap(max_level+1);
+    Vector<BoxArray> new_grid_places(max_level+1);
+    Vector<DistributionMapping> new_dmap(max_level+1);
 
     grid_places(lbase,time,new_finest, new_grid_places);
 
-    bool regrid_level_zero = (!initial) &&
-        (lbase == 0 && new_grid_places[0] != amr_level[0]->boxArray());
+    bool regrid_level_zero = (!initial) && (lbase == 0)
+        && ( loadbalance_with_workestimates || (new_grid_places[0] != amr_level[0]->boxArray()));
 
     const int start = regrid_level_zero ? 0 : lbase+1;
 
@@ -2304,7 +2389,10 @@ Amr::regrid (int  lbase,
         // Construct skeleton of new level.
         //
 
-	if (new_dmap[lev].empty()) {
+        if (loadbalance_with_workestimates && !initial) {
+            new_dmap[lev] = makeLoadBalanceDistributionMap(lev, time, new_grid_places[lev]);
+        }
+        else if (new_dmap[lev].empty()) {
 	    new_dmap[lev].define(new_grid_places[lev]);
 	}
 
@@ -2357,11 +2445,11 @@ Amr::regrid (int  lbase,
     if(rebalance_grids > 0) {
       DistributionMapping::InitProximityMap();
 
-        Array<BoxArray> allBoxes(amr_level.size());
+        Vector<BoxArray> allBoxes(amr_level.size());
 	for(int ilev(0); ilev < allBoxes.size(); ++ilev) {
 	  allBoxes[ilev] = boxArray(ilev);
 	}
-        Array<Array<int> > mLDM;
+        Vector<Vector<int> > mLDM;
 	if(rebalance_grids == 1) {
           mLDM = DistributionMapping::MultiLevelMapPFC(ref_ratio, allBoxes, maxGridSize(0)[0]);
 	} else if(rebalance_grids == 2) {
@@ -2377,6 +2465,7 @@ Amr::regrid (int  lbase,
           //MultiFab::MoveAllFabs(mLDM[iMap]);
 	  DistributionMapping newDistMap(mLDM[iMap]);
           MultiFab::MoveAllFabs(newDistMap);
+          UpdateStateDataDistributionMaps(newDistMap);
         }
     }
 
@@ -2424,6 +2513,68 @@ Amr::regrid (int  lbase,
            printGridSummary(std::cout,start,finest_level);
         }
     }
+}
+
+DistributionMapping
+Amr::makeLoadBalanceDistributionMap (int lev, Real time, const BoxArray& ba) const
+{
+    BL_PROFILE("makeLoadBalanceDistributionMap()");
+
+    amrex::Print() << "Load balance on level " << lev << " at t = " << time << "\n";
+
+    DistributionMapping newdm;
+
+    const int work_est_type = amr_level[0]->WorkEstType();
+
+    if (work_est_type < 0) {
+        amrex::Print() << "\nAMREX WARNING: work estimates type does not exist!\n\n";
+        newdm.define(ba);
+    }
+    else if (amr_level[lev])
+    {
+        DistributionMapping dmtmp;
+        if (ba.size() == boxArray(lev).size()) {
+            dmtmp = DistributionMap(lev);
+        } else {
+            dmtmp.define(ba);
+        }
+
+        MultiFab workest(ba, dmtmp, 1, 0);
+        AmrLevel::FillPatch(*amr_level[lev], workest, 0, time, work_est_type, 0, 1, 0);
+
+        Real navg = static_cast<Real>(ba.size()) / static_cast<Real>(ParallelDescriptor::NProcs());
+        int nmax = std::max(std::round(loadbalance_max_fac*navg), std::ceil(navg));
+
+        newdm = DistributionMapping::makeKnapSack(workest, nmax);
+    }
+    else
+    {
+        newdm.define(ba);
+    }
+
+    return newdm;
+}
+
+void
+Amr::LoadBalanceLevel0 (Real time)
+{
+    BL_PROFILE("LoadBalanceLevel0()");
+    const auto& dm = makeLoadBalanceDistributionMap(0, time, boxArray(0));
+    InstallNewDistributionMap(0, dm);
+    amr_level[0]->post_regrid(0,time);
+}
+
+void
+Amr::InstallNewDistributionMap (int lev, const DistributionMapping& newdm)
+{
+    BL_PROFILE("InstallNewDistributionMap()");
+
+    AmrLevel* a = (*levelbld)(*this,lev,Geom(lev),boxArray(lev),newdm,cumtime);
+    a->init(*amr_level[lev]);
+    amr_level[lev].reset(a);
+
+    this->SetBoxArray(lev, amr_level[lev]->boxArray());
+    this->SetDistributionMap(lev, amr_level[lev]->DistributionMap());
 }
 
 void
@@ -2533,7 +2684,7 @@ void
 Amr::grid_places (int              lbase,
                   Real             time,
                   int&             new_finest,
-                  Array<BoxArray>& new_grids)
+                  Vector<BoxArray>& new_grids)
 {
     BL_PROFILE("Amr::grid_places()");
 
@@ -2638,7 +2789,7 @@ Amr::GetAreaNotToTag (int lev)
 }
 
 void
-Amr::ManualTagsPlacement (int lev, TagBoxArray& tags, const Array<IntVect>& bf_lev)
+Amr::ManualTagsPlacement (int lev, TagBoxArray& tags, const Vector<IntVect>& bf_lev)
 {
     amr_level[lev]->manual_tags_placement(tags, bf_lev);
 }
@@ -2649,7 +2800,7 @@ Amr::bldFineLevels (Real strt_time)
     BL_PROFILE("Amr::bldFineLevels()");
     finest_level = 0;
 
-    Array<BoxArray> new_grids(max_level+1);
+    Vector<BoxArray> new_grids(max_level+1);
     //
     // Get initial grid placement.
     //
@@ -2915,7 +3066,7 @@ Amr::computeOptimalSubcycling(int n, int* best, Real* dt_max, Real* est_work, in
     BL_ASSERT(cycle_max[0] == 1);
     // internally these represent the total number of steps at a level, 
     // not the number of cycles
-    int cycles[n];
+    std::vector<int> cycles(n);
     Real best_ratio = 1e200;
     Real best_dt = 0;
     Real ratio;
@@ -2956,7 +3107,7 @@ Amr::computeOptimalSubcycling(int n, int* best, Real* dt_max, Real* est_work, in
     return best_dt;
 }
 
-const Array<BoxArray>& Amr::getInitialBA()
+const Vector<BoxArray>& Amr::getInitialBA()
 {
   return initial_ba;
 }
@@ -2969,17 +3120,32 @@ Amr::RedistributeParticles ()
 }
 #endif
 
+void
+Amr::UpdateStateDataDistributionMaps(DistributionMapping& new_dmap)
+{
+   long mapsize = new_dmap.size();
+   for (int i(0); i < DistributionMap().size(); ++i)
+   {
+      if (DistributionMap()[i].size() == mapsize)
+      {  SetDistributionMap(i, new_dmap); }
+   }
+
+   for (int i(0); i < amr_level.size(); ++i)
+   {
+      amr_level[i]->UpdateDistributionMaps(new_dmap); 
+   } 
+}
 
 void
 Amr::AddProcsToSidecar(int nSidecarProcs, int prevSidecarProcs)
 {
-    Array<BoxArray> allBoxes(finest_level + 1);
+    Vector<BoxArray> allBoxes(finest_level + 1);
 
     for(int ilev(0); ilev < allBoxes.size(); ++ilev) {
       allBoxes[ilev] = boxArray(ilev);
     }
 
-    Array<Array<int> > mLDM;
+    Vector<Vector<int> > mLDM;
     // ---- just use the random map for now
     int maxRank(ParallelDescriptor::NProcsAll() - nSidecarProcs - 1);
     amrex::Print() << "_______ maxRank = " << maxRank << "\n";
@@ -2992,6 +3158,7 @@ Amr::AddProcsToSidecar(int nSidecarProcs, int prevSidecarProcs)
 	//MultiFab::MoveAllFabs(mLDM[iMap]);
         DistributionMapping newDistMap(mLDM[iMap]);
         MultiFab::MoveAllFabs(newDistMap);
+        UpdateStateDataDistributionMaps(newDistMap);
 	amrex::Print() << "_in Amr::AddProcsToSidecar:  after calling MoveAllFabs for iMap = "
 	               << iMap << "\n\n";
     }
@@ -3016,7 +3183,7 @@ Amr::AddProcsToComp(int nSidecarProcs, int prevSidecarProcs) {
 
     // ---- make a group with ioprocnum and the new comp ranks that were part of the sidecar
     // ---- then initialize all required data for the new ranks (amr, amrlevels, ...)
-    Array<int> groupRanks(prevSidecarProcs - nSidecarProcs + 1, -1);  // ---- + 1 for ioprocnum
+    Vector<int> groupRanks(prevSidecarProcs - nSidecarProcs + 1, -1);  // ---- + 1 for ioprocnum
     groupRanks[0] = ioProcNumAll;
     int ngStart(nProcsAll - prevSidecarProcs);
     for(int ip(1); ip < groupRanks.size(); ++ip) {
@@ -3050,13 +3217,13 @@ Amr::AddProcsToComp(int nSidecarProcs, int prevSidecarProcs) {
 
 
       // ---- pack up the ints
-      Array<int> allInts;
+      Vector<int> allInts;
       //int allIntsSize(0);
       int dt_level_Size(dt_level.size()), dt_min_Size(dt_min.size());
       int max_grid_size_Size(max_grid_size.size()), blocking_factor_Size(blocking_factor.size());
       int ref_ratio_Size(ref_ratio.size()), amr_level_Size(amr_level.size()), geom_Size(Geom().size());
       int state_plot_vars_Size(state_plot_vars.size()), derive_plot_vars_Size(derive_plot_vars.size());
-      int state_small_plot_vars_Size(state_small_plot_vars.size());
+      int state_small_plot_vars_Size(state_small_plot_vars.size()), derive_small_plot_vars_Size(derive_small_plot_vars.size());
       if(scsMyId == ioProcNumSCS) {
         allInts.push_back(max_level);
         allInts.push_back(finest_level);
@@ -3078,6 +3245,9 @@ Amr::AddProcsToComp(int nSidecarProcs, int prevSidecarProcs) {
         allInts.push_back(sub_cycle);
         allInts.push_back(stream_max_tries);
         allInts.push_back(rebalance_grids);
+        allInts.push_back(loadbalance_with_workestimates);
+        allInts.push_back(loadbalance_level0_int);
+        allInts.push_back(loadbalance_max_fac);        
 
 	// ---- these are parmparsed in
         allInts.push_back(plot_nfiles);
@@ -3113,6 +3283,7 @@ Amr::AddProcsToComp(int nSidecarProcs, int prevSidecarProcs) {
         allInts.push_back(state_plot_vars.size());
         allInts.push_back(state_small_plot_vars.size());
         allInts.push_back(derive_plot_vars.size());
+        allInts.push_back(derive_small_plot_vars.size());
 
         allInts.push_back(VisMF::GetNOutFiles());
         allInts.push_back(VisMF::GetMFFileInStreams());
@@ -3150,6 +3321,9 @@ Amr::AddProcsToComp(int nSidecarProcs, int prevSidecarProcs) {
         sub_cycle                  = allInts[count++];
         stream_max_tries           = allInts[count++];
         rebalance_grids            = allInts[count++];
+        loadbalance_with_workestimates  = allInts[count++];
+        loadbalance_level0_int     = allInts[count++];
+        loadbalance_max_fac        = allInts[count++];
 
         plot_nfiles                = allInts[count++];
         mffile_nstreams            = allInts[count++];
@@ -3178,16 +3352,17 @@ Amr::AddProcsToComp(int nSidecarProcs, int prevSidecarProcs) {
         n_error_buf.resize(aSize);
         for(int i(0); i < n_error_buf.size(); ++i)     { n_error_buf[i] = allInts[count++]; }
 
-        dt_level_Size              = allInts[count++];
-        dt_min_Size                = allInts[count++];
-        max_grid_size_Size         = allInts[count++];
-        blocking_factor_Size       = allInts[count++];
-        ref_ratio_Size             = allInts[count++];
-        amr_level_Size             = allInts[count++];
-        geom_Size                  = allInts[count++];
-        state_plot_vars_Size       = allInts[count++];
-        state_small_plot_vars_Size = allInts[count++];
-        derive_plot_vars_Size      = allInts[count++];
+        dt_level_Size               = allInts[count++];
+        dt_min_Size                 = allInts[count++];
+        max_grid_size_Size          = allInts[count++];
+        blocking_factor_Size        = allInts[count++];
+        ref_ratio_Size              = allInts[count++];
+        amr_level_Size              = allInts[count++];
+        geom_Size                   = allInts[count++];
+        state_plot_vars_Size        = allInts[count++];
+        state_small_plot_vars_Size  = allInts[count++];
+        derive_plot_vars_Size       = allInts[count++];
+        derive_small_plot_vars_Size = allInts[count++];
 
         VisMF::SetNOutFiles(allInts[count++]);
         VisMF::SetMFFileInStreams(allInts[count++]);
@@ -3202,7 +3377,7 @@ Amr::AddProcsToComp(int nSidecarProcs, int prevSidecarProcs) {
 
 
       // ---- pack up the longs
-      Array<long> allLongs;
+      Vector<long> allLongs;
       if(scsMyId == ioProcNumSCS) {
         allLongs.push_back(VisMF::GetIOBufferSize());
       }
@@ -3217,7 +3392,7 @@ Amr::AddProcsToComp(int nSidecarProcs, int prevSidecarProcs) {
 
 
       // ---- pack up the Reals
-      Array<Real> allReals;
+      Vector<Real> allReals;
       //int allRealsSize(0);
       if(scsMyId == ioProcNumSCS) {
         allReals.push_back(cumtime);
@@ -3253,7 +3428,7 @@ Amr::AddProcsToComp(int nSidecarProcs, int prevSidecarProcs) {
 
 
       // ---- pack up the bools
-      Array<int> allBools;  // ---- just use ints here
+      Vector<int> allBools;  // ---- just use ints here
       //int allBoolsSize(0);
       if(scsMyId == ioProcNumSCS) {
         allBools.push_back(abort_on_stream_retry_failure);
@@ -3315,8 +3490,8 @@ Amr::AddProcsToComp(int nSidecarProcs, int prevSidecarProcs) {
 
 
       // ---- pack up the strings
-      Array<std::string> allStrings;
-      Array<char> serialStrings;
+      Vector<std::string> allStrings;
+      Vector<char> serialStrings;
       //int serialStringsSize(0);
       if(scsMyId == ioProcNumSCS) {
         allStrings.push_back(regrid_grids_file);
@@ -3337,6 +3512,9 @@ Amr::AddProcsToComp(int nSidecarProcs, int prevSidecarProcs) {
           allStrings.push_back(*lit);
 	}
 	for( lit = derive_plot_vars.begin(); lit != derive_plot_vars.end(); ++lit) {
+          allStrings.push_back(*lit);
+	}
+        for( lit = derive_small_plot_vars.begin(); lit != derive_small_plot_vars.end(); ++lit) {
           allStrings.push_back(*lit);
 	}
 
@@ -3370,11 +3548,14 @@ Amr::AddProcsToComp(int nSidecarProcs, int prevSidecarProcs) {
         for(int i(0); i < derive_plot_vars_Size; ++i) {
           derive_plot_vars.push_back(allStrings[count++]);
 	}
+        for(int i(0); i < derive_small_plot_vars_Size; ++i) {
+          derive_small_plot_vars.push_back(allStrings[count++]);
+	}
       }
 
 
       // ---- pack up the IntVects
-      Array<int> allIntVects;
+      Vector<int> allIntVects;
       int allIntVectsSize(0);
       if(scsMyId == ioProcNumSCS) {
 
@@ -3476,17 +3657,17 @@ Amr::AddProcsToComp(int nSidecarProcs, int prevSidecarProcs) {
       // ---- initialize fortran data
       if(scsMyId != ioProcNumSCS) {
         int probin_file_length(probin_file.length());
-	int init(true);
-        Array<int> probin_file_name(probin_file_length);
+	int linit(true);
+        Vector<int> probin_file_name(probin_file_length);
         for(int i(0); i < probin_file_length; ++i) {
           probin_file_name[i] = probin_file[i];
         }
 	amrex::Print() << "Starting to read probin ... \n";
 #ifdef DIMENSION_AGNOSTIC
-        amrex_probinit(&init, probin_file_name.dataPtr(), &probin_file_length,
+        amrex_probinit(&linit, probin_file_name.dataPtr(), &probin_file_length,
 		       ZFILL(Geometry::ProbLo()), ZFILL(Geometry::ProbHi()));
 #else
-        amrex_probinit(&init, probin_file_name.dataPtr(), &probin_file_length,
+        amrex_probinit(&linit, probin_file_name.dataPtr(), &probin_file_length,
 		       Geometry::ProbLo(), Geometry::ProbHi());
 #endif
       }
@@ -3526,11 +3707,11 @@ Amr::RedistributeGrids(int how) {
       DistributionMapping::InitProximityMap();
       DistributionMapping::Initialize();
 
-        Array<BoxArray> allBoxes(finest_level + 1);
+        Vector<BoxArray> allBoxes(finest_level + 1);
         for(int ilev(0); ilev < allBoxes.size(); ++ilev) {
           allBoxes[ilev] = boxArray(ilev);
         }
-        Array<Array<int> > mLDM;
+        Vector<Vector<int> > mLDM;
         if(how == 1) {
           mLDM = DistributionMapping::MultiLevelMapPFC(ref_ratio, allBoxes, maxGridSize(0)[0]);
         } else if(how == 2) {
@@ -3549,6 +3730,7 @@ Amr::RedistributeGrids(int how) {
           //MultiFab::MoveAllFabs(mLDM[iMap]);
 	  DistributionMapping newDistMap(mLDM[iMap]);
           MultiFab::MoveAllFabs(newDistMap);
+          UpdateStateDataDistributionMaps(newDistMap);
         }
     }
 #ifdef USE_PARTICLES
@@ -3560,8 +3742,8 @@ Amr::RedistributeGrids(int how) {
 void
 Amr::BroadcastBoundaryPointList(BoundaryPointList &bpl, int myLocalId, int rootId, MPI_Comm comm) {
   bool bcastSource(ParallelDescriptor::MyProc() == rootId);
-  Array<int> pF, pS;
-  Array<double> bplD;
+  Vector<int> pF, pS;
+  Vector<double> bplD;
   if(bcastSource) {  // ---- initialize the source data
     std::multimap< std::pair<int, int>, double >::iterator it;
     for(it = bpl.begin(); it != bpl.end(); ++it) {
@@ -3628,17 +3810,17 @@ using std::endl;
 void
 Amr::BroadcastBCRec(BCRec &bcrec, int myLocalId, int rootId, MPI_Comm localComm)
 {
-  int bcvect[bcrec.vectSize()];
-  if(myLocalId == rootId) {
-    for(int i(0); i < bcrec.vectSize(); ++i) {
-      bcvect[i] = bcrec.vect()[i];
+    std::vector<int> bcvect(bcrec.vectSize());
+    if(myLocalId == rootId) {
+        for(int i(0); i < bcrec.vectSize(); ++i) {
+            bcvect[i] = bcrec.vect()[i];
+        }
     }
-  }
-  ParallelDescriptor::Bcast(bcvect, bcrec.vectSize(), rootId, localComm);
-  if(myLocalId != rootId) {
-    bcrec.setVect(bcvect);
-  }
+    ParallelDescriptor::Bcast(bcvect.data(), bcrec.vectSize(), rootId, localComm);
+    if(myLocalId != rootId) {
+        bcrec.setVect(bcvect.data());
+    }
 }
-
+    
 }
 

@@ -14,10 +14,10 @@
 #define _UNIONIF_H_
 
 #include "AMReX_RealVect.H"
-#include <vector>
+#include <AMReX_Array.H>
+#include <AMReX_Vector.H>
 #include "AMReX_BaseIF.H"
 
-using std::vector;
 namespace amrex
 {
 
@@ -33,7 +33,7 @@ namespace amrex
   public:
 
     ///
-    UnionIF(const vector<BaseIF*>& a_impFuncs);
+    UnionIF(const Vector<BaseIF*>& a_impFuncs);
    
    
     /// Destructor
@@ -52,7 +52,7 @@ namespace amrex
    
   protected:
     int             m_numFuncs; // number of implicit functions
-    vector<BaseIF*> m_impFuncs; // implicit functions
+    Vector<BaseIF*> m_impFuncs; // implicit functions
    
   private:
     UnionIF();

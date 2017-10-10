@@ -52,7 +52,7 @@ public:
                          const IntVect&   ratio,
                          const Geometry&  crse_geom,
                          const Geometry&  fine_geom,
-                         Array<BCRec>&    bcr,
+                         Vector<BCRec>&    bcr,
                          int              actual_comp,
                          int              actual_state) = 0;
     //
@@ -69,9 +69,11 @@ public:
                           const IntVect&   ratio,
                           const Geometry&  crse_geom,
                           const Geometry&  fine_geom,
-                          Array<BCRec>&    bcr) {};
+                          Vector<BCRec>&    bcr) {};
 
     virtual InterpolaterBoxCoarsener BoxCoarsener (const IntVect& ratio);
+
+    static Vector<int> GetBCArray (const Vector<BCRec>& bcr);
 };
 
 //
@@ -111,7 +113,7 @@ public:
                          const IntVect&   ratio,
                          const Geometry&  crse_geom,
                          const Geometry&  fine_geom,
-                         Array<BCRec>&    bcr,
+                         Vector<BCRec>&    bcr,
                          int              actual_comp,
                          int              actual_state) override;
 };
@@ -153,7 +155,7 @@ public:
                          const IntVect&   ratio,
                          const Geometry&  crse_geom,
                          const Geometry&  fine_geom,
-                         Array<BCRec>&    bcr,
+                         Vector<BCRec>&    bcr,
                          int              actual_comp,
                          int              actual_state) override;
 };
@@ -210,11 +212,11 @@ public:
                          const IntVect&   ratio,
                          const Geometry&  crse_geom,
                          const Geometry&  fine_geom,
-                         Array<BCRec>&    bcr,
+                         Vector<BCRec>&    bcr,
                          int              actual_comp,
                          int              actual_state) override;
 
-private:
+protected:
 
     bool do_linear_limiting;
 };
@@ -261,7 +263,7 @@ public:
                          const IntVect&   ratio,
                          const Geometry&  crse_geom,
                          const Geometry&  fine_geom,
-                         Array<BCRec>&    bcr,
+                         Vector<BCRec>&    bcr,
                          int              actual_comp,
                          int              actual_state) override;
 
@@ -279,7 +281,7 @@ public:
                           const IntVect&   ratio,
                           const Geometry&  crse_geom,
                           const Geometry&  fine_geom,
-                          Array<BCRec>&    bcr) override;
+                          Vector<BCRec>&    bcr) override;
 };
 
 //
@@ -323,7 +325,7 @@ public:
                          const IntVect&   ratio,
                          const Geometry&  crse_geom,
                          const Geometry&  fine_geom,
-                         Array<BCRec>&    bcr,
+                         Vector<BCRec>&    bcr,
                          int              actual_comp,
                          int              actual_state) override;
 private:
@@ -366,7 +368,7 @@ public:
                          const IntVect&   ratio,
                          const Geometry&  crse_geom,
                          const Geometry&  fine_geom,
-                         Array<BCRec>&    bcr,
+                         Vector<BCRec>&    bcr,
                          int              actual_comp,
                          int              actual_state) override;
 };
@@ -410,7 +412,7 @@ public:
                          const IntVect&   ratio,
                          const Geometry&  crse_geom,
                          const Geometry&  fine_geom,
-                         Array<BCRec>&    bcr,
+                         Vector<BCRec>&    bcr,
                          int              actual_comp,
                          int              actual_state) override;
 };

@@ -18,10 +18,133 @@
 #include "AMReX_VoFIterator.H"
 #include "AMReX_BoxIterator.H"
 #include "AMReX_DistributionMapping.H"
-#include "AMReX_Array.H"
-
+#include <AMReX_Array.H>
+#include <AMReX_Vector.H>
+#include "AMReX_PlotFileUtil.H"
+#include <cstdlib>
 namespace amrex
 {
+  void 
+  EBLevelDataOps::
+  viewEBLevel(const FabArray<EBCellFAB> * a_data, const EBLevelGrid* a_eblg)
+  {
+    Vector<string> names(a_data->nComp());
+    for(int icomp = 0; icomp < a_data->nComp(); icomp++)
+    {
+      names[icomp] = string("eb_var_") + EBArith::convertInt(icomp);
+    }
+    string filename("debug_file.plt");
+    writeSingleLevelEBPlotFile(filename, *a_data, *a_eblg, names);
+
+    string command = "visit -o " + filename + string("/Header");
+    int ret = std::system(command.c_str());
+    amrex::Print() << "data output to " << filename << ".  Visit was called and got return value " << ret << endl;
+  }
+  ///writes plotfile that visit can eat.   Just single-valued stuff
+  void 
+  EBLevelDataOps::
+  writeSingleLevelEBPlotFile(const std::string         & a_filename,
+                             const FabArray<EBCellFAB> & a_data,
+                             const EBLevelGrid         & a_eblg,
+                             const Vector<string>      & a_varNames)
+  {
+    MultiFab mfdata;
+    makePlotMultiFab(mfdata, a_data, a_eblg);
+    Vector<string> varNameArr(a_varNames.size());
+    Vector<string>& varNameArrCast = static_cast<Vector<string>& >(varNameArr);
+    varNameArrCast = a_varNames;
+    varNameArr.push_back(string("vfrac"));
+
+    Geometry geom(a_eblg.getDomain());
+    Real time = 0; int level_step = 0;  
+
+    WriteSingleLevelPlotfile(a_filename, mfdata, varNameArr, geom, time, level_step);
+  }
+
+  ///writes plotfile that visit can eat.   Just single-valued stuff
+  void 
+  EBLevelDataOps::
+  writeEBAMRPlotFile(const std::string                   & a_filename,
+                     const Vector<FabArray<EBCellFAB>* > & a_data,
+                     const Vector<EBLevelGrid>           & a_eblg,
+                     const Vector<int>                   & a_refRat,
+                     const Vector<string>                & a_varNames)
+  {
+    int nlevels = a_data.size();
+    Vector<IntVect>   refRatArr(nlevels, 2*IntVect::Unit);
+    for(int ilev = 0; ilev < a_refRat.size(); ilev++)
+    {
+      refRatArr[ilev] = a_refRat[ilev]*IntVect::Unit;
+    }
+
+
+    Vector<string>   varNameArr(a_varNames.size());
+    Vector<string>& varNameArrCast = static_cast<Vector<string>& >(varNameArr);
+    varNameArrCast = a_varNames;
+    varNameArr.push_back(string("vfrac"));
+
+    Vector<const MultiFab*> mfdata(nlevels);
+    Vector<Geometry> geom(nlevels);
+    for(int ilev = 0; ilev < nlevels; ilev++)
+    {
+      geom[ilev].define(a_eblg[ilev].getDomain());
+      mfdata[ilev] = new MultiFab();
+      MultiFab* castfab = const_cast<MultiFab*>(mfdata[ilev]);
+      makePlotMultiFab(*castfab, *a_data[ilev], a_eblg[ilev]);
+    }
+
+    Real time = 0; Vector<int> level_step(nlevels, 0);  
+    WriteMultiLevelPlotfile(a_filename, nlevels, mfdata, varNameArr, geom, time, level_step, refRatArr);
+
+    for(int ilev = 0; ilev < nlevels; ilev++)
+    {
+      delete mfdata[ilev];
+    }
+  }
+
+  /// tacks on volume fraction as the last variable
+  void 
+  EBLevelDataOps::
+  makePlotMultiFab(MultiFab                              & a_mfdata,
+                   const FabArray<EBCellFAB>             & a_ebdata,
+                   const EBLevelGrid                     & a_eblg)
+
+  {
+    DistributionMapping dm = a_ebdata.DistributionMap();
+    BoxArray            ba = a_ebdata.boxArray();
+    int ngrow = 0; //simplifies setting vfrac
+    int ncomp = a_ebdata.nComp() + 1 ; // + 1 for vol fraction
+    a_mfdata.define(ba, dm, ncomp, ngrow);
+    
+    for(MFIter mfi(ba, dm); mfi.isValid(); ++mfi)
+    {
+      BaseFab<Real>       & mfbf = static_cast<BaseFab<Real>&>(a_mfdata[mfi]);
+      const BaseFab<Real> & ebbf = a_ebdata[mfi].getSingleValuedFAB();
+      int isrc = 0; int idst = 0; int inco = ncomp-1; //last component gets vfrac.
+      mfbf.copy(ebbf, isrc, idst, inco);
+      Box valid = ba[mfi];
+      EBISBox ebis = a_eblg.getEBISL()[mfi];
+      for(BoxIterator bit(valid); bit.ok(); ++bit)
+      {
+        Real vfrac;
+        if(ebis.isRegular(bit()))
+        {
+          vfrac = 1;
+        }
+        else if(ebis.isCovered(bit()))
+        {
+          vfrac = 0;
+        }
+        else
+        {
+          VolIndex vof(bit(), 0);
+          vfrac = ebis.volFrac(vof);
+        }
+        mfbf(bit(), ncomp-1) = vfrac;
+      }
+    }
+  }
+
   //-----------------------------------------------------------------------
   Real 
   EBLevelDataOps::
@@ -81,7 +204,7 @@ namespace amrex
     int nvar                = a_ebcData.nComp();
     BoxArray ba             = a_eblg.getDBL();
     DistributionMapping  dm = a_eblg.getDM();
-    Array<Real*> ptrs(a_ebcData.local_size(), NULL);
+    Vector<Real*> ptrs(a_ebcData.local_size(), NULL);
     for(MFIter mfi(ba, dm); mfi.isValid(); ++mfi)
     {
       const BaseFab<Real>& bf = a_ebcData[mfi].getSingleValuedFAB();
@@ -106,7 +229,7 @@ namespace amrex
     indexType[a_faceDir] = 1;
     BoxArray baFace = convert(ba, indexType);
     DistributionMapping  dm = a_eblg.getDM();
-    Array<Real*> ptrs(a_ebfData.local_size(), NULL);
+    Vector<Real*> ptrs(a_ebfData.local_size(), NULL);
     for(MFIter mfi(ba, dm); mfi.isValid(); ++mfi)
     {
       const BaseFab<Real>& bf = a_ebfData[mfi][a_faceDir].getSingleValuedFAB();
@@ -451,6 +574,19 @@ namespace amrex
       a_result[mfi] *= a_value;
     }
   }
+
+  //-----------------------------------------------------------------------
+  void 
+  EBLevelDataOps::
+  scale(FabArray<EBCellFAB>       & a_result,
+        const FabArray<EBCellFAB> & a_value)
+  {
+    BL_PROFILE("EBLevelDataOps::scale_2");
+    for(MFIter mfi(a_result); mfi.isValid(); ++mfi)
+    {
+      a_result[mfi] *= a_value[mfi];
+    }
+  }
   //-----------------------------------------------------------------------
   void 
   EBLevelDataOps::
@@ -469,7 +605,7 @@ namespace amrex
   gatherBroadCast(Real& a_accum, Real& a_volume, const int& a_p)
   {
     BL_PROFILE("EBLevelDataOps::gatherBroadcast1");
-    //   std::vector<Real> accum(1,a_accum);
+    //   Vector<Real> accum(1,a_accum);
 //   gatherBroadCast(accum, a_volume, a_p);
 //   a_accum = accum[0];
 #ifdef BL_USE_MPI
@@ -593,7 +729,7 @@ namespace amrex
                const FabArray<EBCellFAB>       &   a_errorCoar,
                const EBLevelGrid               &   a_eblgFine,
                const EBLevelGrid               &   a_eblgCoar,
-               std::vector<string>                 a_names,
+               Vector<string>                 a_names,
                bool                                a_useGhost)
   {
     BL_ASSERT(a_errorFine.nComp() == a_errorCoar.nComp());
@@ -610,7 +746,7 @@ namespace amrex
     bool useDefaultNames = (a_names.size() < ncomp);
 
 
-    std::vector<Real> coarNorm[3], fineNorm[3], orders[3];  //one for each type of norm;
+    Vector<Real> coarNorm[3], fineNorm[3], orders[3];  //one for each type of norm;
     for (int p = 0; p <=2;  p++)
     {
       coarNorm[p].resize(ncomp, 0.);
