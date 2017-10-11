@@ -50,10 +50,10 @@ TagBox::coarsen (const IntVect& ratio, bool owner)
     const int* lo       = b1.loVect();
     int        longlen  = b1.longside();
 
-    Array<TagType> cfab(numpts);
+    Vector<TagType> cfab(numpts);
     TagType* cdat = cfab.dataPtr();
 
-    Array<TagType> t(longlen,TagBox::CLEAR);
+    Vector<TagType> t(longlen,TagBox::CLEAR);
 
     int klo = 0, khi = 0, jlo = 0, jhi = 0, ilo, ihi;
     AMREX_D_TERM(ilo=flo[0]; ihi=fhi[0]; ,
@@ -136,13 +136,13 @@ TagBox::buffer (int nbuff,
                 TagType* d_check = d + OFF(i,j,k,lo,len);
                 if (*d_check == TagBox::SET)
                 {
-                    for (int k = -nk; k <= nk; k++)
+                    for (int kk = -nk; kk <= nk; kk++)
                     {
-                        for (int j = -nj; j <= nj; j++)
+                        for (int jj = -nj; jj <= nj; jj++)
                         {
-                            for (int i = -ni; i <= ni; i++)
+                            for (int ii = -ni; ii <= ni; ii++)
                             {
-                                TagType* dn = d_check+ AMREX_D_TERM(i, +j*len[0], +k*len[0]*len[1]);
+                                TagType* dn = d_check+ AMREX_D_TERM(ii, +jj*len[0], +kk*len[0]*len[1]);
                                 if (*dn !=TagBox::SET)
                                     *dn = TagBox::BUF;
                             }
@@ -167,10 +167,10 @@ TagBox::merge (const TagBox& src)
     {
         const int*     dlo        = domain.loVect();
         IntVect        d_length   = domain.size();
-        const int*     dlen       = d_length.getVect();
+        const int*     dleng      = d_length.getVect();
         const int*     slo        = src.domain.loVect();
         IntVect        src_length = src.domain.size();
-        const int*     slen       = src_length.getVect();
+        const int*     sleng      = src_length.getVect();
         const int*     lo         = bx.loVect();
         const int*     hi         = bx.hiVect();
         const TagType* ds0        = src.dataPtr();
@@ -189,10 +189,10 @@ TagBox::merge (const TagBox& src)
             {
                 for (int i = ilo; i <= ihi; i++)
                 {
-                    const TagType* ds = ds0 + OFF(i,j,k,slo,slen);
+                    const TagType* ds = ds0 + OFF(i,j,k,slo,sleng);
                     if (*ds != TagBox::CLEAR)
                     {
-                        TagType* dd = dd0 + OFF(i,j,k,dlo,dlen);
+                        TagType* dd = dd0 + OFF(i,j,k,dlo,dleng);
                         *dd = TagBox::SET;
                     }            
                 }
@@ -258,10 +258,10 @@ TagBox::collate (std::vector<IntVect>& ar, int start) const
     return count;
 }
 
-Array<int>
+Vector<int>
 TagBox::tags () const
 {
-    Array<int> ar(domain.numPts(), TagBox::CLEAR);
+    Vector<int> ar(domain.numPts(), TagBox::CLEAR);
 
     const TagType* cptr = dataPtr();
     int*           iptr = ar.dataPtr();
@@ -279,7 +279,7 @@ TagBox::tags () const
 // Set values as specified by the array -- this only tags.
 // It's an error if ar.length() != domain.numPts().
 void
-TagBox::tags (const Array<int>& ar)
+TagBox::tags (const Vector<int>& ar)
 {
     BL_ASSERT(ar.size() == domain.numPts());
 
@@ -296,7 +296,7 @@ TagBox::tags (const Array<int>& ar)
 // Set values as specified by the array -- this tags and untags.
 // It's an error if ar.length() != domain.numPts().
 void
-TagBox::tags_and_untags (const Array<int>& ar)
+TagBox::tags_and_untags (const Vector<int>& ar)
 {
     BL_ASSERT(ar.size() == domain.numPts());
 
@@ -314,7 +314,7 @@ TagBox::tags_and_untags (const Array<int>& ar)
 // function to allocate an integer array to have the same number 
 // of elements as cells in tilebx
 void 
-TagBox::get_itags(Array<int>& ar, const Box& tilebx) const
+TagBox::get_itags(Vector<int>& ar, const Box& tilebx) const
 {
     int Lbx[] = {1,1,1};
     for (int idim=0; idim<BL_SPACEDIM; idim++) {
@@ -354,7 +354,7 @@ TagBox::get_itags(Array<int>& ar, const Box& tilebx) const
 // Set values as specified by the array -- this only tags.
 // only changes values in the tilebx region
 void 
-TagBox::tags (const Array<int>& ar, const Box& tilebx)
+TagBox::tags (const Vector<int>& ar, const Box& tilebx)
 {
     int Lbx[] = {1,1,1};
     for (int idim=0; idim<BL_SPACEDIM; idim++) {
@@ -387,7 +387,7 @@ TagBox::tags (const Array<int>& ar, const Box& tilebx)
 // Set values as specified by the array -- this tags and untags.
 // only changes values in the tilebx region
 void 
-TagBox::tags_and_untags (const Array<int>& ar, const Box& tilebx)
+TagBox::tags_and_untags (const Vector<int>& ar, const Box& tilebx)
 {
     int Lbx[] = {1,1,1};
     for (int idim=0; idim<BL_SPACEDIM; idim++) {
@@ -420,7 +420,7 @@ TagBoxArray::TagBoxArray (const BoxArray& ba,
 			  const DistributionMapping& dm,
                           int             _ngrow)
     :
-    FabArray<TagBox>(ba,dm,1,_ngrow)
+    FabArray<TagBox>(ba,dm,1,_ngrow,MFInfo(),DefaultFabFactory<TagBox>())
 {
     if (SharedMemory()) setVal(TagBox::CLEAR);
 }

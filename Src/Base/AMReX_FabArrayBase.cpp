@@ -3,9 +3,14 @@
 #include <AMReX_ParmParse.H>
 #include <AMReX_Utility.H>
 #include <AMReX_Geometry.H>
+#include <AMReX_FArrayBox.H>
 
 #ifdef BL_MEM_PROFILING
 #include <AMReX_MemProfiler.H>
+#endif
+
+#ifdef AMREX_USE_EB
+#include <AMReX_EBFabFactory.H>
 #endif
 
 namespace amrex {
@@ -75,7 +80,7 @@ FabArrayBase::Initialize ()
 
     ParmParse pp("fabarray");
 
-    Array<int> tilesize(BL_SPACEDIM);
+    Vector<int> tilesize(BL_SPACEDIM);
 
     if (pp.queryarr("mfiter_tile_size", tilesize, 0, BL_SPACEDIM))
     {
@@ -259,9 +264,9 @@ FabArrayBase::CPC::CPC (const FabArrayBase& dstfa, int dstng,
 }
 
 FabArrayBase::CPC::CPC (const BoxArray& dstba, const DistributionMapping& dstdm, 
-			const Array<int>& dstidx, int dstng,
+			const Vector<int>& dstidx, int dstng,
 			const BoxArray& srcba, const DistributionMapping& srcdm, 
-			const Array<int>& srcidx, int srcng,
+			const Vector<int>& srcidx, int srcng,
 			const Periodicity& period, int myproc)
     : m_srcbdk(), 
       m_dstbdk(), 
@@ -287,9 +292,9 @@ FabArrayBase::CPC::~CPC ()
 
 void
 FabArrayBase::CPC::define (const BoxArray& ba_dst, const DistributionMapping& dm_dst,
-			   const Array<int>& imap_dst,
+			   const Vector<int>& imap_dst,
 			   const BoxArray& ba_src, const DistributionMapping& dm_src,
-			   const Array<int>& imap_src,
+			   const Vector<int>& imap_src,
 			   int MyProc)
 {
     BL_PROFILE("FabArrayBase::CPC::define()");
@@ -590,7 +595,7 @@ FabArrayBase::FB::define_fb(const FabArrayBase& fa)
     const int                  MyProc   = ParallelDescriptor::MyProc();
     const BoxArray&            ba       = fa.boxArray();
     const DistributionMapping& dm       = fa.DistributionMap();
-    const Array<int>&          imap     = fa.IndexArray();
+    const Vector<int>&          imap     = fa.IndexArray();
 
     // For local copy, all workers in the same team will have the identical copy of tags
     // so that they can share work.  But for remote communication, they are all different.
@@ -712,7 +717,7 @@ FabArrayBase::FB::define_fb(const FabArrayBase& fa)
 	CopyComTag::MapOfCopyComTagContainers & Tags = (ipass == 0) ? *m_SndTags : *m_RcvTags;
 	CopyComTag::MapOfCopyComTagContainers & Vols = (ipass == 0) ? *m_SndVols : *m_RcvVols;
 
-        Array<int> to_be_deleted;
+        Vector<int> to_be_deleted;
 	    
         for (auto& kv : Vols)
 	{
@@ -801,7 +806,7 @@ FabArrayBase::FB::define_epo (const FabArrayBase& fa)
     const int                  MyProc   = ParallelDescriptor::MyProc();
     const BoxArray&            ba       = fa.boxArray();
     const DistributionMapping& dm       = fa.DistributionMap();
-    const Array<int>&          imap     = fa.IndexArray();
+    const Vector<int>&          imap     = fa.IndexArray();
 
     // For local copy, all workers in the same team will have the identical copy of tags
     // so that they can share work.  But for remote communication, they are all different.
@@ -1053,9 +1058,10 @@ FabArrayBase::getFB (const Periodicity& period, bool cross, bool enforce_periodi
 
 FabArrayBase::FPinfo::FPinfo (const FabArrayBase& srcfa,
 			      const FabArrayBase& dstfa,
-			      Box                 dstdomain,
+			      const Box&          dstdomain,
 			      int                 dstng,
-			      const BoxConverter& coarsener)
+			      const BoxConverter& coarsener,
+                              const Box&          cdomain)
     : m_srcbdk   (srcfa.getBDKey()),
       m_dstbdk   (dstfa.getBDKey()),
       m_dstdomain(dstdomain),
@@ -1079,7 +1085,7 @@ FabArrayBase::FPinfo::FPinfo (const FabArrayBase& srcfa,
     const int myproc = ParallelDescriptor::MyProc();
 
     BoxList bl(boxtype);
-    Array<int> iprocs;
+    Vector<int> iprocs;
 
     for (int i = 0, N = dstba.size(); i < N; ++i)
     {
@@ -1104,6 +1110,14 @@ FabArrayBase::FPinfo::FPinfo (const FabArrayBase& srcfa,
     if (!iprocs.empty()) {
 	ba_crse_patch.define(bl);
 	dm_crse_patch.define(iprocs);
+#ifdef AMREX_USE_EB
+        fact_crse_patch.reset(new EBFArrayBoxFactory(Geometry(cdomain),
+                                                     ba_crse_patch,
+                                                     dm_crse_patch,
+                                                     {0,0,0}, EBSupport::basic));
+#else
+        fact_crse_patch.reset(new FArrayBoxFactory());
+#endif
     }
 }
 
@@ -1124,9 +1138,10 @@ FabArrayBase::FPinfo::bytes () const
 const FabArrayBase::FPinfo&
 FabArrayBase::TheFPinfo (const FabArrayBase& srcfa,
 			 const FabArrayBase& dstfa,
-			 Box                 dstdomain,
+			 const Box&          dstdomain,
 			 int                 dstng,
-			 const BoxConverter& coarsener)
+			 const BoxConverter& coarsener,
+                         const Box&          cdomain)
 {
     BL_PROFILE("FabArrayBase::TheFPinfo()");
 
@@ -1151,7 +1166,7 @@ FabArrayBase::TheFPinfo (const FabArrayBase& srcfa,
     }
 
     // Have to build a new one
-    FPinfo* new_fpc = new FPinfo(srcfa, dstfa, dstdomain, dstng, coarsener);
+    FPinfo* new_fpc = new FPinfo(srcfa, dstfa, dstdomain, dstng, coarsener, cdomain);
 
 #ifdef BL_MEM_PROFILING
     m_FPinfo_stats.bytes += new_fpc->bytes();
@@ -1232,7 +1247,7 @@ FabArrayBase::CFinfo::CFinfo (const FabArrayBase& finefa,
     const DistributionMapping& fdm = finefa.DistributionMap();
 
     BoxList bl(fba.ixType());
-    Array<int> iprocs;
+    Vector<int> iprocs;
     const int myproc = ParallelDescriptor::MyProc();
 
     for (int i = 0, N = fba.size(); i < N; ++i)
@@ -1598,9 +1613,9 @@ FabArrayBase::updateBDKey ()
 
 void
 FabArrayBase::WaitForAsyncSends (int                 N_snds,
-                                 Array<MPI_Request>& send_reqs,
-                                 Array<char*>&       send_data,
-                                 Array<MPI_Status>&  stats)
+                                 Vector<MPI_Request>& send_reqs,
+                                 Vector<char*>&       send_data,
+                                 Vector<MPI_Status>&  stats)
 {
 #ifdef BL_USE_MPI
     BL_ASSERT(N_snds > 0);
@@ -1610,7 +1625,7 @@ FabArrayBase::WaitForAsyncSends (int                 N_snds,
     BL_ASSERT(send_reqs.size() == N_snds);
     BL_ASSERT(send_data.size() == N_snds);
 
-    Array<int> indx;
+    Vector<int> indx;
     BL_COMM_PROFILE_WAITSOME(BLProfiler::Waitall, send_reqs, N_snds, indx, stats, false);
 
     BL_MPI_REQUIRE( MPI_Waitall(N_snds, send_reqs.dataPtr(), stats.dataPtr()) );
@@ -1628,7 +1643,7 @@ FabArrayBase::WaitForAsyncSends (int                 N_snds,
 #ifdef BL_USE_UPCXX
 void
 FabArrayBase::WaitForAsyncSends_PGAS (int                 N_snds,
-                                      Array<char*>&       send_data,
+                                      Vector<char*>&       send_data,
                                       upcxx::event*       send_event,
                                       volatile int*       send_counter)
 {
@@ -1650,15 +1665,17 @@ FabArrayBase::WaitForAsyncSends_PGAS (int                 N_snds,
 
 #ifdef BL_USE_MPI
 bool
-FabArrayBase::CheckRcvStats(const Array<MPI_Status>& recv_stats,
-			    const Array<int>& recv_size,
+FabArrayBase::CheckRcvStats(Vector<MPI_Status>& recv_stats,
+			    const Vector<int>& recv_size,
 			    MPI_Datatype datatype, int tag)
 {
     bool r = true;
     for (int i = 0, n = recv_size.size(); i < n; ++i) {
 	if (recv_size[i] > 0) {
 	    int count;
+
 	    MPI_Get_count(&recv_stats[i], datatype, &count);
+
 	    if (count != recv_size[i]) {
 		r = false;
 		amrex::AllPrint() << "ERROR: Proc. " << ParallelDescriptor::MyProc()
@@ -1674,5 +1691,12 @@ FabArrayBase::CheckRcvStats(const Array<MPI_Status>& recv_stats,
     return r;
 }
 #endif
+
+std::ostream&
+operator<< (std::ostream& os, const FabArrayBase::BDKey& id)
+{
+    os << "(" << id.m_ba_id << ", " << id.m_dm_id << ")";
+    return os;
+}
 
 }

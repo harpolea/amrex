@@ -5,7 +5,7 @@
 namespace amrex {
 
 MultiMask::MultiMask (const BoxArray& ba, const DistributionMapping& dm, int ncomp)
-    : m_fa(ba, dm, ncomp, 0)
+    : m_fa(ba, dm, ncomp, 0, MFInfo(), DefaultFabFactory<Mask>())
 { }
 
 MultiMask::MultiMask (const BoxArray& regba, const DistributionMapping& dm, const Geometry& geom,
@@ -18,7 +18,7 @@ void
 MultiMask::define (const BoxArray& ba, const DistributionMapping& dm, int ncomp)
 {
     BL_ASSERT(m_fa.size() == 0);
-    m_fa.define(ba,dm,ncomp,0);
+    m_fa.define(ba,dm,ncomp,0,MFInfo(),DefaultFabFactory<Mask>());
 }
 
 void
@@ -29,14 +29,14 @@ MultiMask::define (const BoxArray& regba, const DistributionMapping& dm, const G
 
     BndryBATransformer bbatrans(face,IndexType::TheCellType(),in_rad,out_rad,extent_rad);
     BoxArray mskba(regba, bbatrans);
-    m_fa.define(mskba, dm, ncomp, 0);
+    m_fa.define(mskba, dm, ncomp, 0, MFInfo(), DefaultFabFactory<Mask>());
     
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
     if (initval)
     {
-	Array<IntVect> pshifts(26);
+	Vector<IntVect> pshifts(26);
 	std::vector< std::pair<int,Box> > isects;
 
 	for (MFIter mfi(m_fa); mfi.isValid(); ++mfi)
@@ -54,7 +54,7 @@ MultiMask::define (const BoxArray& regba, const DistributionMapping& dm, const G
 	    {
 		geom.periodicShift(geom.Domain(), face_box, pshifts);
 		
-		for (Array<IntVect>::const_iterator it = pshifts.begin(), End = pshifts.end();
+		for (Vector<IntVect>::const_iterator it = pshifts.begin(), End = pshifts.end();
 		     it != End;
 		     ++it)
 		{
@@ -80,7 +80,7 @@ MultiMask::define (const BoxArray& regba, const DistributionMapping& dm, const G
 		// Handle special cases if periodic: "face_box" hasn't changed;
 		// reuse pshifts from above.
 		//
-		for (Array<IntVect>::const_iterator it = pshifts.begin(), End = pshifts.end();
+		for (Vector<IntVect>::const_iterator it = pshifts.begin(), End = pshifts.end();
 		     it != End;
 		     ++it)
 		{

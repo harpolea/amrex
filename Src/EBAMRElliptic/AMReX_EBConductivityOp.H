@@ -83,8 +83,7 @@ namespace amrex
                      const Real&                                       a_beta,
                      const shared_ptr<FabArray<EBCellFAB> >&           a_acoef,
                      const shared_ptr<FabArray<EBFluxFAB> >&           a_bcoef,
-                     const int&                                        a_ghostCellsPhi,
-                     const int&                                        a_ghostCellsRHS);
+                     const int&                                        a_ghost);
     
     
     ~EBConductivityOp()
@@ -346,8 +345,7 @@ namespace amrex
     virtual void AMRRestrict(FabArray<EBCellFAB>& a_resCoarse,
                              const FabArray<EBCellFAB>& a_residual,
                              const FabArray<EBCellFAB>& a_correction,
-                             const FabArray<EBCellFAB>& a_coarseCorrection, 
-                             bool a_skip_res = false );
+                             const FabArray<EBCellFAB>& a_coarseCorrection);
     
     ///
     /** a_correction += I[2h->h](a_coarseCorrection) */
@@ -442,8 +440,7 @@ namespace amrex
                         const MFIter&              a_datInd,
                         const int&                    a_idir);
     
-    const int                   m_ghostPhi;
-    const int                   m_ghostRHS;
+    const int                   m_ghost;
     
     
     EBLevelGrid                     m_eblg;

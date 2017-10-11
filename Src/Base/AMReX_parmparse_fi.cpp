@@ -1,6 +1,7 @@
 #include <cstring>
 #include <AMReX_ParmParse.H>
 #include <AMReX_Array.H>
+#include <AMReX_Vector.H>
 #include <AMReX_REAL.H>
 #include <AMReX_Print.H>
 
@@ -58,7 +59,7 @@ extern "C"
 
     void amrex_parmparse_get_intarr (ParmParse* pp, const char* name, int v[], int len)
     {
-	Array<int> r;
+	Vector<int> r;
 	pp->getarr(name, r);
 	for (int i = 0; i < len; ++i) {
 	    v[i] = r[i];
@@ -67,7 +68,7 @@ extern "C"
 
     void amrex_parmparse_get_realarr (ParmParse* pp, const char* name, Real v[], int len)
     {
-	Array<Real> r;
+	Vector<Real> r;
 	pp->getarr(name, r);
 	for (int i = 0; i < len; ++i) {
 	    v[i] = r[i];
@@ -78,7 +79,7 @@ extern "C"
     {
         std::vector<std::string> b;
         pp->getarr(name, b);
-        BL_ASSERT(n == b.size());
+        BL_ASSERT(n == static_cast<int>(b.size()));
         for (int i = 0; i < n; ++i) {
             sv[i] = b[i].size() + 1;
             v[i] = new char[sv[i]];

@@ -455,7 +455,7 @@ read_file (const char*                     fname,
     //
     if ( fname != 0 && fname[0] != 0 )
     {
-	Array<char> fileCharPtr;
+	Vector<char> fileCharPtr;
 	std::string filename = fname;
 	ParallelDescriptor::ReadAndBcastFile(filename, fileCharPtr);
 	const char* b = fileCharPtr.dataPtr();
@@ -915,8 +915,8 @@ ParmParse::ParmParse (const std::string& prefix)
     m_pstack.push(prefix);
 }
 
-ParmParse::ParmParse (const Table& table)
-    : m_table(table)
+ParmParse::ParmParse (const Table& a_table)
+    : m_table(a_table)
 {
     m_pstack.push("");
 }
@@ -1840,7 +1840,7 @@ void
 Fstring_2_int (int istr[], int nlen, const std::string& str)
 {
     int i;
-    for ( i = 0; i < nlen-1 && i < str.size(); ++i )
+    for ( i = 0; i < nlen-1 && i < static_cast<int>(str.size()); ++i )
     {
 	istr[i] = str[i];
     }

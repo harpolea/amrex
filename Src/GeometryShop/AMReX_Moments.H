@@ -14,7 +14,8 @@
 #ifndef _MOMENTS_H_
 #define _MOMENTS_H_
 
-#include <vector>
+#include <AMReX_Array.H>
+#include <AMReX_Vector.H>
 #include "AMReX_REAL.H"
 #include "AMReX_RealVect.H"
 
@@ -120,16 +121,8 @@ namespace amrex
     Real     m_bdLength;
 
     // disallowed for all the usual reasons
-    void operator=(const faceMo& a_input)
-    {
-      amrex::Abort("invalid operator");
-    };
-
-    // disallowed for all the usual reasons
-    faceMo(const faceMo& a_input)
-    {
-      amrex::Abort("invalid operator");
-    };
+    void operator=(const faceMo& a_input) = delete;
+    faceMo(const faceMo& a_input) = delete;
   };
 
   /////////////////////////////////class vofMo////////////////////////////////////
@@ -164,18 +157,18 @@ namespace amrex
   public:
     Moments();
 
-    std::vector<Real> momentCalc3D(const int& a_order,
+    Vector<Real> momentCalc3D(const int& a_order,
                                    vofMo&     a_vof);
 
-    std::vector<Real> momentCalc2D(const int&    a_order,
+    Vector<Real> momentCalc2D(const int&    a_order,
                                    const faceMo& a_face);
 
     void  listOfMoments(const int           & a_order,
-                        std::vector<IntVect>& a_exponents);
+                        Vector<IntVect>& a_exponents);
 
-    void makeMatrix(const std::vector<IntVect>& a_list,
-                    const std::vector<IntVect>& a_listPlus,
-                    const std::vector<Real>   & a_normalVec,
+    void makeMatrix(const Vector<IntVect>& a_list,
+                    const Vector<IntVect>& a_listPlus,
+                    const Vector<Real>   & a_normalVec,
                     Real**                      a_A,
                     const int&                  a_faceNormal=999
                     ); //use default faceNormal for 3D matrix or when SpaceDim==2

@@ -10,7 +10,6 @@
 #include <AMReX_MultiFab.H>
 #include <AMReX_ParallelDescriptor.H>
 #include <AMReX_BLProfiler.H>
-#include <AMReX_ParmParse.H>
 #include <AMReX_iMultiFab.H>
 #include <AMReX_BaseFab_f.H>
 
@@ -375,9 +374,10 @@ MultiFab::MultiFab (const BoxArray&            bxs,
                     const DistributionMapping& dm,
                     int                        ncomp,
                     int                        ngrow,
-		    const MFInfo&              info)
+		    const MFInfo&              info,
+                    const FabFactory<FArrayBox>& factory)
     :
-    FabArray<FArrayBox>(bxs,dm,ncomp,ngrow,info)
+    FabArray<FArrayBox>(bxs,dm,ncomp,ngrow,info,factory)
 {
     if (SharedMemory() && info.alloc) initVal();  // else already done in FArrayBox
 #ifdef BL_MEM_PROFILING
@@ -397,7 +397,7 @@ MultiFab::MultiFab (const MultiFab& rhs, MakeType maketype, int scomp, int ncomp
 }
 
 MultiFab::MultiFab (const BoxArray& ba, const DistributionMapping& dm, int ncomp, int ngrow,
-                    const Array<Real*>& p)
+                    const Vector<Real*>& p)
     :
     FabArray<FArrayBox>(ba, dm, ncomp, ngrow, p)
 {
@@ -645,13 +645,13 @@ MultiFab::minIndex (int comp,
 
 	for (MFIter mfi(*this); mfi.isValid(); ++mfi)
 	{
-	    const Box& box = amrex::grow(mfi.validbox(),nghost);
-	    const Real lmn = get(mfi).min(box,comp);
+	    const Box& bx = amrex::grow(mfi.validbox(),nghost);
+	    const Real lmn = get(mfi).min(bx,comp);
 
 	    if (lmn < priv_mn)
 	    {
 		priv_mn  = lmn;
-		priv_loc = get(mfi).minIndex(box,comp);
+		priv_loc = get(mfi).minIndex(bx,comp);
 	    }
 	}
 #ifdef _OPENMP
@@ -669,8 +669,8 @@ MultiFab::minIndex (int comp,
 
     if (NProcs > 1)
     {
-        Array<Real> mns(1);
-        Array<int>  locs(1);
+        Vector<Real> mns(1);
+        Vector<int>  locs(1);
 
         if (ParallelDescriptor::IOProcessor())
         {
@@ -730,13 +730,13 @@ MultiFab::maxIndex (int comp,
 	
 	for (MFIter mfi(*this); mfi.isValid(); ++mfi)
 	{
-	    const Box& box = amrex::grow(mfi.validbox(),nghost);
-	    const Real lmx = get(mfi).max(box,comp);
+	    const Box& bx = amrex::grow(mfi.validbox(),nghost);
+	    const Real lmx = get(mfi).max(bx,comp);
 
 	    if (lmx > priv_mx)
 	    {
 		priv_mx  = lmx;
-		priv_loc = get(mfi).maxIndex(box,comp);
+		priv_loc = get(mfi).maxIndex(bx,comp);
 	    }
 	}
 #ifdef _OPENMP
@@ -754,8 +754,8 @@ MultiFab::maxIndex (int comp,
 
     if (NProcs > 1)
     {
-        Array<Real> mxs(1);
-        Array<int>  locs(1);
+        Vector<Real> mxs(1);
+        Vector<int>  locs(1);
 
         if (ParallelDescriptor::IOProcessor())
         {
@@ -842,19 +842,19 @@ MultiFab::norm0 (int comp, int nghost, bool local) const
     return nm0;
 }
 
-Array<Real>
-MultiFab::norm0 (const Array<int>& comps, int nghost, bool local) const
+Vector<Real>
+MultiFab::norm0 (const Vector<int>& comps, int nghost, bool local) const
 {
     int n = comps.size();
     const Real rmax = std::numeric_limits<Real>::max();
-    Array<Real> nm0(n, -rmax);
+    Vector<Real> nm0(n, -rmax);
 
 #ifdef _OPENMP
     int nthreads = omp_get_max_threads();
 #else
     int nthreads = 1;
 #endif
-    Array<Array<Real> > priv_nm0(nthreads, Array<Real>(n, -rmax));
+    Vector<Vector<Real> > priv_nm0(nthreads, Vector<Real>(n, -rmax));
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -895,7 +895,7 @@ MultiFab::norm2 (int comp) const
     BL_ASSERT(ixType().cellCentered());
 
     // Dot expects two MultiDabs. Make a copy to avoid aliasing.
-    MultiFab tmpmf(boxArray(), DistributionMap(), 1, 0);
+    MultiFab tmpmf(boxArray(), DistributionMap(), 1, 0, MFInfo(), Factory());
     MultiFab::Copy(tmpmf, *this, comp, 0, 1, 0);
 
     Real nm2 = MultiFab::Dot(*this, comp, tmpmf, 0, 1, 0);
@@ -906,7 +906,7 @@ MultiFab::norm2 (int comp) const
 Real
 MultiFab::norm2 (int comp, const Periodicity& period) const
 {
-    MultiFab tmpmf(boxArray(), DistributionMap(), 1, 0);
+    MultiFab tmpmf(boxArray(), DistributionMap(), 1, 0, MFInfo(), Factory());
     MultiFab::Copy(tmpmf, *this, comp, 0, 1, 0);
 
     auto mask = OverlapMask(period);
@@ -917,20 +917,20 @@ MultiFab::norm2 (int comp, const Periodicity& period) const
     return nm2;
 }
 
-Array<Real>
-MultiFab::norm2 (const Array<int>& comps) const
+Vector<Real>
+MultiFab::norm2 (const Vector<int>& comps) const
 {
     BL_ASSERT(ixType().cellCentered());
 
     int n = comps.size();
-    Array<Real> nm2(n, 0.e0);
+    Vector<Real> nm2(n, 0.e0);
 
 #ifdef _OPENMP
     int nthreads = omp_get_max_threads();
 #else
     int nthreads = 1;
 #endif
-    Array<Array<Real> > priv_nm2(nthreads, Array<Real>(n, 0.0));
+    Vector<Vector<Real> > priv_nm2(nthreads, Vector<Real>(n, 0.0));
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -973,7 +973,7 @@ MultiFab::norm2 (const Array<int>& comps) const
 Real
 MultiFab::norm1 (int comp, const Periodicity& period) const
 {
-    MultiFab tmpmf(boxArray(), DistributionMap(), 1, 0);
+    MultiFab tmpmf(boxArray(), DistributionMap(), 1, 0, MFInfo(), Factory());
     MultiFab::Copy(tmpmf, *this, comp, 0, 1, 0);
 
     auto mask = OverlapMask(period);
@@ -1003,20 +1003,20 @@ MultiFab::norm1 (int comp, int ngrow, bool local) const
     return nm1;
 }
 
-Array<Real>
-MultiFab::norm1 (const Array<int>& comps, int ngrow, bool local) const
+Vector<Real>
+MultiFab::norm1 (const Vector<int>& comps, int ngrow, bool local) const
 {
     BL_ASSERT(ixType().cellCentered());
 
     int n = comps.size();
-    Array<Real> nm1(n, 0.e0);
+    Vector<Real> nm1(n, 0.e0);
 
 #ifdef _OPENMP
     int nthreads = omp_get_max_threads();
 #else
     int nthreads = 1;
 #endif
-    Array<Array<Real> > priv_nm1(nthreads, Array<Real>(n, 0.0));
+    Vector<Vector<Real> > priv_nm1(nthreads, Vector<Real>(n, 0.0));
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -1314,7 +1314,7 @@ MultiFab::SumBoundary (int scomp, int ncomp, const Periodicity& period)
 	// Self copy is safe only for cell-centered MultiFab
 	this->copy(*this,scomp,scomp,ncomp,n_grow,0,period,FabArrayBase::ADD);
     } else {
-	MultiFab tmp(boxArray(), DistributionMap(), ncomp, n_grow);
+	MultiFab tmp(boxArray(), DistributionMap(), ncomp, n_grow, MFInfo(), Factory());
 	MultiFab::Copy(tmp, *this, scomp, 0, ncomp, n_grow);
 	this->setVal(0.0, scomp, ncomp, 0);
 	this->copy(tmp,0,scomp,ncomp,n_grow,0,period,FabArrayBase::ADD);
@@ -1333,7 +1333,7 @@ MultiFab::OverlapMask (const Periodicity& period) const
     const BoxArray& ba = boxArray();
     const DistributionMapping& dm = DistributionMap();
 
-    std::unique_ptr<MultiFab> p{new MultiFab(ba,dm,1,0)};
+    std::unique_ptr<MultiFab> p{new MultiFab(ba,dm,1,0, MFInfo(), Factory())};
     p->setVal(0.0);
 
 #ifdef _OPENMP
@@ -1370,7 +1370,8 @@ MultiFab::OwnerMask (const Periodicity& period) const
     const int owner = 1;
     const int nonowner = 0;
 
-    std::unique_ptr<iMultiFab> p{new iMultiFab(ba,dm,1,0)};
+    std::unique_ptr<iMultiFab> p{new iMultiFab(ba,dm,1,0, MFInfo(),
+                                               DefaultFabFactory<IArrayBox>())};
     p->setVal(owner);
 
 #ifdef _OPENMP
@@ -1423,7 +1424,7 @@ MultiFab::WeightedSync (const MultiFab& wgt, const Periodicity& period)
         MultiFab::Multiply(*this, wgt, 0, comp, 1, 0);
     }
     
-    MultiFab tmpmf(boxArray(), DistributionMap(), ncomp, 0);
+    MultiFab tmpmf(boxArray(), DistributionMap(), ncomp, 0, MFInfo(), Factory());
     tmpmf.setVal(0.0);
     tmpmf.ParallelCopy(*this, period, FabArrayBase::ADD);
 
@@ -1459,7 +1460,7 @@ MultiFab::OverrideSync (const iMultiFab& msk, const Periodicity& period)
                                 0.0);
     }
     
-    MultiFab tmpmf(boxArray(), DistributionMap(), ncomp, 0);
+    MultiFab tmpmf(boxArray(), DistributionMap(), ncomp, 0, MFInfo(), Factory());
     tmpmf.setVal(0.0);
     tmpmf.ParallelCopy(*this, period, FabArrayBase::ADD);
 

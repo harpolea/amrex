@@ -118,17 +118,19 @@ Geometry::Setup (const RealBox* rb, int coord, int* isper)
     }
 
     if (rb == nullptr) {
-        Array<Real> prob_lo(BL_SPACEDIM);
-        Array<Real> prob_hi(BL_SPACEDIM);
+        Vector<Real> prob_lo(BL_SPACEDIM);
+        Vector<Real> prob_hi(BL_SPACEDIM);
         pp.getarr("prob_lo",prob_lo,0,BL_SPACEDIM);
         BL_ASSERT(prob_lo.size() == BL_SPACEDIM);
         pp.getarr("prob_hi",prob_hi,0,BL_SPACEDIM);
         BL_ASSERT(prob_lo.size() == BL_SPACEDIM);
         prob_domain.setLo(prob_lo);
         prob_domain.setHi(prob_hi);
+        SetOffset(prob_lo.data());
     } else {
         prob_domain.setLo(rb->lo());
         prob_domain.setHi(rb->hi());
+        SetOffset(rb->lo());
     }
 
     pp.query("spherical_origin_fix", Geometry::spherical_origin_fix);
@@ -138,7 +140,7 @@ Geometry::Setup (const RealBox* rb, int coord, int* isper)
     //
     if (isper == nullptr)
     {
-        Array<int> is_per(BL_SPACEDIM,0);
+        Vector<int> is_per(BL_SPACEDIM,0);
         pp.queryarr("is_periodic",is_per,0,BL_SPACEDIM);
         for (int n = 0; n < BL_SPACEDIM; n++)  
             is_periodic[n] = is_per[n];
@@ -158,7 +160,7 @@ Geometry::GetVolume (MultiFab&       vol,
 		     const DistributionMapping& dm,
                      int             ngrow) const
 {
-    vol.define(grds,dm,1,ngrow);
+    vol.define(grds,dm,1,ngrow,MFInfo(),FArrayBoxFactory());
     GetVolume(vol);
 }
 
@@ -191,7 +193,7 @@ Geometry::GetDLogA (MultiFab&       dloga,
                     int             dir,
                     int             ngrow) const
 {
-    dloga.define(grds,dm,1,ngrow);
+    dloga.define(grds,dm,1,ngrow,MFInfo(),FArrayBoxFactory());
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -211,7 +213,7 @@ Geometry::GetFaceArea (MultiFab&       area,
 {
     BoxArray edge_boxes(grds);
     edge_boxes.surroundingNodes(dir);
-    area.define(edge_boxes,dm,1,ngrow);
+    area.define(edge_boxes,dm,1,ngrow,MFInfo(),FArrayBoxFactory());
 
     GetFaceArea(area, dir);
 }
@@ -242,7 +244,7 @@ Geometry::GetFaceArea (FArrayBox&      area,
 void
 Geometry::periodicShift (const Box&      target,
                          const Box&      src, 
-                         Array<IntVect>& out) const
+                         Vector<IntVect>& out) const
 {
     out.resize(0);
 
@@ -358,7 +360,7 @@ Geometry::BroadcastGeometry (Geometry &geom, int fromProc, MPI_Comm comm, bool b
   int is_periodic[BL_SPACEDIM];
   Real realBox_lo[BL_SPACEDIM];
   Real realBox_hi[BL_SPACEDIM];
-  Array<int> baseBoxAI;
+  Vector<int> baseBoxAI;
 
   CoordSys::BroadcastCoordSys(geom, fromProc, comm, bcastSource);
 

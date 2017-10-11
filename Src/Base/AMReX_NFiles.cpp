@@ -115,7 +115,7 @@ void NFilesIter::SetDynamic(int deciderproc)
 
 
 NFilesIter::NFilesIter(const std::string &filename,
-		       const Array<int> &readranks,
+		       const Vector<int> &readranks,
                        bool setBuf)
 {
   isReading = true;
@@ -327,7 +327,7 @@ NFilesIter &NFilesIter::operator++() {
         ParallelDescriptor::Recv(&coordinatorProc, 1, deciderProc, coordinatorTag);
 
         if(myProc == coordinatorProc) {
-          Array<std::deque<int> > procsToWrite(nOutFiles);  // ---- [fileNumber](procsToWriteToFileNumber)
+          Vector<std::deque<int> > procsToWrite(nOutFiles);  // ---- [fileNumber](procsToWriteToFileNumber)
           // ---- populate with the static nfiles sets
           for(int i(0); i < nProcs; ++i) {
             int procSet(WhichSetPosition(i, nProcs, nOutFiles, groupSets));
@@ -428,7 +428,7 @@ bool NFilesIter::CheckNFiles(int nProcs, int nOutFiles, bool groupSets)
     }
     std::cout << "nOutFiles fileNumbers.size() = " << nOutFiles
               << "  " << fileNumbers.size() << std::endl;
-    if(nOutFiles != fileNumbers.size()) {
+    if(nOutFiles != static_cast<int>(fileNumbers.size())) {
       std::cout << "**** Different number of files." << std::endl;
       return false;
     }
@@ -438,9 +438,9 @@ bool NFilesIter::CheckNFiles(int nProcs, int nOutFiles, bool groupSets)
 
 
 
-Array<int> NFilesIter::FileNumbersWritten()
+Vector<int> NFilesIter::FileNumbersWritten()
 {
-  Array<int> fileNumbersWritten(nProcs, -1);
+  Vector<int> fileNumbersWritten(nProcs, -1);
 
   if(myProc == coordinatorProc) {
 
@@ -453,7 +453,7 @@ Array<int> NFilesIter::FileNumbersWritten()
         procSet.insert(fileNumbersWriteOrder[f][r]);
       }
     }
-    if(total != nProcs || procSet.size() != nProcs) {
+    if(total != nProcs || static_cast<int>(procSet.size()) != nProcs) {
       std::cout << "**** Error in NFilesIter::FileNumbersWritten():  "
                 << " coordinatorProc nProcs total procSet.size() = "
                 << coordinatorProc << "  " << nProcs << "  "

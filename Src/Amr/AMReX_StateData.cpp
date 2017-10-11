@@ -21,8 +21,8 @@ const Real INVALID_TIME = -1.0e200;
 const int MFNEWDATA = 0;
 const int MFOLDDATA = 1;
 
-Array<std::string> StateData::fabArrayHeaderNames;
-std::map<std::string, Array<char> > *StateData::faHeaderMap;
+Vector<std::string> StateData::fabArrayHeaderNames;
+std::map<std::string, Vector<char> > *StateData::faHeaderMap;
 
 
 StateData::StateData () 
@@ -40,9 +40,10 @@ StateData::StateData (const Box&             p_domain,
 		      const DistributionMapping& dm,
                       const StateDescriptor* d,
                       Real                   cur_time,
-                      Real                   dt)
+                      Real                   dt,
+                      const FabFactory<FArrayBox>& factory)
 {
-    define(p_domain, grds, dm, *d, cur_time, dt);
+    define(p_domain, grds, dm, *d, cur_time, dt, factory);
 }
 
 void
@@ -52,7 +53,8 @@ StateData::Initialize (StateData& dest, const StateData& src)
     // Define the object with the same properties as src.
 
     dest.define(src.getDomain(), src.boxArray(), src.DistributionMap(),
-		*(src.descriptor()), src.curTime(), src.curTime() - src.prevTime());
+		*(src.descriptor()), src.curTime(), src.curTime() - src.prevTime(),
+                src.Factory());
 
     // Now, for both the new data and the old data if it's there,
     // generate a new MultiFab for the dest and remove the previous data.
@@ -73,13 +75,15 @@ StateData::define (const Box&             p_domain,
 		   const DistributionMapping& dm,
                    const StateDescriptor& d,
                    Real                   time,
-                   Real                   dt)
+                   Real                   dt,
+                   const FabFactory<FArrayBox>& factory)
 {
     BL_PROFILE("StateData::define()");
     domain = p_domain;
     desc = &d;
     grids = grds;
     dmap = dm;
+    m_factory.reset(factory.clone());
     //
     // Convert to proper type.
     //
@@ -104,7 +108,7 @@ StateData::define (const Box&             p_domain,
     }
     int ncomp = desc->nComp();
 
-    new_data = new MultiFab(grids,dmap,ncomp,desc->nExtra());
+    new_data = new MultiFab(grids,dmap,ncomp,desc->nExtra(), MFInfo(), *m_factory);
 
     old_data = 0;
 }
@@ -188,6 +192,7 @@ StateData::restart (std::istream&          is,
 		    const Box&             p_domain,
 		    const BoxArray&        grds,
 		    const DistributionMapping& dm,
+                    const FabFactory<FArrayBox>& factory,
                     const StateDescriptor& d,
                     const std::string&     chkfile)
 {
@@ -195,6 +200,7 @@ StateData::restart (std::istream&          is,
     domain = p_domain;
     grids = grds;
     dmap = dm;
+    m_factory.reset(factory.clone());
 
     // Convert to proper type.
     IndexType typ(desc->getType());
@@ -228,8 +234,11 @@ StateData::restartDoit (std::istream& is, const std::string& chkfile)
     int nsets;
     is >> nsets;
 
-    old_data = (nsets == 2) ? new MultiFab(grids,dmap,desc->nComp(),desc->nExtra()) : 0;
-    new_data =                new MultiFab(grids,dmap,desc->nComp(),desc->nExtra());
+    old_data = (nsets == 2) ? new MultiFab(grids,dmap,desc->nComp(),desc->nExtra(),
+                                           MFInfo(), *m_factory)
+                              : nullptr;
+    new_data =                new MultiFab(grids,dmap,desc->nComp(),desc->nExtra(),
+                                           MFInfo(), *m_factory);
     //
     // If no data is written then we just allocate the MF instead of reading it in. 
     // This assumes that the application will do something with it.
@@ -243,7 +252,7 @@ StateData::restartDoit (std::istream& is, const std::string& chkfile)
     std::string FullPathName;
 
     for(int ns(1); ns <= nsets; ++ns) {
-      MultiFab *whichMF;
+      MultiFab *whichMF = nullptr;
       if(ns == 1) {
 	whichMF = new_data;
       } else if(ns == 2) {
@@ -267,7 +276,7 @@ StateData::restartDoit (std::istream& is, const std::string& chkfile)
       std::string FullHeaderPathName(FullPathName + "_H");
       const char *faHeader = 0;
       if(faHeaderMap != 0) {
-        std::map<std::string, Array<char> >::iterator fahmIter;
+        std::map<std::string, Vector<char> >::iterator fahmIter;
 	fahmIter = faHeaderMap->find(FullHeaderPathName);
 	if(fahmIter != faHeaderMap->end()) {
 	  faHeader = fahmIter->second.dataPtr();
@@ -290,7 +299,7 @@ StateData::restart (const StateDescriptor& d,
     new_time.start = rhs.new_time.start;
     new_time.stop  = rhs.new_time.stop;
     old_data = 0;
-    new_data = new MultiFab(grids,dmap,desc->nComp(),desc->nExtra());
+    new_data = new MultiFab(grids,dmap,desc->nComp(),desc->nExtra(), MFInfo(), *m_factory);
     new_data->setVal(0.);
 }
 
@@ -306,7 +315,7 @@ StateData::allocOldData ()
 {
     if (old_data == 0)
     {
-        old_data = new MultiFab(grids,dmap,desc->nComp(),desc->nExtra());
+        old_data = new MultiFab(grids,dmap,desc->nComp(),desc->nExtra(), MFInfo(), *m_factory);
     }
 }
 
@@ -431,7 +440,7 @@ StateData::FillBoundary (FArrayBox&     dest,
     const int* plo = domain.loVect();
     const int* phi = domain.hiVect();
 
-    Array<int> bcrs;
+    Vector<int> bcrs;
 
     Real xlo[BL_SPACEDIM];
     BCRec bcr;
@@ -497,7 +506,7 @@ StateData::FillBoundary (FArrayBox&     dest,
 
 void
 StateData::RegisterData (MultiFabCopyDescriptor& multiFabCopyDesc,
-                         Array<MultiFabId>&      mfid)
+                         Vector<MultiFabId>&      mfid)
 {
     mfid.resize(2);
     mfid[MFNEWDATA] = multiFabCopyDesc.RegisterFabArray(new_data);
@@ -506,9 +515,9 @@ StateData::RegisterData (MultiFabCopyDescriptor& multiFabCopyDesc,
 
 void
 StateData::InterpAddBox (MultiFabCopyDescriptor& multiFabCopyDesc,
-			 Array<MultiFabId>&      mfid,
+			 Vector<MultiFabId>&      mfid,
 			 BoxList*                unfillableBoxes,
-			 Array<FillBoxId>&       returnedFillBoxIds,
+			 Vector<FillBoxId>&       returnedFillBoxIds,
 			 const Box&              subbox,
 			 Real                    time,
 			 int                     src_comp,
@@ -580,8 +589,8 @@ StateData::InterpAddBox (MultiFabCopyDescriptor& multiFabCopyDesc,
 
 void
 StateData::InterpFillFab (MultiFabCopyDescriptor&  multiFabCopyDesc,
-			  const Array<MultiFabId>& mfid,
-			  const Array<FillBoxId>&  fillBoxIds,
+			  const Vector<MultiFabId>& mfid,
+			  const Vector<FillBoxId>&  fillBoxIds,
 			  FArrayBox&               dest,
 			  Real                     time,
 			  int                      src_comp,
@@ -634,8 +643,8 @@ StateData::InterpFillFab (MultiFabCopyDescriptor&  multiFabCopyDesc,
 }
 
 void
-StateData::getData (Array<MultiFab*>& data,
-		    Array<Real>& datatime,
+StateData::getData (Vector<MultiFab*>& data,
+		    Vector<Real>& datatime,
 		    Real time) const
 {
     data.clear();

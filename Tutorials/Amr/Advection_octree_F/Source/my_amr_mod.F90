@@ -121,6 +121,8 @@ contains
             amrex_geom(lev)%dx, amrex_problo)
     end do
 
+    call phi_old(lev)%copy(phi_new(lev), 1, 1, ncomp, 0)
+
     call amrex_mfiter_destroy(mfi)
   end subroutine my_make_new_level_from_scratch
 
@@ -150,6 +152,8 @@ contains
     end if
 
     call fillcoarsepatch(lev, time, phi_new(lev))
+
+    call phi_old(lev)%copy(phi_new(lev), 1, 1, ncomp, 0)
   end subroutine my_make_new_level_from_coarse
 
   ! Remake a level from current and coarse elvels and put the data in phi_new.
@@ -183,6 +187,8 @@ contains
 
     call phi_new(lev)%copy(new_phi_new, 1, 1, ncomp, 0)
 
+    call phi_old(lev)%copy(phi_new(lev), 1, 1, ncomp, 0);
+
     call amrex_multifab_destroy(new_phi_new)
   end subroutine my_remake_level
 
@@ -198,7 +204,7 @@ contains
     integer, intent(in), value :: lev
     type(c_ptr), intent(in), value :: cp
     real(amrex_real), intent(in), value :: t
-    character(c_char), intent(in), value :: settag, cleartag
+    character(kind=c_char), intent(in), value :: settag, cleartag
 
     real(amrex_real), allocatable, save :: phierr(:)
     type(amrex_parmparse) :: pp
@@ -206,7 +212,7 @@ contains
     type(amrex_mfiter) :: mfi
     type(amrex_box) :: bx
     real(amrex_real), contiguous, pointer :: phiarr(:,:,:,:)
-    character(c_char), contiguous, pointer :: tagarr(:,:,:,:)
+    character(kind=c_char), contiguous, pointer :: tagarr(:,:,:,:)
 
     if (.not.allocated(phierr)) then
        call amrex_parmparse_build(pp, "myamr")

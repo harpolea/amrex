@@ -57,7 +57,7 @@ function ( find_include_paths dirlist )
    foreach (item ${includes})
 
       get_filename_component ( path ${item} PATH )
-
+      
       if (IS_DIRECTORY ${path})
 
 	 # Check first if it is a valid path
@@ -65,11 +65,12 @@ function ( find_include_paths dirlist )
 	 
 	 foreach ( exclude ${ARG_EXCLUDE})
 	    string (FIND ${path} ${exclude} out )
-	    if ( NOT (${out} EQUAL -1) AND (${path} STREQUAL ${exclude}))
+	    if ( NOT (${out} EQUAL -1) ) 
 	       set (path_is_valid "NO")
 	    endif ()
 	 endforeach ()
-	 	 
+
+	 
 	 if ( NOT (${path} IN_LIST tmp ) AND path_is_valid )	   	    
 	    list ( APPEND tmp ${path} )
 	 endif ()
@@ -78,6 +79,8 @@ function ( find_include_paths dirlist )
       
    endforeach ()
 
+   
+   
    set ( ${dirlist} ${tmp} PARENT_SCOPE )
   
 endfunction ()
@@ -96,42 +99,30 @@ function ( append new_var all_var )
    endif ()
 endfunction ()
 
-#
-# Function to accumulate preprocessor directives
-#
-function ( add_define new_define all_defines )
-   
-   set ( condition  1 )
-   
-   if ( ${ARGC} EQUAL 3 ) #
-      set ( condition ${${ARGV2}} )
-   elseif ( ${ARGC} GREATER 3 )
-      message ( AUTHOR_WARNING "Function add_define accept AT MOST 3 args" )
-   endif ()
-   
-   if ( ${condition} )
-      set ( ${all_defines} "${${all_defines}} -D${new_define}" PARENT_SCOPE )
-   endif ()
-   
-endfunction ()
-
-
-function (set_F77_properties OUTVAR)
-   set_source_files_properties(${ARGN} PROPERTIES COMPILE_DEFINITIONS "BL_LANG_FORT")
-   set(${OUTVAR} ${ARGN} PARENT_SCOPE)
-endfunction (set_F77_properties)
-
-
-function(preprocess_boxlib_fortran OUTVAR)
-   set_source_files_properties(${ARGN} PROPERTIES COMPILE_DEFINITIONS "BL_LANG_FORT")
-   set(${OUTVAR} ${ARGN} PARENT_SCOPE)
-endfunction(preprocess_boxlib_fortran)
 
 #
 # Print variable (useful for debugging)
 #
 function ( print var )
    message (" ${var} = ${${var}}" )
+endfunction ()
+
+#
+# Print list
+#
+function ( print_list list )
+   
+   list ( LENGTH ${list} len )
+
+   if ( ${len} GREATER 0 )
+      message ("")
+      message ( STATUS " LIST NAME:  ${list}")
+      foreach ( item ${${list}})
+	 message ( STATUS "  ${item}")
+      endforeach ()
+      message ("")
+   endif ()
+   
 endfunction ()
 
 
@@ -191,7 +182,6 @@ function (find_git_version version )
    string (STRIP ${output} output)
 
    set ( ${version} ${output} PARENT_SCOPE )
-
 
 endfunction ()
 

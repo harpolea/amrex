@@ -4,9 +4,9 @@
 #include <AMReX_MultiFabUtil.H>
 #include <AMReX_FillPatchUtil.H>
 #include <AMReX_PlotFileUtil.H>
+#include <AMReX_PhysBCFunct.H>
 
 #include <AmrCoreAdv.H>
-#include <AmrCoreAdvPhysBC.H>
 #include <AmrCoreAdv_F.H>
 
 using namespace amrex;
@@ -37,12 +37,52 @@ AmrCoreAdv::AmrCoreAdv ()
     phi_new.resize(nlevs_max);
     phi_old.resize(nlevs_max);
 
+    // periodic boundaries
+    int bc_lo[] = {INT_DIR, INT_DIR, INT_DIR};
+    int bc_hi[] = {INT_DIR, INT_DIR, INT_DIR};
+
+/*
+    // walls (Neumann)
+    int bc_lo[] = {FOEXTRAP, FOEXTRAP, FOEXTRAP};
+    int bc_hi[] = {FOEXTRAP, FOEXTRAP, FOEXTRAP};
+*/
+    
+    for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
+    {
+        // lo-side BCs
+        if (bc_lo[idim] == INT_DIR) {
+            bcs.setLo(idim, BCType::int_dir);  // periodic uses "internal Dirichlet"
+        }
+        else if (bc_lo[idim] == FOEXTRAP) {
+            bcs.setLo(idim, BCType::foextrap); // first-order extrapolation
+        }
+        else if (bc_lo[idim] == EXT_DIR) {
+            bcs.setLo(idim, BCType::ext_dir);  // external Dirichlet
+        }
+        else {
+            amrex::Abort("Invalid bc_lo");
+        }
+
+        // hi-side BCSs
+        if (bc_hi[idim] == INT_DIR) {
+            bcs.setHi(idim, BCType::int_dir);  // periodic uses "internal Dirichlet"
+        }
+        else if (bc_hi[idim] == FOEXTRAP) {
+            bcs.setHi(idim, BCType::foextrap); // first-order extrapolation
+        }
+        else if (bc_hi[idim] == EXT_DIR) {
+            bcs.setHi(idim, BCType::ext_dir);  // external Dirichlet
+        }
+        else {
+            amrex::Abort("Invalid bc_hi");
+        }
+    }
+
     // stores fluxes at coarse-fine interface for synchronization
     // this will be sized "nlevs_max+1"
     // NOTE: the flux register associated with flux_reg[lev] is associated
     // with the lev/lev-1 interface (and has grid spacing associated with lev-1)
-    // therefore flux_reg[0] and flux_reg[nlevs_max] are never actually 
-    // used in the reflux operation
+    // therefore flux_reg[0] is never actually used in the reflux operation
     flux_reg.resize(nlevs_max+1);
 }
 
@@ -104,12 +144,12 @@ AmrCoreAdv::InitData ()
     }
 }
 
-// Make a new level from scratch using provided BoxArray and DistributionMapping.
-// Only used during initialization.
+// Make a new level using provided BoxArray and DistributionMapping and 
+// fill with interpolated coarse level data.
 // overrides the pure virtual function in AmrCore
 void
 AmrCoreAdv::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
-				const DistributionMapping& dm)
+				    const DistributionMapping& dm)
 {
     const int ncomp = phi_new[lev-1]->nComp();
     const int nghost = phi_new[lev-1]->nGrow();
@@ -132,7 +172,7 @@ AmrCoreAdv::MakeNewLevelFromCoarse (int lev, Real time, const BoxArray& ba,
 // overrides the pure virtual function in AmrCore
 void
 AmrCoreAdv::RemakeLevel (int lev, Real time, const BoxArray& ba,
-		     const DistributionMapping& dm)
+			 const DistributionMapping& dm)
 {
     const int ncomp = phi_new[lev]->nComp();
     const int nghost = phi_new[lev]->nGrow();
@@ -168,10 +208,11 @@ AmrCoreAdv::ClearLevel (int lev)
     flux_reg[lev].reset(nullptr);
 }
 
-// initialize data using a fortran routine to compute initial state
+// Make a new level from scratch using provided BoxArray and DistributionMapping.
+// Only used during initialization.
 // overrides the pure virtual function in AmrCore
 void AmrCoreAdv::MakeNewLevelFromScratch (int lev, Real time, const BoxArray& ba,
-				      const DistributionMapping& dm)
+					  const DistributionMapping& dm)
 {
     const int ncomp = 1;
     const int nghost = 0;
@@ -210,7 +251,7 @@ void
 AmrCoreAdv::ErrorEst (int lev, TagBoxArray& tags, Real time, int ngrow)
 {
     static bool first = true;
-    static Array<Real> phierr;
+    static Vector<Real> phierr;
 
     // only do this during the first call to ErrorEst
     if (first)
@@ -242,7 +283,7 @@ AmrCoreAdv::ErrorEst (int lev, TagBoxArray& tags, Real time, int ngrow)
 #pragma omp parallel
 #endif
     {
-        Array<int>  itags;
+        Vector<int>  itags;
 	
 	for (MFIter mfi(state,true); mfi.isValid(); ++mfi)
 	{
@@ -349,27 +390,25 @@ AmrCoreAdv::FillPatch (int lev, Real time, MultiFab& mf, int icomp, int ncomp)
 {
     if (lev == 0)
     {
-	Array<MultiFab*> smf;
-	Array<Real> stime;
+	Vector<MultiFab*> smf;
+	Vector<Real> stime;
 	GetData(0, time, smf, stime);
 
-	AmrCoreAdvPhysBC physbc;
+	PhysBCFunct physbc(geom[lev],bcs,BndryFunctBase(phifill));
 	amrex::FillPatchSingleLevel(mf, time, smf, stime, 0, icomp, ncomp,
 				     geom[lev], physbc);
     }
     else
     {
-	Array<MultiFab*> cmf, fmf;
-	Array<Real> ctime, ftime;
+	Vector<MultiFab*> cmf, fmf;
+	Vector<Real> ctime, ftime;
 	GetData(lev-1, time, cmf, ctime);
 	GetData(lev  , time, fmf, ftime);
 
-	AmrCoreAdvPhysBC cphysbc, fphysbc;
-	Interpolater* mapper = &cell_cons_interp;
+        PhysBCFunct cphysbc(geom[lev-1],bcs,BndryFunctBase(phifill));
+        PhysBCFunct fphysbc(geom[lev  ],bcs,BndryFunctBase(phifill));
 
-	int lo_bc[] = {INT_DIR, INT_DIR, INT_DIR}; // periodic boundaryies
-	int hi_bc[] = {INT_DIR, INT_DIR, INT_DIR};
-	Array<BCRec> bcs(1, BCRec(lo_bc, hi_bc));
+	Interpolater* mapper = &cell_cons_interp;
 
 	amrex::FillPatchTwoLevels(mf, time, cmf, ctime, fmf, ftime,
 				   0, icomp, ncomp, geom[lev-1], geom[lev],
@@ -385,20 +424,18 @@ AmrCoreAdv::FillCoarsePatch (int lev, Real time, MultiFab& mf, int icomp, int nc
 {
     BL_ASSERT(lev > 0);
 
-    Array<MultiFab*> cmf;
-    Array<Real> ctime;
+    Vector<MultiFab*> cmf;
+    Vector<Real> ctime;
     GetData(lev-1, time, cmf, ctime);
     
     if (cmf.size() != 1) {
 	amrex::Abort("FillCoarsePatch: how did this happen?");
     }
 
-    AmrCoreAdvPhysBC cphysbc, fphysbc;
+    PhysBCFunct cphysbc(geom[lev-1],bcs,BndryFunctBase(phifill));
+    PhysBCFunct fphysbc(geom[lev  ],bcs,BndryFunctBase(phifill));
+
     Interpolater* mapper = &cell_cons_interp;
-    
-    int lo_bc[] = {INT_DIR, INT_DIR, INT_DIR}; // periodic boundaryies
-    int hi_bc[] = {INT_DIR, INT_DIR, INT_DIR};
-    Array<BCRec> bcs(1, BCRec(lo_bc, hi_bc));
 
     amrex::InterpFromCoarseLevel(mf, time, *cmf[0], 0, icomp, ncomp, geom[lev-1], geom[lev],
 				 cphysbc, fphysbc, refRatio(lev-1),
@@ -407,7 +444,7 @@ AmrCoreAdv::FillCoarsePatch (int lev, Real time, MultiFab& mf, int icomp, int nc
 
 // utility to copy in data from phi_old and/or phi_new into another multifab
 void
-AmrCoreAdv::GetData (int lev, Real time, Array<MultiFab*>& data, Array<Real>& datatime)
+AmrCoreAdv::GetData (int lev, Real time, Vector<MultiFab*>& data, Vector<Real>& datatime)
 {
     data.clear();
     datatime.clear();
@@ -444,7 +481,7 @@ AmrCoreAdv::timeStep (int lev, Real time, int iteration)
 
         // help keep track of whether a level was already regridded
         // from a coarser level call to regrid
-        static Array<int> last_regrid_step(max_level+1, 0);
+        static Vector<int> last_regrid_step(max_level+1, 0);
 
         // regrid changes level "lev+1" so we don't regrid on max_level
         // also make sure we don't regrid fine levels again if 
@@ -615,7 +652,7 @@ AmrCoreAdv::Advance (int lev, Real time, Real dt, int iteration, int ncycle)
 void
 AmrCoreAdv::ComputeDt ()
 {
-    Array<Real> dt_tmp(finest_level+1);
+    Vector<Real> dt_tmp(finest_level+1);
 
     for (int lev = 0; lev <= finest_level; ++lev)
     {
@@ -702,10 +739,10 @@ AmrCoreAdv::PlotFileName (int lev) const
 }
 
 // put together an array of multifabs for writing
-Array<const MultiFab*>
+Vector<const MultiFab*>
 AmrCoreAdv::PlotFileMF () const
 {
-    Array<const MultiFab*> r;
+    Vector<const MultiFab*> r;
     for (int i = 0; i <= finest_level; ++i) {
 	r.push_back(phi_new[i].get());
     }
@@ -713,7 +750,7 @@ AmrCoreAdv::PlotFileMF () const
 }
 
 // set plotfile variable names
-Array<std::string>
+Vector<std::string>
 AmrCoreAdv::PlotFileVarNames () const
 {
     return {"phi"};
@@ -728,5 +765,5 @@ AmrCoreAdv::WritePlotFile () const
     const auto& varnames = PlotFileVarNames();
     
     amrex::WriteMultiLevelPlotfile(plotfilename, finest_level+1, mf, varnames,
-				    Geom(), t_new[0], istep, refRatio());
+				   Geom(), t_new[0], istep, refRatio());
 }

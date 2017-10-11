@@ -12,7 +12,8 @@
 #ifndef _LSQUARES_H_
 #define _LSQUARES_H_
 
-#include <vector>
+#include <AMReX_Array.H>
+#include <AMReX_Vector.H>
 #include "AMReX_REAL.H"
 #include "AMReX_RealVect.H"
 
@@ -26,19 +27,19 @@ namespace amrex
   {
   public:
     void LeastSquares(Real** A,
-                      std::vector<Real>&x,
-                      const std::vector<Real>&rhs);
+                      Vector<Real>&x,
+                      const Vector<Real>&rhs);
 
     /// gaussian elimination with partial pivoting
     int gaussElim(Real**A,
-                  std::vector<Real>& rhs);
+                  Vector<Real>& rhs);
 
     void swapRows(Real** A,
                   const int& rowi,
                   const int& rowj,
                   const int&numberOfCols);
 
-    void swapRows(std::vector<Real>& rhs,
+    void swapRows(Vector<Real>& rhs,
                   const int& currRow,
                   const int& pivot);
 
@@ -48,7 +49,7 @@ namespace amrex
                   const int& numRows,
                   int& pivot);
 
-    void addRows(std::vector<Real>& rhs,
+    void addRows(Vector<Real>& rhs,
                  const int& rowi,
                  const Real& alpha,
                  const int& rowj);
@@ -59,7 +60,7 @@ namespace amrex
                  const int& rowj,
                  const int& numberOfCols);
 
-    void timesBeta(std::vector<Real>&rhs,
+    void timesBeta(Vector<Real>&rhs,
                    const int& currRow,
                    const Real& Beta);
 
@@ -81,14 +82,14 @@ namespace amrex
                 const int& a_numColsB);
 
     void backSolve(Real** a_A,
-                   const std::vector<Real>& a_rhs,
+                   const Vector<Real>& a_rhs,
                    const int& a_numArows,
-                   std::vector<Real>& a_x);
+                   Vector<Real>& a_x);
 
     void AtimesX(Real** A,
-                 const std::vector<Real>&x,
+                 const Vector<Real>&x,
                  const int& numRowsA,
-                 std::vector<Real>& Ax);
+                 Vector<Real>& Ax);
 
     void allocArray(const int& rows,
                     const int& cols,

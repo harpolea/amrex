@@ -22,6 +22,7 @@
 
 #include <AMReX_BLassert.H>
 #include <AMReX_Array.H>
+#include <AMReX_Vector.H>
 #include <AMReX_Box.H>
 #include <AMReX.H>
 #include <AMReX_BoxArray.H>
@@ -42,6 +43,10 @@
 #include <AMReX_TypeTraits.H>
 #include <AMReX_parstream.H>
 #include <AMReX_SPMD.H>
+
+#ifdef AMREX_USE_EB
+#include <AMReX_EBFabFactory.H>
+#endif
 
 namespace amrex {
 
@@ -107,12 +112,18 @@ struct MFInfo {
     MFInfo& SetAlloc(bool a) { alloc = a; return *this; }
 };
 
+    template <class T>
+    class MFGraph;
+
 template <class FAB>
 class FabArray
     :
     public FabArrayBase
 {
 public:
+    friend class Action;
+    template <class T>
+    friend class MFGraph;
 
     struct FABType {
         typedef FAB value_type;
@@ -136,8 +147,13 @@ public:
               const DistributionMapping& dm,
               int                        nvar,
               int                        ngrow,
+#ifdef AMREX_STRICT_MODE
+	      const MFInfo&              info,
+              const FabFactory<FAB>&     factory);
+#else
 	      const MFInfo&              info = MFInfo(),
               const FabFactory<FAB>&     factory = DefaultFabFactory<FAB>());
+#endif
 
     FabArray (const FabArray<FAB>& rhs, MakeType maketype, int scomp, int ncomp);
 
@@ -146,7 +162,7 @@ public:
               const DistributionMapping& dm,
               int                        nvar,
               int                        ngrow,
-              const Array<value_type*>&  pval);
+              const Vector<value_type*>&  pval);
 
     //! The destructor -- deletes all FABs in the array.
     virtual ~FabArray ();
@@ -167,8 +183,17 @@ public:
 			 const DistributionMapping& dm,
 			 int                        nvar,
 			 int                        ngrow,
+#ifdef AMREX_STRICT_MODE
+			 const MFInfo&              info,
+                         const FabFactory<FAB>&     factory);
+#else
 			 const MFInfo&              info = MFInfo(),
                          const FabFactory<FAB>&     factory = DefaultFabFactory<FAB>());
+#endif
+
+    const FabFactory<FAB>& Factory () const { return *m_factory; }
+
+    Box getDomain () const { return m_factory->getDomain(); }
 
     /**
     * \brief Return true if the FabArray is well-defined.  That is,
@@ -206,7 +231,7 @@ public:
     void setFab (int K, FAB* elem);
 
     //! Explicitly set the FAB associated with mfi in the FabArray to point to elem.
-    void setFab (const MFIter&mfi, FAB* elem);
+    void setFab (const MFIter&mfi, FAB* elem, bool assertion=true);
 
     //! Releases FAB memory in the FabArray.
     void clear ();
@@ -431,9 +456,10 @@ public:
       int distMapIndex, fromRank, toRank, seqNum;
     };
 
-    int MoveFabs (const Array<int> &newDistMapArray);
-    //static void MoveAllFabs (const Array<int> &newDistMapArray);
+    int MoveFabs (const Vector<int> &newDistMapArray);
+    //static void MoveAllFabs (const Vector<int> &newDistMapArray);
     static void MoveAllFabs (const DistributionMapping &newDistMap);
+    static void MoveAllFabs (const DistributionMapping &oldDistMap, const DistributionMapping &newDistMap);
     static void LockAllFAPointers ();
     static void CheckFAPointers (bool abortOnError = true);
     static void PrintFAPointers ();
@@ -455,6 +481,8 @@ public:
 
 
 protected:
+
+    std::unique_ptr<FabFactory<FAB> > m_factory;
 
     bool define_function_called = false;
     
@@ -533,10 +561,10 @@ private:
     //! Prepost nonblocking receives
     void PostRcvs (const MapOfCopyComTagContainers&       m_RcvVols,
                    const MapOfCopyComTagContainers&       m_RcvTags,
-                   Array<char*>&                          recv_data,
-                   Array<int>&                            recv_size,
-                   Array<int>&                            recv_from,
-                   Array<MPI_Request>&                    recv_reqs,
+                   Vector<char*>&                          recv_data,
+                   Vector<int>&                            recv_size,
+                   Vector<int>&                            recv_from,
+                   Vector<MPI_Request>&                    recv_reqs,
                    int                                    icomp,
                    int                                    ncomp,
                    int                                    SeqNum,
@@ -547,11 +575,11 @@ private:
 #ifdef BL_USE_MPI3
     void PostRcvs_MPI_Onesided (const MapOfCopyComTagContainers&  m_RcvVols,
                                 char*&                            the_recv_data,
-                                Array<char*>&                     recv_data,
-                                Array<int>&                       recv_size,
-                                Array<int>&                       recv_from,
-                                Array<MPI_Request>&               recv_reqs,
-                                Array<MPI_Aint>          &        recv_disp,
+                                Vector<char*>&                     recv_data,
+                                Vector<int>&                       recv_size,
+                                Vector<int>&                       recv_from,
+                                Vector<MPI_Request>&               recv_reqs,
+                                Vector<MPI_Aint>          &        recv_disp,
                                 int                               icomp,
                                 int                               ncomp,
                                 int                               SeqNum,
@@ -561,9 +589,9 @@ private:
 #ifdef BL_USE_UPCXX
     void PostRcvs_PGAS (const MapOfCopyComTagContainers&  m_RcvVols,
                         char*&                            the_recv_data,
-                        Array<char*>&                     recv_data,
-                        Array<int>&                       recv_size,
-                        Array<int>&                       recv_from,
+                        Vector<char*>&                     recv_data,
+                        Vector<int>&                       recv_size,
+                        Vector<int>&                       recv_from,
                         int                               icomp,
                         int                               ncomp,
                         int                               SeqNum,
@@ -578,16 +606,16 @@ public:
 
     //
     char*              fb_the_recv_data;
-    Array<int>         fb_recv_from;
-    Array<char*>       fb_recv_data;
-    Array<int>         fb_recv_size;
-    Array<MPI_Request> fb_recv_reqs;
+    Vector<int>         fb_recv_from;
+    Vector<char*>       fb_recv_data;
+    Vector<int>         fb_recv_size;
+    Vector<MPI_Request> fb_recv_reqs;
 #ifdef BL_USE_MPI3
-    Array<MPI_Aint>    fb_recv_disp;
+    Vector<MPI_Aint>    fb_recv_disp;
 #endif
     //
-    Array<char*>       fb_send_data;
-    Array<MPI_Request> fb_send_reqs;
+    Vector<char*>       fb_send_data;
+    Vector<MPI_Request> fb_send_reqs;
     int                fb_tag;
 };
 
@@ -597,10 +625,10 @@ template <class FAB>
 void
 FabArray<FAB>::PostRcvs (const MapOfCopyComTagContainers&  m_RcvVols,
                          const MapOfCopyComTagContainers&  m_RcvTags,
-                         Array<char*>&                     recv_data,
-                         Array<int>&                       recv_size,
-                         Array<int>&                       recv_from,
-                         Array<MPI_Request>&               recv_reqs,
+                         Vector<char*>&                     recv_data,
+                         Vector<int>&                       recv_size,
+                         Vector<int>&                       recv_from,
+                         Vector<MPI_Request>&               recv_reqs,
                          int                               icomp,
                          int                               ncomp,
                          int                               SeqNum,
@@ -633,8 +661,8 @@ FabArray<FAB>::PostRcvs (const MapOfCopyComTagContainers&  m_RcvVols,
 
     const int nrecv = recv_from.size();
     
-    Array<Array<int> > indv_recv_size;
-    Array<MPI_Request> pre_reqs(nrecv,MPI_REQUEST_NULL);
+    Vector<Vector<int> > indv_recv_size;
+    Vector<MPI_Request> pre_reqs(nrecv,MPI_REQUEST_NULL);
 
     if (!FAB::preAllocatable())
     {
@@ -686,11 +714,11 @@ template <class FAB>
 void
 FabArray<FAB>::PostRcvs_MPI_Onesided (const MapOfCopyComTagContainers&  m_RcvVols,
                                       char*&                            the_recv_data,
-                                      Array<char*>&                     recv_data,
-                                      Array<int>&                       recv_size,
-                                      Array<int>&                       recv_from,
-                                      Array<MPI_Request>&               recv_reqs,
-                                      Array<MPI_Aint> &                 recv_disp,
+                                      Vector<char*>&                     recv_data,
+                                      Vector<int>&                       recv_size,
+                                      Vector<int>&                       recv_from,
+                                      Vector<MPI_Request>&               recv_reqs,
+                                      Vector<MPI_Aint> &                 recv_disp,
                                       int                               icomp,
                                       int                               ncomp,
                                       int                               SeqNum,
@@ -826,6 +854,7 @@ FabArray<FAB>::clear ()
 
     m_fabs_v.clear();
     boxarray.clear();
+    m_factory.reset();
 }
 
 template <class FAB>
@@ -861,18 +890,21 @@ FabArray<FAB>::FabArray (const BoxArray&            bxs,
                          int                        ngrow,
 			 const MFInfo&              info,
                          const FabFactory<FAB>&     factory)
-    : shmem()
+    : m_factory(factory.clone()),
+      shmem()
 {
     m_FA_stats.recordBuild();
-    define(bxs,dm,nvar,ngrow,info,factory);
+    define(bxs,dm,nvar,ngrow,info,*m_factory);
 }
 
 template <class FAB>
 FabArray<FAB>::FabArray (const FabArray<FAB>& rhs, MakeType maketype, int scomp, int ncomp)
-    : shmem()
+    : m_factory(rhs.Factory().clone()), 
+      shmem()
 {
     m_FA_stats.recordBuild();
-    define(rhs.boxArray(), rhs.DistributionMap(), ncomp, rhs.nGrow(), MFInfo().SetAlloc(false));
+    define(rhs.boxArray(), rhs.DistributionMap(), ncomp, rhs.nGrow(),
+           MFInfo().SetAlloc(false), *m_factory);
 
     if (maketype == amrex::make_alias)
     {
@@ -892,11 +924,12 @@ FabArray<FAB>::FabArray (const BoxArray&            bxs,
                          const DistributionMapping& dm,
                          int                        nvar,
                          int                        ngrow,
-                         const Array<value_type*>&  pval)
-    : shmem()
+                         const Vector<value_type*>&  pval)
+    : m_factory(new DefaultFabFactory<FAB>()),
+      shmem()
 {
     m_FA_stats.recordBuild();
-    define(bxs,dm,nvar,ngrow,MFInfo().SetAlloc(false));
+    define(bxs,dm,nvar,ngrow,MFInfo().SetAlloc(false), *m_factory);
 
     for (MFIter mfi(*this); mfi.isValid(); ++mfi) {
         setFab(mfi, new FAB(mfi.fabbox(),nvar,pval[mfi.LocalIndex()]));
@@ -907,6 +940,7 @@ FabArray<FAB>::FabArray (const BoxArray&            bxs,
 template <class FAB>
 FabArray<FAB>::FabArray (FabArray<FAB>&& rhs) noexcept
     : FabArrayBase (std::move(rhs))
+    , m_factory    (std::move(rhs.m_factory))
     , m_fabs_v     (std::move(rhs.m_fabs_v))
     , shmem        (std::move(rhs.shmem))
     // no need to worry about the data used in non-blocking FillBoundary.
@@ -914,6 +948,7 @@ FabArray<FAB>::FabArray (FabArray<FAB>&& rhs) noexcept
     m_FA_stats.recordBuild();
     rhs.m_fabs_v.clear();
     rhs.boxarray.clear();
+    rhs.m_factory.reset();
 }
 
 template <class FAB>
@@ -1035,7 +1070,8 @@ FabArray<FAB>::AllocFabs (const FabFactory<FAB>& factory)
 
     FabInfo fab_info;
     fab_info.SetAlloc(alloc).SetShared(shmem.alloc);
-    
+
+    m_factory.reset(factory.clone());    
 
     m_fabs_v.reserve(n);
 
@@ -1043,7 +1079,7 @@ FabArray<FAB>::AllocFabs (const FabFactory<FAB>& factory)
     {
 	int K = indexArray[i];
         const Box& tmpbox = fabbox(K);
-        m_fabs_v.push_back(factory.create(tmpbox, n_comp, fab_info, K));
+        m_fabs_v.push_back(m_factory->create(tmpbox, n_comp, fab_info, K));
     }
     
 #ifdef BL_USE_TEAM
@@ -1053,8 +1089,8 @@ FabArray<FAB>::AllocFabs (const FabFactory<FAB>& factory)
 
 	shmem.n_values = 0;
 	shmem.n_points = 0;
-	Array<long> offset(n,0);
-	Array<long> nextoffset(nworkers,-1);
+	Vector<long> offset(n,0);
+	Vector<long> nextoffset(nworkers,-1);
 	for (int i = 0; i < n; ++i) {
 	    int K = indexArray[i];
 	    int owner = distributionMap[K] - teamlead;
@@ -1075,7 +1111,7 @@ FabArray<FAB>::AllocFabs (const FabFactory<FAB>& factory)
 	size_t bytes = shmem.n_values*sizeof(value_type);
 
 	value_type *mfp;
-	Array<value_type*> dps;
+	Vector<value_type*> dps;
 
 #if defined (BL_USE_UPCXX)
 
@@ -1165,22 +1201,25 @@ FabArray<FAB>::setFab (int  boxno,
 template <class FAB>
 void
 FabArray<FAB>::setFab (const MFIter& mfi,
-                       FAB* elem)
+                       FAB* elem, bool assertion)
 {
-    //
-    // Must check it is of the proper size.
-    //
-    if (n_comp == 0)
-        n_comp = elem->nComp();
-
-    BL_ASSERT(n_comp == elem->nComp());
-    BL_ASSERT(boxarray.size() > 0);
-    BL_ASSERT(elem->box() == fabbox(mfi.index()));
-    BL_ASSERT(!this->defined(mfi));
-    BL_ASSERT(distributionMap[mfi.index()] == ParallelDescriptor::MyProc());
+    if (assertion)
+    {
+        //
+        // Must check it is of the proper size.
+        //
+        if (n_comp == 0)
+            n_comp = elem->nComp();
+        
+        BL_ASSERT(n_comp == elem->nComp());
+        BL_ASSERT(boxarray.size() > 0);
+        BL_ASSERT(elem->box() == fabbox(mfi.index()));
+        BL_ASSERT(!this->defined(mfi));
+        BL_ASSERT(distributionMap[mfi.index()] == ParallelDescriptor::MyProc());        
+    }
 
     if (m_fabs_v.size() == 0) {
-	m_fabs_v.resize(indexArray.size());
+        m_fabs_v.resize(indexArray.size());
     }
 
     m_fabs_v[mfi.LocalIndex()] = elem;
@@ -1273,7 +1312,7 @@ FabArray<FAB>::ParallelCopy (const FabArray<FAB>& src,
         // non-cell-centered data this simplistic way.
         //
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (FAB::isCopyOMPSafe())
 #endif
         for (MFIter fai(*this,true); fai.isValid(); ++fai)
         {
@@ -1301,7 +1340,7 @@ FabArray<FAB>::ParallelCopy (const FabArray<FAB>& src,
         //
 	int N_loc = (*thecpc.m_LocTags).size();
 #ifdef _OPENMP
-#pragma omp parallel for if (thecpc.m_threadsafe_loc)
+#pragma omp parallel for if (FAB::isCopyOMPSafe() && thecpc.m_threadsafe_loc)
 #endif
 	for (int i=0; i<N_loc; ++i)
         {
@@ -1391,15 +1430,17 @@ FabArray<FAB>::ParallelCopy (const FabArray<FAB>& src,
         // Before we post recv, let's preprocess sends in case FAB is not preAllocatable
         //
 
-	Array<char*>                       send_data;
-	Array<int>                         send_size;
-	Array<int>                         send_rank;
-	Array<MPI_Request>                 send_reqs;
-	Array<const CopyComTagsContainer*> send_cctc;
-        Array<Array<int> >                 indv_send_size;
-        Array<MPI_Request>                 pre_reqs;
+	Vector<char*>                       send_data;
+	Vector<int>                         send_size;
+	Vector<int>                         send_rank;
+	Vector<MPI_Request>                 send_reqs;
+	Vector<const CopyComTagsContainer*> send_cctc;
+        Vector<Vector<int> >                 indv_send_size;
+        Vector<MPI_Request>                 pre_reqs;
 
+#if defined BL_USE_UPCXX || defined BL_USE_MPI3 
         int actual_n_snds = 0;
+#endif
 	if (N_snds > 0)
 	{
 	    send_data.reserve(N_snds);
@@ -1411,7 +1452,7 @@ FabArray<FAB>::ParallelCopy (const FabArray<FAB>& src,
 
             for (auto const& kv : *thecpc.m_SndVols)
 	    {
-                Array<int> iss;                
+                Vector<int> iss;                
                 auto const& cctc = thecpc.m_SndTags->at(kv.first);
 
                 std::size_t nbytes = 0;
@@ -1453,7 +1494,9 @@ FabArray<FAB>::ParallelCopy (const FabArray<FAB>& src,
                 indv_send_size.push_back(std::move(iss));
 	    }
 
+#if defined BL_USE_UPCXX || defined BL_USE_MPI3
             actual_n_snds = N_snds - std::count(send_size.begin(), send_size.end(), 0);
+#endif
         }
 
         if (!FAB::preAllocatable())
@@ -1467,12 +1510,12 @@ FabArray<FAB>::ParallelCopy (const FabArray<FAB>& src,
             }
         }
 
-        Array<int>         recv_from;
-        Array<char*>       recv_data;
-        Array<int>         recv_size;
-        Array<MPI_Request> recv_reqs;
+        Vector<int>         recv_from;
+        Vector<char*>       recv_data;
+        Vector<int>         recv_size;
+        Vector<MPI_Request> recv_reqs;
 #ifdef BL_USE_MPI3
-	Array<MPI_Aint>    recv_disp;
+	Vector<MPI_Aint>    recv_disp;
 #endif
         //
         // Post rcvs. Allocate one chunk of space to hold'm all.
@@ -1508,7 +1551,7 @@ FabArray<FAB>::ParallelCopy (const FabArray<FAB>& src,
 	if (N_snds > 0)
 	{
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for if (FAB::isCopyOMPSafe())
 #endif
 	    for (int j=0; j<N_snds; ++j)
 	    {
@@ -1548,7 +1591,7 @@ FabArray<FAB>::ParallelCopy (const FabArray<FAB>& src,
 	    if (ParallelDescriptor::MPIOneSided())
 	    {
 #if defined(BL_USE_MPI3)
-		Array<MPI_Aint> send_disp(N_snds,0);
+		Vector<MPI_Aint> send_disp(N_snds,0);
                 send_reqs.clear();
 
 		for (int i=0; i<N_snds; ++i) {
@@ -1629,7 +1672,7 @@ FabArray<FAB>::ParallelCopy (const FabArray<FAB>& src,
 	{
 #ifdef BL_USE_TEAM
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (FAB::isCopyOMPSafe())
 #endif
 	    ParallelDescriptor::team_for(0, N_locs, [&] (int j) 
             {
@@ -1649,7 +1692,7 @@ FabArray<FAB>::ParallelCopy (const FabArray<FAB>& src,
 	else 
 	{
 #ifdef _OPENMP
-#pragma omp parallel for if (thecpc.m_threadsafe_loc)
+#pragma omp parallel for if (FAB::isCopyOMPSafe() && thecpc.m_threadsafe_loc)
 #endif
 	    for (int j=0; j<N_locs; ++j)
 	    {
@@ -1679,7 +1722,7 @@ FabArray<FAB>::ParallelCopy (const FabArray<FAB>& src,
 #endif
 	} else {
 	    if (actual_n_rcvs > 0) {
-		Array<MPI_Status> stats(N_rcvs);
+		Vector<MPI_Status> stats(N_rcvs);
 		BL_MPI_REQUIRE( MPI_Waitall(N_rcvs, recv_reqs.dataPtr(), stats.dataPtr()) );
 		if (!CheckRcvStats(stats, recv_size, MPI_CHAR, SeqNum))
                 {
@@ -1691,7 +1734,7 @@ FabArray<FAB>::ParallelCopy (const FabArray<FAB>& src,
 
 	if (N_rcvs > 0)
 	{
-	    Array<const CopyComTagsContainer*> recv_cctc(N_rcvs,nullptr);
+	    Vector<const CopyComTagsContainer*> recv_cctc(N_rcvs,nullptr);
 
 	    for (int k = 0; k < N_rcvs; ++k)
 	    {
@@ -1701,10 +1744,9 @@ FabArray<FAB>::ParallelCopy (const FabArray<FAB>& src,
                     recv_cctc[k] = &cctc;
                 }
 	    }
-
 	    
 #ifdef _OPENMP
-#pragma omp parallel if (thecpc.m_threadsafe_rcv)
+#pragma omp parallel if (FAB::isCopyOMPSafe() && thecpc.m_threadsafe_rcv)
 #endif
 	    {
 		FAB fab;
@@ -1774,7 +1816,7 @@ FabArray<FAB>::ParallelCopy (const FabArray<FAB>& src,
 #endif
 	    } else {
 		if (FabArrayBase::do_async_sends && ! thecpc.m_SndTags->empty()) {
-		    Array<MPI_Status> stats;
+		    Vector<MPI_Status> stats;
 		    FabArrayBase::WaitForAsyncSends(N_snds,send_reqs,send_data,stats);
 		}
 	    }
@@ -1996,9 +2038,9 @@ FabArray<FAB>::copyInter (FabArray<FAB> *src, FabArray<FAB> *dest,
 
     // ---- give all procs in commBoth source and dest boxarrays and distribution maps
     BoxArray srcBoxArray, destBoxArray;
-    Array<int> srcPMap, destPMap, srcPMapAll, destPMapAll;
+    Vector<int> srcPMap, destPMap, srcPMapAll, destPMapAll;
     DistributionMapping srcDM, destDM, srcDMAll, destDMAll;
-    Array<int> srcIndexArray, destIndexArray;
+    Vector<int> srcIndexArray, destIndexArray;
     if(isSrc) {
       srcIndexArray = src->IndexArray();
     }
@@ -2076,15 +2118,17 @@ FabArray<FAB>::copyInter (FabArray<FAB> *src, FabArray<FAB> *dest,
         //
 	const int N_snds = thecpc.m_SndTags->size();
 
-	Array<char*>                       send_data;
-	Array<int>                         send_size;
-	Array<int>                         send_rank;
-	Array<MPI_Request>                 send_reqs;
-	Array<const CopyComTagsContainer*> send_cctc;
-        Array<Array<int> >                 indv_send_size;
-        Array<MPI_Request>                 pre_reqs;
+	Vector<char*>                       send_data;
+	Vector<int>                         send_size;
+	Vector<int>                         send_rank;
+	Vector<MPI_Request>                 send_reqs;
+	Vector<const CopyComTagsContainer*> send_cctc;
+        Vector<Vector<int> >                 indv_send_size;
+        Vector<MPI_Request>                 pre_reqs;
 
+#if defined BL_USE_UPCXX || defined BL_USE_MPI3
         int actual_n_snds = 0;
+#endif
         if (N_snds > 0)
         {
             send_data.reserve(N_snds);
@@ -2096,7 +2140,7 @@ FabArray<FAB>::copyInter (FabArray<FAB> *src, FabArray<FAB> *dest,
             
             for (auto const& kv : *thecpc.m_SndVols)
             {
-                Array<int> iss;                
+                Vector<int> iss;                
                 auto const& cctc = thecpc.m_SndTags->at(kv.first);
 
                 std::size_t nbytes = 0;
@@ -2132,7 +2176,9 @@ FabArray<FAB>::copyInter (FabArray<FAB> *src, FabArray<FAB> *dest,
                 indv_send_size.push_back(std::move(iss));
             }
 
+#if defined BL_USE_UPCXX || defined BL_USE_MPI3
             actual_n_snds = N_snds - std::count(send_size.begin(), send_size.end(), 0);
+#endif
         }
 
         if (!FAB::preAllocatable())
@@ -2146,11 +2192,11 @@ FabArray<FAB>::copyInter (FabArray<FAB> *src, FabArray<FAB> *dest,
             }
         }
 
-        Array<MPI_Status>  stats;
-        Array<int>         recv_from;
-        Array<char*>       recv_data;
-        Array<int>         recv_size;
-        Array<MPI_Request> recv_reqs;
+        Vector<MPI_Status>  stats;
+        Vector<int>         recv_from;
+        Vector<char*>       recv_data;
+        Vector<int>         recv_size;
+        Vector<MPI_Request> recv_reqs;
         //
         // Post rcvs. Allocate one chunk of space to hold'm all.
         //
@@ -2170,7 +2216,7 @@ FabArray<FAB>::copyInter (FabArray<FAB> *src, FabArray<FAB> *dest,
         if (N_snds > 0)
         {
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for if(FAB::isCopyOMPSafe())
 #endif
             for (int j=0; j<N_snds; ++j)
             {
@@ -2227,7 +2273,7 @@ FabArray<FAB>::copyInter (FabArray<FAB> *src, FabArray<FAB> *dest,
 	int N_loc = (*thecpc.m_LocTags).size();
 
 #ifdef _OPENMP
-#pragma omp parallel for if (thecpc.m_threadsafe_loc)
+#pragma omp parallel for if (FAB::isCopyOMPSafe() && thecpc.m_threadsafe_loc)
 #endif
 	for (int j=0; j<N_loc; ++j)
         {
@@ -2249,7 +2295,7 @@ FabArray<FAB>::copyInter (FabArray<FAB> *src, FabArray<FAB> *dest,
 
 	if (N_rcvs > 0)
 	{
-	    Array<const CopyComTagsContainer*> recv_cctc(N_rcvs,nullptr);
+	    Vector<const CopyComTagsContainer*> recv_cctc(N_rcvs,nullptr);
 
 	    for (int k = 0; k < N_rcvs; ++k)
 	    {
@@ -2266,7 +2312,7 @@ FabArray<FAB>::copyInter (FabArray<FAB> *src, FabArray<FAB> *dest,
             }
 	    
 #ifdef _OPENMP
-#pragma omp parallel if (thecpc.m_threadsafe_rcv)
+#pragma omp parallel if (FAB::isCopyOMPSafe() && thecpc.m_threadsafe_rcv)
 #endif
             {
                 FAB fab;
@@ -2484,8 +2530,8 @@ FabArray<FAB>::CheckFAPointers (bool abortOnError)
       }
     }
 
-    Array<int> fapId(faPtrCachedMap.size()), dmId(faPtrCachedMap.size());
-    Array<int> nDM(faPtrCachedMap.size()), fabsAlloced(faPtrCachedMap.size());
+    Vector<int> fapId(faPtrCachedMap.size()), dmId(faPtrCachedMap.size());
+    Vector<int> nDM(faPtrCachedMap.size()), fabsAlloced(faPtrCachedMap.size());
     for(typename std::map<int, FabArray<FAB> *>::iterator it = faPtrCachedMap.begin();
         it != faPtrCachedMap.end(); ++it)
     {
@@ -2503,7 +2549,7 @@ FabArray<FAB>::CheckFAPointers (bool abortOnError)
         ++pUnlocked;
       }
     }
-    Array<int> fapIdCheck, dmIdCheck, nDMCheck, fabsAllocedCheck;
+    Vector<int> fapIdCheck, dmIdCheck, nDMCheck, fabsAllocedCheck;
     if(ParallelDescriptor::IOProcessor()) {
       fapIdCheck = fapId;
       dmIdCheck = dmId;
@@ -2631,7 +2677,7 @@ FabArray<FAB>::AddProcsToComp (int ioProcNumSCS, int ioProcNumAll,
   }
 
   // ---- IntVects
-  Array<int> allIntVects;
+  Vector<int> allIntVects;
   if(scsMyId == ioProcNumSCS) {
     for(int i(0); i < BL_SPACEDIM; ++i)    { allIntVects.push_back(mfiter_tile_size[i]); }
     for(int i(0); i < BL_SPACEDIM; ++i)    { allIntVects.push_back(comm_tile_size[i]); }
@@ -2676,7 +2722,7 @@ FabArray<FAB>::AddProcsToComp (int ioProcNumSCS, int ioProcNumAll,
   }
 
   // ---- noallocFAPIds
-  Array<int> setArray;
+  Vector<int> setArray;
   if(scsMyId == ioProcNumSCS) {
     std::set<int>::iterator it;
     for(it = noallocFAPIds.begin(); it != noallocFAPIds.end(); ++it) {
@@ -2704,13 +2750,15 @@ FabArray<FAB>::AddProcsToComp (int ioProcNumSCS, int ioProcNumAll,
 }
 
 
+// Move and replace distribution maps in all FabArrays that 
+// have the same size as newDistMap.
+// Note: Check for and skip over case of newDistMap = currentMap?
 template <class FAB>
 void
-//FabArray<FAB>::MoveAllFabs (const Array<int> &newDistMapArray)
 FabArray<FAB>::MoveAllFabs (const DistributionMapping &newDistMap)
 {
   int myProc(ParallelDescriptor::MyProc());
-  const Array<int> &newDistMapArray = newDistMap.ProcessorMap();
+  const Vector<int> &newDistMapArray = newDistMap.ProcessorMap();
 if(myProc == 0) {
   std::cout << "####### start MoveAllFabs ##### new dm ###" << std::endl;
   for(int idm(0); idm < newDistMapArray.size(); ++idm) {
@@ -2721,7 +2769,7 @@ if(myProc == 0) {
 
   //DistributionMapping newDistMap(newDistMapArray);
 
-  std::map<BDKey, FabArray<FAB> *> replaceTheseDistMaps;
+//  std::map<BDKey, FabArray<FAB> *> replaceTheseDistMaps;
   if(ParallelDescriptor::IOProcessor()) {
     std::cout << "-----------------------------------------------------------" << std::endl;
     std::cout << "FabArray<FAB>::MoveAllFabs:  " << allocatedFAPointers.size()
@@ -2738,6 +2786,7 @@ if(myProc == 0) {
     std::cout << "-----------------------------------------------------------" << std::endl;
   }
 
+  // Get FabArrays with the appropriate size (that matches the new map size).
   typename std::map<int, std::map<int, FabArray<FAB> *> >::iterator afapIter = 
                FabArray<FAB>::allocatedFAPointers.find(newDistMapArray.size());
   if(afapIter == FabArray<FAB>::allocatedFAPointers.end()) {
@@ -2761,10 +2810,21 @@ if(myProc == 0) {
       }
 
       faPtr->flushFPinfo();
+
+      // Move Fabs in Array based on new Distribution Map
       int nFabsMoved = faPtr->MoveFabs(newDistMapArray);
 
-      replaceTheseDistMaps[faPtr->getBDKey()] = faPtr;
+      // Update distribution map and ID key for FabArray
+      amrex::Print() << "RRRRRRRR::  replacing:  " << faPtr->DistributionMap() << std::endl;
+      const DistributionMapping::Ref *refidPtr = faPtr->DistributionMap().getRefID().dataPtr();
+      amrex::Print() << "DDDDDDDD::  refidPtr =  " << refidPtr << std::endl;
+      //faPtr->ModifyDistributionMap().ReplaceCachedProcessorMap(newDistMapArray);
+      faPtr->ModifyDistributionMap() = newDistMap;
+      faPtr->updateBDKey();
 
+      //replaceTheseDistMaps[faPtr->getBDKey()] = faPtr;
+
+      // REMOVE! Requires Sync!! 
       ParallelDescriptor::ReduceIntSum(nFabsMoved);
       amrex::Print() << "FabArray<FAB>::MoveAllFabs:  moved " << nFabsMoved
                      << " FAB(s) for faPtr = " << faPtr << '\n';
@@ -2785,14 +2845,153 @@ if(myProc == 0) {
       faPtr->flushCFinfo();
     }
 
-    for(auto rTDMI = replaceTheseDistMaps.begin(); rTDMI != replaceTheseDistMaps.end(); ++rTDMI) {
-      FabArray<FAB> *faPtr = rTDMI->second;
-      amrex::Print() << "RRRRRRRR::  replacing:  " << faPtr->DistributionMap() << std::endl;
-      const DistributionMapping::Ref *refidPtr = faPtr->DistributionMap().getRefID().dataPtr();
-      amrex::Print() << "DDDDDDDD::  refidPtr =  " << refidPtr << std::endl;
-      //faPtr->ModifyDistributionMap().ReplaceCachedProcessorMap(newDistMapArray);
-      faPtr->ModifyDistributionMap() = newDistMap;
-      faPtr->updateBDKey();
+//    for(auto rTDMI = replaceTheseDistMaps.begin(); rTDMI != replaceTheseDistMaps.end(); ++rTDMI) {
+//      FabArray<FAB> *faPtr = rTDMI->second;
+//      amrex::Print() << "RRRRRRRR::  replacing:  " << faPtr->DistributionMap() << std::endl;
+//      const DistributionMapping::Ref *refidPtr = faPtr->DistributionMap().getRefID().dataPtr();
+//      amrex::Print() << "DDDDDDDD::  refidPtr =  " << refidPtr << std::endl;
+//      //faPtr->ModifyDistributionMap().ReplaceCachedProcessorMap(newDistMapArray);
+//      faPtr->ModifyDistributionMap() = newDistMap;
+//      faPtr->updateBDKey();
+//    }
+
+    // ---- check the moved fabarrays
+    for(typename std::map<int, FabArray<FAB> *>::iterator it = faPtrCachedMap.begin();
+        it != faPtrCachedMap.end(); ++it)
+    {
+      FabArray<FAB> *faPtr = it->second;
+      if(faPtr->ok() == false) {
+        amrex::Abort("**** Error 2 in MoveAllFabs:  faPtr not ok");
+      }
+    }
+
+  }
+
+  if(ParallelDescriptor::IOProcessor()) {
+    std::cout << "FabArray<FAB>::MoveAllFabs:  noallocFAPIds.size() = " << noallocFAPIds.size() << std::endl;
+    std::set<int>::iterator nait;
+    for(nait = noallocFAPIds.begin(); nait != noallocFAPIds.end(); ++nait) {
+        std::cout << "FabArray<FAB>::MoveAllFabs:  noallocFAPIds = " << *nait << std::endl;
+    }
+  }
+  if(ParallelDescriptor::IOProcessor()) {
+    std::cout << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << std::endl;
+    std::cout << "FabArray<FAB>::MoveAllFabs:  " << allocatedFAPointers.size()
+              << " cached DistributionMap(s)." << std::endl;
+    for(auto it = allocatedFAPointers.begin(); it != allocatedFAPointers.end(); ++it) {
+      std::cout << "it->first (ngrids) = " << it->first << "  :: ===================" << std::endl;
+      std::map<int, FabArray<FAB> *> &afapMap = it->second;
+      for(auto afapMapIter = afapMap.begin(); afapMapIter != afapMap.end(); ++afapMapIter) {
+	auto fap = afapMapIter->second;
+        std::cout << "afapMapIter->first (aFAPId) = " << afapMapIter->first << "  faptr = " << afapMapIter->second << std::endl; 
+	std::cout << "fap->DistributionMap() = " << fap->DistributionMap() << std::endl;
+      }
+    }
+    std::cout << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << std::endl;
+  }
+if(myProc == 0) {
+  std::cout << "######### end MoveAllFabs ################" << std::endl;
+}
+}
+
+
+// Replace all distribution maps in FabArrays that are currently using
+// oldDistMap with newDistMap and move Fabs approriately.
+template <class FAB>
+void
+//FabArray<FAB>::MoveAllFabs (const Vector<int> &newDistMapArray)
+FabArray<FAB>::MoveAllFabs (const DistributionMapping &oldDistMap, const DistributionMapping &newDistMap)
+{
+
+  // If the maps are identical, skip.
+  if (oldDistMap == newDistMap)
+  { return; }
+
+  int myProc(ParallelDescriptor::MyProc());
+  const Vector<int> &newDistMapArray = newDistMap.ProcessorMap();
+if(myProc == 0) {
+  std::cout << "####### start MoveAllFabs ##### new dm ###" << std::endl;
+  for(int idm(0); idm < newDistMapArray.size(); ++idm) {
+    std::cout << "newDistMapArray[" << idm << "] = " << newDistMapArray[idm] << std::endl;
+  }
+  std::cout << "##########################################" << std::endl;
+}
+
+  std::map<BDKey, FabArray<FAB> *> replaceTheseDistMaps;
+  if(ParallelDescriptor::IOProcessor()) {
+    std::cout << "-----------------------------------------------------------" << std::endl;
+    std::cout << "FabArray<FAB>::MoveAllFabs:  " << allocatedFAPointers.size()
+              << " cached DistributionMap(s)." << std::endl;
+    for(auto afapIter = allocatedFAPointers.begin(); afapIter != allocatedFAPointers.end(); ++afapIter) {
+      std::cout << "afapIter->first (ngrids) = " << afapIter->first << "  :: ===================" << std::endl;
+      std::map<int, FabArray<FAB> *> &afapMap = afapIter->second;
+      for(auto afapMapIter = afapMap.begin(); afapMapIter != afapMap.end(); ++afapMapIter) {
+	auto faptr = afapMapIter->second;
+        std::cout << "afapMapIter->first (aFAPId) = " << afapMapIter->first << "  faptr = " << faptr << std::endl;
+	std::cout << "faptr->DistributionMap() = " << faptr->DistributionMap() << std::endl;
+      }
+    }
+    std::cout << "-----------------------------------------------------------" << std::endl;
+  }
+
+  // Select subset of allocatedFabArrays that are the correct size for the distribution map.
+  typename std::map<int, std::map<int, FabArray<FAB> *> >::iterator afapIter = 
+               FabArray<FAB>::allocatedFAPointers.find(newDistMapArray.size());
+  if(afapIter == FabArray<FAB>::allocatedFAPointers.end()) {
+    if(ParallelDescriptor::IOProcessor()) {
+      std::cout << "FabArray<FAB>::MoveAllFabs:  no allocated pointers for new "
+                << "distribution map array.\n";
+    }
+  } else {
+    std::map<int, FabArray<FAB> *> &faPtrCachedMap = afapIter->second;
+    if(ParallelDescriptor::IOProcessor()) {
+      std::cout << "FabArray<FAB>::MoveAllFabs:  moving FABs for "
+                << faPtrCachedMap.size() << " FabArray(s).\n";
+    }
+
+    for(typename std::map<int, FabArray<FAB> *>::iterator it = faPtrCachedMap.begin();
+        it != faPtrCachedMap.end(); ++it)
+    {
+      FabArray<FAB> *faPtr = it->second;
+      if(faPtr->ok() == false) {
+        amrex::Abort("**** Error 0 in MoveAllFabs:  faPtr not ok");
+      }
+
+      // Find the appropriate FabArrays that use the old Map.
+      if ( faPtr->ModifyDistributionMap() == oldDistMap )
+      {
+
+        faPtr->flushFPinfo();
+        // Move the fabs based on the new map.
+        int nFabsMoved = faPtr->MoveFabs(newDistMapArray);
+
+        // Update the distribution map and the unique fab array ID.
+        amrex::Print() << "RRRRRRRR::  replacing:  " << faPtr->DistributionMap() << std::endl;
+        const DistributionMapping::Ref *refidPtr = faPtr->DistributionMap().getRefID().dataPtr();
+        amrex::Print() << "DDDDDDDD::  refidPtr =  " << refidPtr << std::endl;
+        faPtr->ModifyDistributionMap() = newDistMap;
+        faPtr->updateBDKey();
+
+        // REMOVE! Requires Sync!! 
+        ParallelDescriptor::ReduceIntSum(nFabsMoved);
+        amrex::Print() << "FabArray<FAB>::MoveAllFabs:  moved " << nFabsMoved
+                       << " FAB(s) for faPtr = " << faPtr << '\n';
+      }
+    }
+
+
+
+    // ---- flush caches
+    flushCPCache();
+    flushFBCache();
+    flushTileArrayCache();
+
+    for(typename std::map<int, FabArray<FAB> *>::iterator it = faPtrCachedMap.begin();
+        it != faPtrCachedMap.end(); ++it)
+    {
+      FabArray<FAB> *faPtr = it->second;
+      faPtr->flushFPinfo();
+      faPtr->flushCFinfo();
     }
 
     // ---- check the moved fabarrays
@@ -2818,9 +3017,9 @@ if(myProc == 0) {
     std::cout << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << std::endl;
     std::cout << "FabArray<FAB>::MoveAllFabs:  " << allocatedFAPointers.size()
               << " cached DistributionMap(s)." << std::endl;
-    for(auto afapIter = allocatedFAPointers.begin(); afapIter != allocatedFAPointers.end(); ++afapIter) {
-      std::cout << "afapIter->first (ngrids) = " << afapIter->first << "  :: ===================" << std::endl;
-      std::map<int, FabArray<FAB> *> &afapMap = afapIter->second;
+    for(auto it = allocatedFAPointers.begin(); it != allocatedFAPointers.end(); ++it) {
+      std::cout << "it->first (ngrids) = " << it->first << "  :: ===================" << std::endl;
+      std::map<int, FabArray<FAB> *> &afapMap = it->second;
       for(auto afapMapIter = afapMap.begin(); afapMapIter != afapMap.end(); ++afapMapIter) {
 	auto fap = afapMapIter->second;
         std::cout << "afapMapIter->first (aFAPId) = " << afapMapIter->first << "  faptr = " << afapMapIter->second << std::endl; 
@@ -2834,10 +3033,9 @@ if(myProc == 0) {
 }
 }
 
-
 template <class FAB>
 int
-FabArray<FAB>::MoveFabs (const Array<int> &newDistMapArray)
+FabArray<FAB>::MoveFabs (const Vector<int> &newDistMapArray)
 {
 #if BL_USE_MPI
   BL_PROFILE("FabArray<FAB>::MoveFabs()");
@@ -2907,7 +3105,7 @@ FabArray<FAB>::MoveFabs (const Array<int> &newDistMapArray)
   }
 
   // ---- move the fabs
-  Array<MPI_Request> recvReqs, sendReqs;
+  Vector<MPI_Request> recvReqs, sendReqs;
   int nFabsSent(0);
 
   for(int imoves(0); imoves < fabMoves.size(); ++imoves) {
@@ -2953,7 +3151,7 @@ FabArray<FAB>::MoveFabs (const Array<int> &newDistMapArray)
 
   // ---- wait for all the data to move
   // ---- we could defer Waitall for multiple calls to MoveFabs with a multi-step process
-  Array<MPI_Status>  recvStats(recvReqs.size()), sendStats(sendReqs.size());
+  Vector<MPI_Status>  recvStats(recvReqs.size()), sendStats(sendReqs.size());
 
   if(recvReqs.size() > 0) {
     BL_MPI_REQUIRE( MPI_Waitall(recvReqs.size(), recvReqs.dataPtr(), recvStats.dataPtr()) );
@@ -3120,7 +3318,7 @@ FabArray<FAB>::FBEP_nowait (int scomp, int ncomp, const Periodicity& period, boo
         //
 	int N_loc = (*TheFB.m_LocTags).size();
 #ifdef _OPENMP
-#pragma omp parallel for if (TheFB.m_threadsafe_loc)
+#pragma omp parallel for if (FAB::isCopyOMPSafe() && TheFB.m_threadsafe_loc)
 #endif
 	for (int i=0; i<N_loc; ++i)
         {
@@ -3180,17 +3378,19 @@ FabArray<FAB>::FBEP_nowait (int scomp, int ncomp, const Periodicity& period, boo
     //
     // Before we post recv, let's preprocess sends in case FAB is not preAllocatable
     //
-    Array<char*> &                     send_data = fb_send_data;
-    Array<int>                         send_size;
-    Array<int>                         send_rank;
-    Array<MPI_Request>&                send_reqs = fb_send_reqs;
-    Array<const CopyComTagsContainer*> send_cctc;
-    Array<Array<int> >                 indv_send_size;
-    Array<MPI_Request>                 pre_reqs;
+    Vector<char*> &                     send_data = fb_send_data;
+    Vector<int>                         send_size;
+    Vector<int>                         send_rank;
+    Vector<MPI_Request>&                send_reqs = fb_send_reqs;
+    Vector<const CopyComTagsContainer*> send_cctc;
+    Vector<Vector<int> >                 indv_send_size;
+    Vector<MPI_Request>                 pre_reqs;
 
     fb_tag = SeqNum;
 
+#if defined BL_USE_UPCXX || defined BL_USE_MPI3 
     int actual_n_snds = 0;
+#endif
     if (N_snds > 0)
     {
         fb_send_data.clear();
@@ -3205,7 +3405,7 @@ FabArray<FAB>::FBEP_nowait (int scomp, int ncomp, const Periodicity& period, boo
 
         for (auto const& kv : *TheFB.m_SndVols)
         {
-            Array<int> iss;                
+            Vector<int> iss;                
             auto const& cctc = TheFB.m_SndTags->at(kv.first);
 
             std::size_t nbytes = 0;
@@ -3246,8 +3446,10 @@ FabArray<FAB>::FBEP_nowait (int scomp, int ncomp, const Periodicity& period, boo
             send_cctc.push_back(&cctc);
             indv_send_size.push_back(std::move(iss));
         }
-        
+
+#if defined BL_USE_UPCXX || defined BL_USE_MPI3         
         actual_n_snds = N_snds - std::count(send_size.begin(), send_size.end(), 0);
+#endif
     }
 
     if (!FAB::preAllocatable())
@@ -3272,7 +3474,7 @@ FabArray<FAB>::FBEP_nowait (int scomp, int ncomp, const Periodicity& period, boo
 #endif
 
     fb_the_recv_data = nullptr;
-    int actual_n_rcvs = 0;
+
     if (N_rcvs > 0) {
 #ifdef BL_USE_UPCXX
 	PostRcvs_PGAS(*TheFB.m_RcvVols, fb_the_recv_data, fb_recv_data,
@@ -3293,7 +3495,6 @@ FabArray<FAB>::FBEP_nowait (int scomp, int ncomp, const Periodicity& period, boo
                      scomp, ncomp, SeqNum, preSeqNum);
 	}
 #endif
-        actual_n_rcvs = N_rcvs - std::count(fb_recv_size.begin(), fb_recv_size.end(), 0);
     }
 
     //
@@ -3302,7 +3503,7 @@ FabArray<FAB>::FBEP_nowait (int scomp, int ncomp, const Periodicity& period, boo
     if (N_snds > 0)
     {
 #ifdef _OPENMP
-#pragma omp parallel for
+#pragma omp parallel for if (FAB::isCopyOMPSafe())
 #endif
 	for (int j=0; j<N_snds; ++j)
 	{
@@ -3342,7 +3543,7 @@ FabArray<FAB>::FBEP_nowait (int scomp, int ncomp, const Periodicity& period, boo
 	if (ParallelDescriptor::MPIOneSided())
 	{
 #if defined(BL_USE_MPI3)
-	    Array<MPI_Aint> send_disp(N_snds,0);
+	    Vector<MPI_Aint> send_disp(N_snds,0);
             send_reqs.clear();
 	    
 	    for (int i=0; i<N_snds; ++i) {
@@ -3415,7 +3616,7 @@ FabArray<FAB>::FBEP_nowait (int scomp, int ncomp, const Periodicity& period, boo
     {
 #ifdef BL_USE_TEAM
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel if (FAB::isCopyOMPSafe())
 #endif
 	ParallelDescriptor::team_for(0, N_locs, [&] (int i) 
         {
@@ -3431,7 +3632,7 @@ FabArray<FAB>::FBEP_nowait (int scomp, int ncomp, const Periodicity& period, boo
     else
     {
 #ifdef _OPENMP
-#pragma omp parallel for if (TheFB.m_threadsafe_loc)
+#pragma omp parallel for if (FAB::isCopyOMPSafe() && TheFB.m_threadsafe_loc)
 #endif
 	for (int i=0; i<N_locs; ++i)
 	{
@@ -3484,7 +3685,7 @@ FabArray<FAB>::FillBoundary_finish ()
 #endif
     } else {
 	if (actual_n_rcvs > 0) {
-	    Array<MPI_Status> stats(N_rcvs);
+	    Vector<MPI_Status> stats(N_rcvs);
 	    BL_MPI_REQUIRE( MPI_Waitall(N_rcvs, fb_recv_reqs.dataPtr(), stats.dataPtr()) );
 	    if (!CheckRcvStats(stats, fb_recv_size, MPI_CHAR, fb_tag))
             {
@@ -3496,7 +3697,7 @@ FabArray<FAB>::FillBoundary_finish ()
 
     if (N_rcvs > 0)
     {
-	Array<const CopyComTagsContainer*> recv_cctc(N_rcvs,nullptr);
+	Vector<const CopyComTagsContainer*> recv_cctc(N_rcvs,nullptr);
 
 	for (int k = 0; k < N_rcvs; k++) 
 	{
@@ -3508,7 +3709,7 @@ FabArray<FAB>::FillBoundary_finish ()
 	}	
 
 #ifdef _OPENMP
-#pragma omp parallel for if (TheFB.m_threadsafe_rcv)
+#pragma omp parallel for if (FAB::isCopyOMPSafe() && TheFB.m_threadsafe_rcv)
 #endif
 
 	for (int k = 0; k < N_rcvs; k++) 
@@ -3562,7 +3763,7 @@ FabArray<FAB>::FillBoundary_finish ()
             }
 #endif
         } else {
-            Array<MPI_Status> stats;
+            Vector<MPI_Status> stats;
             FabArrayBase::WaitForAsyncSends(N_snds,fb_send_reqs,fb_send_data,stats);
         }
 #endif
@@ -3580,9 +3781,9 @@ template <class FAB>
 void
 FabArray<FAB>::PostRcvs_PGAS (const MapOfCopyComTagContainers&  m_RcvVols,
                               char*&                            the_recv_data,
-                              Array<char*>&                     recv_data,
-                              Array<int>&                       recv_size,
-                              Array<int>&                       recv_from,
+                              Vector<char*>&                     recv_data,
+                              Vector<int>&                       recv_size,
+                              Vector<int>&                       recv_from,
                               int                               icomp,
                               int                               ncomp,
                               int                               SeqNum,

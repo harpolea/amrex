@@ -23,7 +23,7 @@ BoxList::join (const BoxList& blist)
 }
 
 void
-BoxList::join (const Array<Box>& barr)
+BoxList::join (const Vector<Box>& barr)
 {
     BL_ASSERT(barr.size() == 0 || ixType() == barr[0].ixType());
     m_lbox.insert(std::end(m_lbox), std::begin(barr), std::end(barr));
@@ -121,6 +121,15 @@ BoxList::BoxList (const BoxArray &ba)
     m_lbox(std::move(ba.boxList().data())),
     btype(ba.ixType())
 {
+}
+
+BoxList::BoxList (Vector<Box>&& bxs)
+    : m_lbox(std::move(bxs)),
+      btype(IndexType::TheCellType())
+{
+    if (m_lbox.size() > 0) {
+        btype = m_lbox[0].ixType();
+    }
 }
 
 BoxList::BoxList(const Box& bx, const IntVect& tilesize)
@@ -237,7 +246,7 @@ BoxList::complementIn (const Box&     b,
 {
     BL_PROFILE("BoxList::complementIn");
     BoxArray ba(bl);
-    *this = std::move(ba.complementIn(b));
+    *this = ba.complementIn(b);
     return *this;
 }
 
@@ -488,7 +497,7 @@ BoxList::minimalBox () const
 BoxList&
 BoxList::maxSize (const IntVect& chunk)
 {
-    Array<Box> new_boxes;
+    Vector<Box> new_boxes;
 
     for (int i = 0; i < BL_SPACEDIM; ++i)
     {
@@ -516,7 +525,7 @@ BoxList::maxSize (const IntVect& chunk)
                 // Determine number and size of (coarsened) cuts.
                 //
                 const int numblk = nlen/bs + (nlen%bs ? 1 : 0);
-                const int size   = nlen/numblk;
+                const int sz     = nlen/numblk;
                 const int extra  = nlen%numblk;
                 //
                 // Number of cuts = number of blocks - 1.
@@ -526,7 +535,7 @@ BoxList::maxSize (const IntVect& chunk)
                     //
                     // Compute size of this chunk, expand by power of 2.
                     //
-                    const int ksize = (k < extra ? size+1 : size) * ratio;
+                    const int ksize = (k < extra ? sz+1 : sz) * ratio;
                     //
                     // Chop from high end.
                     //
