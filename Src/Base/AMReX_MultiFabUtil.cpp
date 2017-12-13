@@ -1,6 +1,7 @@
 
 #include <AMReX_MultiFabUtil.H>
 #include <AMReX_MultiFabUtil_F.H>
+#include <Castro_F.H>
 #include <sstream>
 #include <iostream>
 
@@ -166,9 +167,9 @@ void average_down (const MultiFab& S_fine, MultiFab& S_crse,
 
     BL_ASSERT(S_crse.nComp() == S_fine.nComp());
 
-        //
-        // Coarsen() the fine stuff on processors owning the fine data.
-        //
+    //
+    // Coarsen() the fine stuff on processors owning the fine data.
+    //
 	const BoxArray& fine_BA = S_fine.boxArray();
 	const DistributionMapping& fine_dm = S_fine.DistributionMap();
     BoxArray crse_S_fine_BA = fine_BA;

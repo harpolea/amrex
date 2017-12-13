@@ -9,11 +9,11 @@
 
 namespace amrex
 {
-    bool ProperlyNested (const IntVect& ratio, const IntVect& blockint_factor, int ngrow, 
+    bool ProperlyNested (const IntVect& ratio, const IntVect& blockint_factor, int ngrow,
 			 const IndexType& boxType, Interpolater* mapper);
 
-    void FillPatchSingleLevel (MultiFab& mf, Real time, 
-			       const Vector<MultiFab*>& smf, const Vector<Real>& stime, 
+    void FillPatchSingleLevel (MultiFab& mf, Real time,
+			       const Vector<MultiFab*>& smf, const Vector<Real>& stime,
 			       int scomp, int dcomp, int ncomp,
 			       const Geometry& geom, PhysBCFunctBase& physbcf);
 
@@ -21,31 +21,31 @@ namespace amrex
 			     const Vector<MultiFab*>& cmf, const Vector<Real>& ct,
 			     const Vector<MultiFab*>& fmf, const Vector<Real>& ft,
 			     int scomp, int dcomp, int ncomp,
-			     const Geometry& cgeom, const Geometry& fgeom, 
+			     const Geometry& cgeom, const Geometry& fgeom,
 			     PhysBCFunctBase& cbc, PhysBCFunctBase& fbc,
-			     const IntVect& ratio, 
-			     Interpolater* mapper, const BCRec& bcs);
+			     const IntVect& ratio,
+			     Interpolater* mapper, const BCRec& bcs, int ilev_crse, int max_level, int state_index);
 
     void FillPatchTwoLevels (MultiFab& mf, Real time,
 			     const Vector<MultiFab*>& cmf, const Vector<Real>& ct,
 			     const Vector<MultiFab*>& fmf, const Vector<Real>& ft,
 			     int scomp, int dcomp, int ncomp,
-			     const Geometry& cgeom, const Geometry& fgeom, 
+			     const Geometry& cgeom, const Geometry& fgeom,
 			     PhysBCFunctBase& cbc, PhysBCFunctBase& fbc,
-			     const IntVect& ratio, 
-			     Interpolater* mapper, const Vector<BCRec>& bcs);
+			     const IntVect& ratio,
+			     Interpolater* mapper, const Vector<BCRec>& bcs, int ilev_crse, int max_level, int state_index);
 
     void InterpFromCoarseLevel (MultiFab& mf, Real time,
 				const MultiFab& cmf, int scomp, int dcomp, int ncomp,
-				const Geometry& cgeom, const Geometry& fgeom, 
-				PhysBCFunctBase& cbc, PhysBCFunctBase& fbc, const IntVect& ratio, 
-				Interpolater* mapper, const BCRec& bcs);
+				const Geometry& cgeom, const Geometry& fgeom,
+				PhysBCFunctBase& cbc, PhysBCFunctBase& fbc, const IntVect& ratio,
+				Interpolater* mapper, const BCRec& bcs, int ilev_crse, int max_level);
 
     void InterpFromCoarseLevel (MultiFab& mf, Real time,
 				const MultiFab& cmf, int scomp, int dcomp, int ncomp,
-				const Geometry& cgeom, const Geometry& fgeom, 
-				PhysBCFunctBase& cbc, PhysBCFunctBase& fbc, const IntVect& ratio, 
-				Interpolater* mapper, const Vector<BCRec>& bcs);
+				const Geometry& cgeom, const Geometry& fgeom,
+				PhysBCFunctBase& cbc, PhysBCFunctBase& fbc, const IntVect& ratio,
+				Interpolater* mapper, const Vector<BCRec>& bcs, int ilev_crse, int max_level);
 
     void InterpCrseFineBndryBfield (const std::array<MultiFab,BL_SPACEDIM>& crse,
                                     std::array<MultiFab,BL_SPACEDIM>& fine,
@@ -53,7 +53,7 @@ namespace amrex
                                     int ref_ratio);
 
     enum InterpEM_t { InterpE, InterpB};
-    
+
     void InterpCrseFineBndryEMfield (InterpEM_t interp_type,
                                      const std::array<MultiFab,BL_SPACEDIM>& crse,
                                      std::array<MultiFab,BL_SPACEDIM>& fine,

@@ -176,7 +176,7 @@ MultiFab::Divide (MultiFab&       dst,
 
 void
 MultiFab::Saxpy (MultiFab&       dst,
-		 Real            a, 
+		 Real            a,
 		 const MultiFab& src,
 		 int             srccomp,
 		 int             dstcomp,
@@ -201,7 +201,7 @@ MultiFab::Saxpy (MultiFab&       dst,
 
 void
 MultiFab::Xpay (MultiFab&       dst,
-		Real            a, 
+		Real            a,
 		const MultiFab& src,
 		int             srccomp,
 		int             dstcomp,
@@ -248,7 +248,7 @@ MultiFab::LinComb (MultiFab&       dst,
     for (MFIter mfi(dst,true); mfi.isValid(); ++mfi)
     {
         const Box& bx = mfi.growntilebox(nghost);
-	
+
         if (bx.ok())
             dst[mfi].linComb(x[mfi],bx,xcomp,y[mfi],bx,ycomp,a,b,bx,dstcomp,numcomp);
     }
@@ -276,7 +276,7 @@ MultiFab::AddProduct (MultiFab&       dst,
     for (MFIter mfi(dst,true); mfi.isValid(); ++mfi)
     {
         const Box& bx = mfi.growntilebox(nghost);
-	
+
         if (bx.ok())
             dst[mfi].addproduct(bx, dstcomp, numcomp, src1[mfi], comp1, src2[mfi], comp2);
     }
@@ -444,7 +444,7 @@ MultiFab::initVal ()
     }
 }
 
-bool 
+bool
 MultiFab::contains_nan (int scomp,
                         int ncomp,
                         int ngrow,
@@ -462,10 +462,10 @@ MultiFab::contains_nan (int scomp,
 #endif
     for (MFIter mfi(*this,true); mfi.isValid(); ++mfi)
     {
-	const Box& bx = mfi.growntilebox(ngrow);
-	
-	if (this->FabArray<FArrayBox>::get(mfi).contains_nan(bx,scomp,ncomp))
-	    r = true;
+    	const Box& bx = mfi.growntilebox(ngrow);
+    	
+    	if (this->FabArray<FArrayBox>::get(mfi).contains_nan(bx,scomp,ncomp))
+    	    r = true;
     }
 
     if (!local)
@@ -474,13 +474,13 @@ MultiFab::contains_nan (int scomp,
     return r;
 }
 
-bool 
+bool
 MultiFab::contains_nan (bool local) const
 {
     return contains_nan(0,nComp(),nGrow(),local);
 }
 
-bool 
+bool
 MultiFab::contains_inf (int scomp,
                         int ncomp,
                         int ngrow,
@@ -499,7 +499,7 @@ MultiFab::contains_inf (int scomp,
     for (MFIter mfi(*this,true); mfi.isValid(); ++mfi)
     {
 	const Box& bx = mfi.growntilebox(ngrow);
-	
+
 	if (this->FabArray<FArrayBox>::get(mfi).contains_inf(bx,scomp,ncomp))
 	    r = true;
     }
@@ -510,13 +510,13 @@ MultiFab::contains_inf (int scomp,
     return r;
 }
 
-bool 
+bool
 MultiFab::contains_inf (bool local) const
 {
     return contains_inf(0,nComp(),nGrow(),local);
 }
 
-bool 
+bool
 MultiFab::is_nodal () const
 {
     return boxArray().ixType().nodeCentered();
@@ -563,7 +563,7 @@ MultiFab::min (const Box& region,
     for ( MFIter mfi(*this,true); mfi.isValid(); ++mfi)
     {
 	const Box& b = mfi.growntilebox(nghost) & region;
-	
+
 	if (b.ok())
 	    mn = std::min(mn, get(mfi).min(b,comp));
     }
@@ -618,7 +618,7 @@ MultiFab::max (const Box& region,
 	if (b.ok())
 	    mx = std::max(mx, get(mfi).max(b,comp));
     }
-	
+
     if (!local)
 	ParallelDescriptor::ReduceRealMax(mx,this->color());
 
@@ -727,7 +727,7 @@ MultiFab::maxIndex (int comp,
     {
 	Real priv_mx = -std::numeric_limits<Real>::max();
 	IntVect priv_loc;
-	
+
 	for (MFIter mfi(*this); mfi.isValid(); ++mfi)
 	{
 	    const Box& bx = amrex::grow(mfi.validbox(),nghost);
@@ -816,10 +816,10 @@ MultiFab::norm0 (int comp, const BoxArray& ba, int nghost, bool local) const
 	    }
 	}
     }
- 
+
     if (!local)
 	ParallelDescriptor::ReduceRealMax(nm0,this->color());
- 
+
     return nm0;
 }
 
@@ -868,7 +868,7 @@ MultiFab::norm0 (const Vector<int>& comps, int nghost, bool local) const
 	for (MFIter mfi(*this,true); mfi.isValid(); ++mfi)
 	{
             for (int i=0; i<n; i++) {
-	        priv_nm0[tid][i] = std::max(priv_nm0[tid][i], 
+	        priv_nm0[tid][i] = std::max(priv_nm0[tid][i],
 					    get(mfi).norm(mfi.growntilebox(nghost), 0, comps[i], 1));
             }
         }
@@ -879,7 +879,7 @@ MultiFab::norm0 (const Vector<int>& comps, int nghost, bool local) const
 	for (int i=0; i<n; i++) {
             for (int it=0; it<nthreads; it++) {
 	        nm0[i] = std::max(priv_nm0[it][i], nm0[i]);
-            }	    
+            }
 	}
     }
 
@@ -986,7 +986,7 @@ Real
 MultiFab::norm1 (int comp, int ngrow, bool local) const
 {
     BL_ASSERT(ixType().cellCentered());
-    
+
     Real nm1 = 0.e0;
 
 #ifdef _OPENMP
@@ -1342,14 +1342,14 @@ MultiFab::OverlapMask (const Periodicity& period) const
     {
         std::vector< std::pair<int,Box> > isects;
         const std::vector<IntVect>& pshifts = period.shiftIntVect();
-        
+
         for (MFIter mfi(*p); mfi.isValid(); ++mfi)
         {
             FArrayBox& fab = (*p)[mfi];
             const Box& bx = fab.box();
             for (const auto& iv : pshifts)
             {
-                ba.intersections(bx+iv, isects);                    
+                ba.intersections(bx+iv, isects);
                 for (const auto& is : isects)
                 {
                     fab.plus(1.0, is.second-iv);
@@ -1357,7 +1357,7 @@ MultiFab::OverlapMask (const Periodicity& period) const
             }
         }
     }
-    
+
     return p;
 }
 
@@ -1380,7 +1380,7 @@ MultiFab::OwnerMask (const Periodicity& period) const
     {
         std::vector< std::pair<int,Box> > isects;
         const std::vector<IntVect>& pshifts = period.shiftIntVect();
-        
+
         for (MFIter mfi(*p); mfi.isValid(); ++mfi)
         {
             IArrayBox& fab = (*p)[mfi];
@@ -1388,7 +1388,7 @@ MultiFab::OwnerMask (const Periodicity& period) const
             const int i = mfi.index();
             for (const auto& iv : pshifts)
             {
-                ba.intersections(bx+iv, isects);                    
+                ba.intersections(bx+iv, isects);
                 for (const auto& is : isects)
                 {
                     const int oi = is.first;
@@ -1417,13 +1417,13 @@ void
 MultiFab::WeightedSync (const MultiFab& wgt, const Periodicity& period)
 {
     if (ixType().cellCentered()) return;
-    
+
     const int ncomp = nComp();
     for (int comp = 0; comp < ncomp; ++comp)
     {
         MultiFab::Multiply(*this, wgt, 0, comp, 1, 0);
     }
-    
+
     MultiFab tmpmf(boxArray(), DistributionMap(), ncomp, 0, MFInfo(), Factory());
     tmpmf.setVal(0.0);
     tmpmf.ParallelCopy(*this, period, FabArrayBase::ADD);
@@ -1443,7 +1443,7 @@ void
 MultiFab::OverrideSync (const iMultiFab& msk, const Periodicity& period)
 {
     if (ixType().cellCentered()) return;
-    
+
     const int ncomp = nComp();
 
 #ifdef _OPENMP
@@ -1459,7 +1459,7 @@ MultiFab::OverrideSync (const iMultiFab& msk, const Periodicity& period)
                                 BL_TO_FORTRAN_ANYD(ifab),
                                 0.0);
     }
-    
+
     MultiFab tmpmf(boxArray(), DistributionMap(), ncomp, 0, MFInfo(), Factory());
     tmpmf.setVal(0.0);
     tmpmf.ParallelCopy(*this, period, FabArrayBase::ADD);

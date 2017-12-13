@@ -1,6 +1,7 @@
-#include <AMReX_Utility.H>
+	#include <AMReX_Utility.H>
 #include <AMReX_FillPatchUtil.H>
 #include <AMReX_FillPatchUtil_F.H>
+#include <Castro_F.H>
 #include <cmath>
 
 #ifdef AMREX_USE_EB
@@ -78,6 +79,7 @@ void FillPatchSingleLevel (MultiFab& mf, Real time,
 #endif
 	    for (MFIter mfi(*dmf,true); mfi.isValid(); ++mfi)
 	    {
+			// NOTE: linear interpolation in time
             const Box& bx = mfi.tilebox();
             (*dmf)[mfi].linInterp((*smf[0])[mfi],
 				      scomp,
@@ -111,6 +113,7 @@ void FillPatchSingleLevel (MultiFab& mf, Real time,
 	physbcf.FillBoundary(mf, dcomp, ncomp, time);
 }
 
+
 void FillPatchTwoLevels (MultiFab& mf, Real time,
 		     const Vector<MultiFab*>& cmf, const Vector<Real>& ct,
 		     const Vector<MultiFab*>& fmf, const Vector<Real>& ft,
@@ -118,12 +121,13 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 		     const Geometry& cgeom, const Geometry& fgeom,
 		     PhysBCFunctBase& cbc, PhysBCFunctBase& fbc,
 		     const IntVect& ratio,
-		     Interpolater* mapper, const BCRec& bcs)
+		     Interpolater* mapper, const BCRec& bcs, int ilev_crse, int max_level, int state_idx)
 {
         Vector<BCRec> bcs_array(1,BCRec(bcs.lo(),bcs.hi()));
 
-        FillPatchTwoLevels(mf,time,cmf,ct,fmf,ft,scomp,dcomp,ncomp,cgeom,fgeom,
-                           cbc,fbc,ratio,mapper,bcs_array);
+        FillPatchTwoLevels(mf,time,cmf,ct,fmf,ft,scomp,dcomp,ncomp,
+						   cgeom,fgeom,
+                           cbc,fbc,ratio,mapper,bcs_array,ilev_crse, max_level, state_idx);
 }
 
 
@@ -134,7 +138,7 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 		     const Geometry& cgeom, const Geometry& fgeom,
 		     PhysBCFunctBase& cbc, PhysBCFunctBase& fbc,
 		     const IntVect& ratio,
-		     Interpolater* mapper, const Vector<BCRec>& bcs)
+		     Interpolater* mapper, const Vector<BCRec>& bcs, int ilev_crse, int max_level, int state_idx)
 {
 	BL_PROFILE("FillPatchTwoLevels");
 
@@ -159,39 +163,70 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 
 	    if ( ! fpc.ba_crse_patch.empty())
 	    {
-    		MultiFab mf_crse_patch(fpc.ba_crse_patch, fpc.dm_crse_patch, ncomp, 0, MFInfo(),
-                                           *fpc.fact_crse_patch);
+			int swe_to_comp_level;
+			ca_get_swe_to_comp_level(&swe_to_comp_level);
+
+			if ((ilev_crse == swe_to_comp_level) && (ilev_crse < max_level)) {
+				for (int i = 0; i < cmf.size(); i++) {
+
+					for (MFIter mfi(*cmf[i]); mfi.isValid(); ++mfi)
+					{
+						const Box& bx = mfi.tilebox();//mf_crse_patch.nGrow());//boxGrow);
+						bool ignore_errors = true;
+
+						ca_swe_to_comp_self(BL_TO_FORTRAN_3D((*cmf[i])[mfi]),
+						ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), &ignore_errors);
+					}
+				}
+			}
+
+    		MultiFab mf_crse_patch(fpc.ba_crse_patch, fpc.dm_crse_patch, ncomp, 0, MFInfo(), *fpc.fact_crse_patch);
 
     		FillPatchSingleLevel(mf_crse_patch, time, cmf, ct, scomp, 0, ncomp, cgeom, cbc);
 
     		int idummy1=0, idummy2=0;
     		bool cc = fpc.ba_crse_patch.ixType().cellCentered();
                     ignore_unused(cc);
-    #ifdef _OPENMP
-    #pragma omp parallel if (cc)
-    #endif
-    		for (MFIter mfi(mf_crse_patch); mfi.isValid(); ++mfi)
-    		{
-    		    int li = mfi.LocalIndex();
-    		    int gi = fpc.dst_idxs[li];
-    		    const Box& dbx = fpc.dst_boxes[li];
 
-    		    Vector<BCRec> bcr(ncomp);
-    		    amrex::setBC(dbx,fdomain,scomp,0,ncomp,bcs,bcr);
+#ifdef _OPENMP
+#pragma omp parallel if (cc)
+#endif
+			for (MFIter mfi(mf_crse_patch); mfi.isValid(); ++mfi)
+			{
+			    int li = mfi.LocalIndex();
+			    int gi = fpc.dst_idxs[li];
+			    const Box& dbx = fpc.dst_boxes[li];
 
-    		    mapper->interp(mf_crse_patch[mfi],
-    				   0,
-    				   mf[gi],
-    				   dcomp,
-    				   ncomp,
-    				   dbx,
-    				   ratio,
-    				   cgeom,
-    				   fgeom,
-    				   bcr,
-    				   idummy1, idummy2);
-    		}
-	    }
+			    Vector<BCRec> bcr(ncomp);
+			    amrex::setBC(dbx,fdomain,scomp,0,ncomp,bcs,bcr);
+
+			    mapper->interp(mf_crse_patch[mfi],
+					   0,
+					   mf[gi],
+					   dcomp,
+					   ncomp,
+					   dbx,
+					   ratio,
+					   cgeom,
+					   fgeom,
+					   bcr,
+					   idummy1, idummy2);
+			}
+
+			if ((ilev_crse == swe_to_comp_level) && (ilev_crse < max_level)) {
+				for (int i = 0; i < cmf.size(); i++) {
+
+					for (MFIter mfi(*cmf[i]); mfi.isValid(); ++mfi)
+					{
+						const Box& bx = mfi.tilebox();//mf_crse_patch.nGrow());//boxGrow);
+						bool ignore_errors = true;
+
+						ca_comp_to_swe_self(BL_TO_FORTRAN_3D((*cmf[i])[mfi]),
+						ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), &ignore_errors);
+					}
+				}
+			}
+		}
 	}
 
 	FillPatchSingleLevel(mf, time, fmf, ft, scomp, dcomp, ncomp, fgeom, fbc);
@@ -201,13 +236,11 @@ void InterpFromCoarseLevel (MultiFab& mf, Real time, const MultiFab& cmf,
 			int scomp, int dcomp, int ncomp,
 			const Geometry& cgeom, const Geometry& fgeom,
 			PhysBCFunctBase& cbc, PhysBCFunctBase& fbc, const IntVect& ratio,
-			Interpolater* mapper, const BCRec& bcs)
+			Interpolater* mapper, const BCRec& bcs, int ilev_crse, int max_level)
 {
-
         Vector<BCRec> bcs_array(1,BCRec(bcs.lo(),bcs.hi()));
         InterpFromCoarseLevel(mf,time,cmf,scomp,dcomp,ncomp,cgeom,fgeom,
-                              cbc,fbc,ratio,mapper,bcs_array);
-
+                              cbc,fbc,ratio,mapper,bcs_array,ilev_crse, max_level);
 }
 
 
@@ -215,7 +248,7 @@ void InterpFromCoarseLevel (MultiFab& mf, Real time, const MultiFab& cmf,
 			int scomp, int dcomp, int ncomp,
 			const Geometry& cgeom, const Geometry& fgeom,
 			PhysBCFunctBase& cbc, PhysBCFunctBase& fbc, const IntVect& ratio,
-			Interpolater* mapper, const Vector<BCRec>& bcs)
+			Interpolater* mapper, const Vector<BCRec>& bcs, int ilev_crse, int max_level)
 {
 	const InterpolaterBoxCoarsener& coarsener = mapper->BoxCoarsener(ratio);
 
@@ -261,6 +294,20 @@ void InterpFromCoarseLevel (MultiFab& mf, Real time, const MultiFab& cmf,
 
 	int idummy1=0, idummy2=0;
 
+	int swe_to_comp_level;
+	ca_get_swe_to_comp_level(&swe_to_comp_level);
+
+	if ((ilev_crse == swe_to_comp_level) && (ilev_crse < max_level)) { // NOTE: not this one
+		for (MFIter mfi(mf_crse_patch); mfi.isValid(); ++mfi)
+		{
+			const Box& bx = mfi.tilebox();//growntilebox(mf_crse_patch.nGrow());
+			// do some conversion stuff
+			bool ignore_errors = false;
+			ca_swe_to_comp_self(BL_TO_FORTRAN_3D(mf_crse_patch[mfi]),
+			ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), &ignore_errors);
+		}
+	}
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -283,6 +330,18 @@ void InterpFromCoarseLevel (MultiFab& mf, Real time, const MultiFab& cmf,
 			   fgeom,
 			   bcr,
 			   idummy1, idummy2);
+	}
+
+	if ((ilev_crse == swe_to_comp_level) && (ilev_crse < max_level)) {
+		// NOTE::not this one
+		for (MFIter mfi(mf_crse_patch); mfi.isValid(); ++mfi)
+		{
+			const Box& bx = mfi.tilebox();//growntilebox(mf_crse_patch.nGrow());
+			// do some conversion stuff
+			bool ignore_errors = false;
+			ca_comp_to_swe_self(BL_TO_FORTRAN_3D(mf_crse_patch[mfi]),
+			ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), &ignore_errors);//nope
+		}
 	}
 
 	fbc.FillBoundary(mf, dcomp, ncomp, time);

@@ -25,7 +25,7 @@ Vector<std::string> StateData::fabArrayHeaderNames;
 std::map<std::string, Vector<char> > *StateData::faHeaderMap;
 
 
-StateData::StateData () 
+StateData::StateData ()
 {
    desc = 0;
    new_data = old_data = 0;
@@ -37,7 +37,7 @@ StateData::StateData ()
 
 StateData::StateData (const Box&             p_domain,
                       const BoxArray&        grds,
-		      const DistributionMapping& dm,
+        		      const DistributionMapping& dm,
                       const StateDescriptor* d,
                       Real                   cur_time,
                       Real                   dt,
@@ -72,7 +72,7 @@ StateData::Initialize (StateData& dest, const StateData& src)
 void
 StateData::define (const Box&             p_domain,
                    const BoxArray&        grds,
-		   const DistributionMapping& dm,
+        		   const DistributionMapping& dm,
                    const StateDescriptor& d,
                    Real                   time,
                    Real                   dt,
@@ -210,18 +210,18 @@ StateData::restart (std::istream&          is,
     }
 
     {
-	Box domain_in;
-	BoxArray grids_in;
-	is >> domain_in;
-	grids_in.readFrom(is);
-	BL_ASSERT(domain_in == domain);
-	BL_ASSERT(amrex::match(grids_in,grids));
+    	Box domain_in;
+    	BoxArray grids_in;
+    	is >> domain_in;
+    	grids_in.readFrom(is);
+    	BL_ASSERT(domain_in == domain);
+    	BL_ASSERT(amrex::match(grids_in,grids));
     }
 
     restartDoit(is, chkfile);
 }
 
-void 
+void
 StateData::restartDoit (std::istream& is, const std::string& chkfile)
 {
     BL_PROFILE("StateData::restartDoit()");
@@ -240,7 +240,7 @@ StateData::restartDoit (std::istream& is, const std::string& chkfile)
     new_data =                new MultiFab(grids,dmap,desc->nComp(),desc->nExtra(),
                                            MFInfo(), *m_factory);
     //
-    // If no data is written then we just allocate the MF instead of reading it in. 
+    // If no data is written then we just allocate the MF instead of reading it in.
     // This assumes that the application will do something with it.
     // We set it to zero in case a compiler complains about uninitialized data.
     //
@@ -254,9 +254,9 @@ StateData::restartDoit (std::istream& is, const std::string& chkfile)
     for(int ns(1); ns <= nsets; ++ns) {
       MultiFab *whichMF = nullptr;
       if(ns == 1) {
-	whichMF = new_data;
+	         whichMF = new_data;
       } else if(ns == 2) {
-	whichMF = old_data;
+	         whichMF = old_data;
       } else {
         amrex::Abort("**** Error in StateData::restart:  invalid nsets.");
       }
@@ -277,17 +277,17 @@ StateData::restartDoit (std::istream& is, const std::string& chkfile)
       const char *faHeader = 0;
       if(faHeaderMap != 0) {
         std::map<std::string, Vector<char> >::iterator fahmIter;
-	fahmIter = faHeaderMap->find(FullHeaderPathName);
-	if(fahmIter != faHeaderMap->end()) {
-	  faHeader = fahmIter->second.dataPtr();
-	}
+    	fahmIter = faHeaderMap->find(FullHeaderPathName);
+    	if(fahmIter != faHeaderMap->end()) {
+    	  faHeader = fahmIter->second.dataPtr();
+    	}
       }
 
       VisMF::Read(*whichMF, FullPathName, faHeader);
     }
 }
 
-void 
+void
 StateData::restart (const StateDescriptor& d,
 		    const StateData& rhs)
 {
@@ -359,14 +359,14 @@ StateData::syncNewTimeLevel (Real time)
     Real teps = (new_time.stop - old_time.stop)*1.e-3;
     if (time > new_time.stop-teps && time < new_time.stop+teps)
     {
-	if (desc->timeType() == StateDescriptor::Point)
-	{
-	    new_time.start = new_time.stop = time;
-	}
-	else
-	{
-	    new_time.stop = time;
-	}
+    	if (desc->timeType() == StateDescriptor::Point)
+    	{
+    	    new_time.start = new_time.stop = time;
+    	}
+    	else
+    	{
+    	    new_time.stop = time;
+    	}
     }
 }
 
@@ -431,7 +431,7 @@ StateData::FillBoundary (FArrayBox&     dest,
 {
     BL_PROFILE("StateData::FillBoundary()");
     BL_ASSERT(dest.box().ixType() == desc->getType());
-   
+
     if (domain.contains(dest.box())) return;
 
     const Box& bx  = dest.box();
@@ -485,7 +485,7 @@ StateData::FillBoundary (FArrayBox&     dest,
                 //
                 // Use the "group" boundary fill routine.
                 //
-		desc->bndryFill(sc)(dat,dlo,dhi,plo,phi,dx,xlo,&time,bcrs.dataPtr(),groupsize);
+        		desc->bndryFill(sc)(dat,dlo,dhi,plo,phi,dx,xlo,&time,bcrs.dataPtr(),groupsize);
                 i += groupsize;
             }
             else
@@ -531,14 +531,15 @@ StateData::InterpAddBox (MultiFabCopyDescriptor& multiFabCopyDesc,
         {
             returnedFillBoxIds.resize(1);
             returnedFillBoxIds[0] = multiFabCopyDesc.AddBox(mfid[MFNEWDATA],
-                                                            subbox,
-                                                            unfillableBoxes,
-                                                            src_comp,
-                                                            dest_comp,
-                                                            num_comp);
+                                    subbox,
+                                    unfillableBoxes,
+                                    src_comp,
+                                    dest_comp,
+                                    num_comp);
         }
         else
         {
+
             amrex::InterpAddBox(multiFabCopyDesc,
 				 unfillableBoxes,
 				 returnedFillBoxIds,
@@ -562,11 +563,11 @@ StateData::InterpAddBox (MultiFabCopyDescriptor& multiFabCopyDesc,
         {
             returnedFillBoxIds.resize(1);
             returnedFillBoxIds[0] = multiFabCopyDesc.AddBox(mfid[MFNEWDATA],
-                                                            subbox,
-                                                            unfillableBoxes,
-                                                            src_comp,
-                                                            dest_comp,
-                                                            num_comp);
+                                    subbox,
+                                    unfillableBoxes,
+                                    src_comp,
+                                    dest_comp,
+                                    num_comp);
         }
         else if (old_data != 0              &&
                  time > old_time.start-teps &&
@@ -574,11 +575,11 @@ StateData::InterpAddBox (MultiFabCopyDescriptor& multiFabCopyDesc,
         {
             returnedFillBoxIds.resize(1);
             returnedFillBoxIds[0] = multiFabCopyDesc.AddBox(mfid[MFOLDDATA],
-                                                            subbox,
-                                                            unfillableBoxes,
-                                                            src_comp,
-                                                            dest_comp,
-                                                            num_comp);
+                                    subbox,
+                                    unfillableBoxes,
+                                    src_comp,
+                                    dest_comp,
+                                    num_comp);
         }
         else
         {
@@ -598,6 +599,7 @@ StateData::InterpFillFab (MultiFabCopyDescriptor&  multiFabCopyDesc,
 			  int                      num_comp,
 			  bool                     extrap)
 {
+    // NOTE: I think that this is operating on a single level, interpolating in time. Therefore no s2c needed.
     BL_PROFILE("StateData::InterpFillFab()");
     if (desc->timeType() == StateDescriptor::Point)
     {
@@ -655,24 +657,24 @@ StateData::getData (Vector<MultiFab*>& data,
 	BL_ASSERT(new_data != 0);
         if (old_data == 0)
         {
-	    data.push_back(new_data);
-	    datatime.push_back(new_time.start);
+    	    data.push_back(new_data);
+    	    datatime.push_back(new_time.start);
         }
         else
         {
-	    const Real teps = (new_time.start - old_time.start)*1.e-3;
-	    if (time > new_time.start-teps && time < new_time.start+teps) {
-		data.push_back(new_data);
-		datatime.push_back(new_time.start);
-	    } else if (time > old_time.start-teps && time < old_time.start+teps) {
-	    	    data.push_back(old_data);
-		    datatime.push_back(old_time.start);
-	    } else {
-		data.push_back(old_data);
-		data.push_back(new_data);
-		datatime.push_back(old_time.start);
-		datatime.push_back(new_time.start);
-	    }
+    	    const Real teps = (new_time.start - old_time.start)*1.e-3;
+    	    if (time > new_time.start-teps && time < new_time.start+teps) {
+        		data.push_back(new_data);
+        		datatime.push_back(new_time.start);
+            } else if (time > old_time.start-teps && time < old_time.start+teps) {
+                data.push_back(old_data);
+                datatime.push_back(old_time.start);
+    	    } else {
+        		data.push_back(old_data);
+        		data.push_back(new_data);
+        		datatime.push_back(old_time.start);
+        		datatime.push_back(new_time.start);
+    	    }
         }
     }
     else
@@ -681,15 +683,15 @@ StateData::getData (Vector<MultiFab*>& data,
 
         if (time > new_time.start-teps && time < new_time.stop+teps)
         {
-	    data.push_back(new_data);
-	    datatime.push_back(time);
+    	    data.push_back(new_data);
+    	    datatime.push_back(time);
         }
         else if (old_data != 0              &&
                  time > old_time.start-teps &&
                  time < old_time.stop+teps)
         {
-	    data.push_back(old_data);
-	    datatime.push_back(time);
+    	    data.push_back(old_data);
+    	    datatime.push_back(time);
         }
         else
         {
@@ -731,7 +733,7 @@ StateData::checkPoint (const std::string& name,
            << new_time.start << '\n'
            << new_time.stop  << '\n';
 
-        if (desc->store_in_checkpoint()) 
+        if (desc->store_in_checkpoint())
         {
            if (dump_old)
            {
@@ -810,75 +812,75 @@ StateDataPhysBCFunct::FillBoundary (MultiFab& mf, int dest_comp, int num_comp, R
 	{
 	    FArrayBox& dest = mf[mfi];
 	    const Box& bx = dest.box();
-	    
+
 	    bool has_phys_bc = false;
 	    bool is_periodic = false;
 	    for (int i = 0; i < BL_SPACEDIM; ++i) {
-		bool touch = bx.smallEnd(i) < domainlo[i] || bx.bigEnd(i) > domainhi[i];
-		if (geom.isPeriodic(i)) {
-		    is_periodic = is_periodic || touch;
-		} else {
-		    has_phys_bc = has_phys_bc || touch;
-		}
+    		bool touch = bx.smallEnd(i) < domainlo[i] || bx.bigEnd(i) > domainhi[i];
+    		if (geom.isPeriodic(i)) {
+    		    is_periodic = is_periodic || touch;
+    		} else {
+    		    has_phys_bc = has_phys_bc || touch;
+    		}
 	    }
-	    
+
 	    if (has_phys_bc)
 	    {
 		statedata->FillBoundary(dest, time, dx, prob_domain, dest_comp, src_comp, num_comp);
-		
+
 		if (is_periodic) // fix up corner
 		{
 		    Box GrownDomain = domain;
-		    
+
 		    for (int dir = 0; dir < BL_SPACEDIM; dir++)
 		    {
-			if (!geom.isPeriodic(dir))
-			{
-			    const int lo = domainlo[dir] - bx.smallEnd(dir);
-			    const int hi = bx.bigEnd(dir) - domainhi[dir];
-			    if (lo > 0) GrownDomain.growLo(dir,lo);
-			    if (hi > 0) GrownDomain.growHi(dir,hi);
-			}
+    			if (!geom.isPeriodic(dir))
+    			{
+    			    const int lo = domainlo[dir] - bx.smallEnd(dir);
+    			    const int hi = bx.bigEnd(dir) - domainhi[dir];
+    			    if (lo > 0) GrownDomain.growLo(dir,lo);
+    			    if (hi > 0) GrownDomain.growHi(dir,hi);
+    			}
 		    }
-		    
+
 		    for (int dir = 0; dir < BL_SPACEDIM; dir++)
 		    {
-			if (!geom.isPeriodic(dir)) continue;
-			
-			Box lo_slab = bx;
-			Box hi_slab = bx;
-			lo_slab.shift(dir, domain.length(dir));
-			hi_slab.shift(dir,-domain.length(dir));
-			lo_slab &= GrownDomain;
-			hi_slab &= GrownDomain;
-			
-			if (lo_slab.ok())
-			{
-			    lo_slab.shift(dir,-domain.length(dir));
-			    
-			    tmp.resize(lo_slab,num_comp);
-			    tmp.copy(dest,dest_comp,0,num_comp);
-			    tmp.shift(dir,domain.length(dir));
-			    
-			    statedata->FillBoundary(tmp, time, dx, prob_domain, dest_comp, src_comp, num_comp);
-			    
-			    tmp.shift(dir,-domain.length(dir));
-			    dest.copy(tmp,0,dest_comp,num_comp);
-			}
-			
-			if (hi_slab.ok())
-			{
-			    hi_slab.shift(dir,domain.length(dir));
-			    
-			    tmp.resize(hi_slab,num_comp);
-			    tmp.copy(dest,dest_comp,0,num_comp);
-			    tmp.shift(dir,-domain.length(dir));
-			    
-			    statedata->FillBoundary(tmp, time, dx, prob_domain, dest_comp, src_comp, num_comp);
-			    
-			    tmp.shift(dir,domain.length(dir));
-			    dest.copy(tmp,0,dest_comp,num_comp);
-			}
+    			if (!geom.isPeriodic(dir)) continue;
+
+    			Box lo_slab = bx;
+    			Box hi_slab = bx;
+    			lo_slab.shift(dir, domain.length(dir));
+    			hi_slab.shift(dir,-domain.length(dir));
+    			lo_slab &= GrownDomain;
+    			hi_slab &= GrownDomain;
+
+    			if (lo_slab.ok())
+    			{
+    			    lo_slab.shift(dir,-domain.length(dir));
+
+    			    tmp.resize(lo_slab,num_comp);
+    			    tmp.copy(dest,dest_comp,0,num_comp);
+    			    tmp.shift(dir,domain.length(dir));
+
+    			    statedata->FillBoundary(tmp, time, dx, prob_domain, dest_comp, src_comp, num_comp);
+
+    			    tmp.shift(dir,-domain.length(dir));
+    			    dest.copy(tmp,0,dest_comp,num_comp);
+    			}
+
+    			if (hi_slab.ok())
+    			{
+    			    hi_slab.shift(dir,domain.length(dir));
+
+    			    tmp.resize(hi_slab,num_comp);
+    			    tmp.copy(dest,dest_comp,0,num_comp);
+    			    tmp.shift(dir,-domain.length(dir));
+
+    			    statedata->FillBoundary(tmp, time, dx, prob_domain, dest_comp, src_comp, num_comp);
+
+    			    tmp.shift(dir,domain.length(dir));
+    			    dest.copy(tmp,0,dest_comp,num_comp);
+    			}
 		    }
 		}
 	    }
@@ -910,7 +912,7 @@ void StateData::AddProcsToComp(const StateDescriptor &sdPtr,
       // ---- MultiFabs
       int makeNewDataId(-7), makeOldDataId(-7);
       if(new_data != 0) {
-	makeNewDataId = new_data->AllocatedFAPtrID();
+	         makeNewDataId = new_data->AllocatedFAPtrID();
       }
       ParallelDescriptor::Bcast(&makeNewDataId, 1, ioProcNumSCS, scsComm);
       if(scsMyId != ioProcNumSCS) {
@@ -918,14 +920,14 @@ void StateData::AddProcsToComp(const StateDescriptor &sdPtr,
           new_data = new MultiFab;
         } else {
           new_data = 0;
-	}
+    	}
       }
       if(new_data != 0) {
         new_data->AddProcsToComp(ioProcNumSCS, ioProcNumAll, scsMyId, scsComm);
       }
 
       if(old_data != 0) {
-	makeOldDataId = old_data->AllocatedFAPtrID();
+	         makeOldDataId = old_data->AllocatedFAPtrID();
       }
       ParallelDescriptor::Bcast(&makeOldDataId, 1, ioProcNumSCS, scsComm);
       if(scsMyId != ioProcNumSCS) {
@@ -933,7 +935,7 @@ void StateData::AddProcsToComp(const StateDescriptor &sdPtr,
           old_data = new MultiFab;
         } else {
           old_data = 0;
-	}
+    	}
       }
       if(old_data != 0) {
         old_data->AddProcsToComp(ioProcNumSCS, ioProcNumAll, scsMyId, scsComm);

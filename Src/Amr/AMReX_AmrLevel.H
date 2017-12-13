@@ -1,6 +1,6 @@
 
 #ifndef _AmrLevel_H_
-#define _AmrLevel_H_ 
+#define _AmrLevel_H_
 
 #include <AMReX_REAL.H>
 #include <AMReX_Geometry.H>
@@ -61,7 +61,7 @@ public:
     void SetLevelDirectoryCreated(bool ldc) { levelDirectoryCreated = ldc; }
     /**
     * \brief A string written as the first item in writePlotFile() at
-    * level zero. 
+    * level zero.
     * It is so we can distinguish between different types of
     * plot files.
     * This default "HyperCLaw-V1.1" is for VisIt software and some of our
@@ -81,8 +81,8 @@ public:
                                 std::ostream&      os,
                                 VisMF::How         how = VisMF::NFiles);
     /**
-    * \brief Write small plot file stuff to specified directory.  
-    * Unlike writePlotFile, this is NOT a pure virtual function 
+    * \brief Write small plot file stuff to specified directory.
+    * Unlike writePlotFile, this is NOT a pure virtual function
     * so implementation by derived classes is optional.
     */
     virtual void writeSmallPlotFile (const std::string& dir,
@@ -172,7 +172,7 @@ public:
     virtual  int okToContinue () { return 1; }
     /**
     * \brief Should I regrid with this level as base level?
-    * This test is only evaluated if regrid_int > 0 and 
+    * This test is only evaluated if regrid_int > 0 and
     * level_count >= regrid_int as well. Defaults to true.
     */
     virtual  int okToRegrid ();
@@ -314,7 +314,7 @@ public:
                                                 int       dcomp,
                                                 int       ncomp,
                                                 Real      time) const;
-    /** 
+    /**
     * \brief Called in grid_places after other tagging routines to modify
     * the list of tagged points.  Default implementation does nothing.
     */
@@ -337,7 +337,7 @@ public:
     /**
     * \brief Returns one the TimeLevel enums.
     * Asserts that time is between AmrOldTime and AmrNewTime.
-    */ 
+    */
     TimeLevel which_time (int  state_indx,
                           Real time) const;
 
@@ -348,7 +348,7 @@ public:
     virtual bool writeSmallPlotNow ();
 
 #ifdef USE_PARTICLES
-    //! This function can be called from the parent 
+    //! This function can be called from the parent
     virtual void particle_redistribute (int lbase = 0, bool init = false) {;}
 #endif
 
@@ -360,7 +360,16 @@ public:
 			  int       scomp,
 			  int       ncomp,
 	                  int       dcomp=0);
-    
+
+  static void FillPatch(AmrLevel& amrlevel,
+			  MultiFab& leveldata,
+			  int       boxGrow,
+			  Real      time,
+			  int       index,
+			  int       scomp,
+			  int       ncomp,
+	          int       dcomp, bool s2c, int ilev_crse, int max_level);
+
     virtual void AddProcsToComp(Amr *aptr, int nSidecarProcs, int prevSidecarProcs,
                                 int ioProcNumSCS, int ioProcNumAll, int scsMyId,
 			        MPI_Comm scsComm);
@@ -387,14 +396,14 @@ protected:
               int             lev,
               const Geometry& level_geom,
               const BoxArray& bl,
-	      const DistributionMapping& dm,
+    	      const DistributionMapping& dm,
               Real            time);
 
     AmrLevel (const AmrLevel&) = delete;
     AmrLevel& operator = (const AmrLevel&) = delete;
 
     //! Common code used by all constructors.
-    void finishConstructor (); 
+    void finishConstructor ();
 
     //
     // The Data.
@@ -462,7 +471,7 @@ class FillPatchIterator
     Box UngrownBox () const { return MFIter::validbox(); }
 
     MultiFab& get_mf() { return m_fabs; }
-    
+
   private:
     //
     // Disallowed.
