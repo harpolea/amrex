@@ -24,7 +24,7 @@ namespace amrex
 			     const Geometry& cgeom, const Geometry& fgeom,
 			     PhysBCFunctBase& cbc, PhysBCFunctBase& fbc,
 			     const IntVect& ratio,
-			     Interpolater* mapper, const BCRec& bcs, int ilev_crse, int max_level, int state_index);
+			     Interpolater* mapper, const BCRec& bcs, int ilev_crse, int max_level, int state_index, BoxArray grids);
 
     void FillPatchTwoLevels (MultiFab& mf, Real time,
 			     const Vector<MultiFab*>& cmf, const Vector<Real>& ct,
@@ -33,19 +33,19 @@ namespace amrex
 			     const Geometry& cgeom, const Geometry& fgeom,
 			     PhysBCFunctBase& cbc, PhysBCFunctBase& fbc,
 			     const IntVect& ratio,
-			     Interpolater* mapper, const Vector<BCRec>& bcs, int ilev_crse, int max_level, int state_index);
+			     Interpolater* mapper, const Vector<BCRec>& bcs, int ilev_crse, int max_level, int state_index, BoxArray grids);
 
     void InterpFromCoarseLevel (MultiFab& mf, Real time,
 				const MultiFab& cmf, int scomp, int dcomp, int ncomp,
 				const Geometry& cgeom, const Geometry& fgeom,
 				PhysBCFunctBase& cbc, PhysBCFunctBase& fbc, const IntVect& ratio,
-				Interpolater* mapper, const BCRec& bcs, int ilev_crse, int max_level);
+				Interpolater* mapper, const BCRec& bcs, int ilev_crse, int max_level, BoxArray grids);
 
     void InterpFromCoarseLevel (MultiFab& mf, Real time,
 				const MultiFab& cmf, int scomp, int dcomp, int ncomp,
 				const Geometry& cgeom, const Geometry& fgeom,
 				PhysBCFunctBase& cbc, PhysBCFunctBase& fbc, const IntVect& ratio,
-				Interpolater* mapper, const Vector<BCRec>& bcs, int ilev_crse, int max_level);
+				Interpolater* mapper, const Vector<BCRec>& bcs, int ilev_crse, int max_level, BoxArray grids);
 
     void InterpCrseFineBndryBfield (const std::array<MultiFab,BL_SPACEDIM>& crse,
                                     std::array<MultiFab,BL_SPACEDIM>& fine,

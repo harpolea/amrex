@@ -1026,7 +1026,7 @@ FillPatchIterator::FillFromTwoLevels (Real time, int idx, int scomp, int dcomp, 
 			       geom_crse, geom_fine,
 			       physbcf_crse, physbcf_fine,
 			       crse_level.fineRatio(),
-			       desc.interp(scomp), desc.getBCs(), ilev_crse, max_level, idx);
+			       desc.interp(scomp), desc.getBCs(), ilev_crse, max_level, idx, crse_level.grids);
 }
 
 static
@@ -1310,9 +1310,12 @@ FillPatchIteratorHelper::fill (FArrayBox& fab,
                           m_index);
 
             if ((l == swe_to_comp_level)){//} && (m_index == 0)) {
+                // std::cout << "ca_swe_to_comp in AmrLevel\n";
                 bool ignore_errors = false;
+                const Real* dx        = fineAmrLevel.geom.CellSize();
+                RealBox gridloc = RealBox(fineAmrLevel.grids[ifine],fineAmrLevel.geom.CellSize(),fineAmrLevel.geom.ProbLo());
                 ca_swe_to_comp_self(BL_TO_FORTRAN_3D(finefab),
-                    ARLIM_3D(finefab.box().loVect()), ARLIM_3D(finefab.box().hiVect()), &ignore_errors);
+                    ARLIM_3D(finefab.box().loVect()), ARLIM_3D(finefab.box().hiVect()), ZFILL(dx), ZFILL(gridloc.lo()), &ignore_errors);
             }
 
             // Copy intersect finefab into next level m_cboxes.
@@ -1466,21 +1469,24 @@ AmrLevel::FillCoarsePatch (MultiFab& mf,
             FillPatch(clev,crseMF,0,time,idx,SComp,NComp,0);
     	}
 
+        int swe_to_comp_level;
+        ca_get_swe_to_comp_level(&swe_to_comp_level);
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
 
-        int swe_to_comp_level;
-        ca_get_swe_to_comp_level(&swe_to_comp_level);
-
         // NOTE: calling s2c here seems to be the only way that works
         if (level-1 == swe_to_comp_level) {
+            const Real* dx        = cgeom.CellSize();
             for (MFIter mfi(crseMF); mfi.isValid(); ++mfi)
             {
+                // std::cout << "ca_swe_to_comp in AmrLevel\n";
                 const Box& bx = mfi.growntilebox(crseMF.nGrow());//boxGrow);
                 bool ignore_errors = false;
+                RealBox gridloc = RealBox(grids[mfi.index()],cgeom.CellSize(),cgeom.ProbLo());
                 ca_swe_to_comp_self(BL_TO_FORTRAN_3D(crseMF[mfi]),
-                ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), &ignore_errors);
+                ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), ZFILL(dx), ZFILL(gridloc.lo()), &ignore_errors);
             }
         }
 
@@ -1507,12 +1513,28 @@ AmrLevel::FillCoarsePatch (MultiFab& mf,
     	}
         // NOTE: not convinced this is necessary
         if ((level-1 == swe_to_comp_level)) {
-            for (MFIter mfi(crseMF); mfi.isValid(); ++mfi)
+            const Real* dx        = cgeom.CellSize();
+
+            MultiFab base(crseMF.boxArray(), crseMF.DistributionMap(), crseMF.nComp(), crseMF.nGrow());
+
+            int np = crseMF.nComp();
+
+            for (MFIter mfi(base); mfi.isValid(); ++mfi)
             {
                 const Box& bx = mfi.growntilebox(crseMF.nGrow());
-                bool ignore_errors = false;
-                ca_comp_to_swe_self(BL_TO_FORTRAN_3D(crseMF[mfi]),
-                ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), &ignore_errors);
+                RealBox gridloc = RealBox(grids[mfi.index()],cgeom.CellSize(),cgeom.ProbLo());
+
+                ca_getbase(ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), BL_TO_FORTRAN_3D(crseMF[mfi]), BL_TO_FORTRAN_3D(base[mfi]), ZFILL(gridloc.lo()), &np);
+            }
+
+            for (MFIter mfi(base); mfi.isValid(); ++mfi)
+            {
+                const Box& bx = mfi.growntilebox(crseMF.nGrow());
+                RealBox gridloc = RealBox(grids[mfi.index()],cgeom.CellSize(),cgeom.ProbLo());
+
+                ca_comp_to_swe(BL_TO_FORTRAN_3D(crseMF[mfi]),
+                BL_TO_FORTRAN_3D(base[mfi]),
+                ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), ZFILL(gridloc.lo()), ZFILL(dx));
             }
         }
 

@@ -121,13 +121,13 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 		     const Geometry& cgeom, const Geometry& fgeom,
 		     PhysBCFunctBase& cbc, PhysBCFunctBase& fbc,
 		     const IntVect& ratio,
-		     Interpolater* mapper, const BCRec& bcs, int ilev_crse, int max_level, int state_idx)
+		     Interpolater* mapper, const BCRec& bcs, int ilev_crse, int max_level, int state_idx, BoxArray grids)
 {
         Vector<BCRec> bcs_array(1,BCRec(bcs.lo(),bcs.hi()));
 
         FillPatchTwoLevels(mf,time,cmf,ct,fmf,ft,scomp,dcomp,ncomp,
 						   cgeom,fgeom,
-                           cbc,fbc,ratio,mapper,bcs_array,ilev_crse, max_level, state_idx);
+                           cbc,fbc,ratio,mapper,bcs_array,ilev_crse, max_level, state_idx, grids);
 }
 
 
@@ -138,7 +138,7 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 		     const Geometry& cgeom, const Geometry& fgeom,
 		     PhysBCFunctBase& cbc, PhysBCFunctBase& fbc,
 		     const IntVect& ratio,
-		     Interpolater* mapper, const Vector<BCRec>& bcs, int ilev_crse, int max_level, int state_idx)
+		     Interpolater* mapper, const Vector<BCRec>& bcs, int ilev_crse, int max_level, int state_idx, BoxArray coarse_grids)
 {
 	BL_PROFILE("FillPatchTwoLevels");
 
@@ -167,15 +167,20 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 			ca_get_swe_to_comp_level(&swe_to_comp_level);
 
 			if ((ilev_crse == swe_to_comp_level) && (ilev_crse < max_level)) {
+   				const Real* dx        = cgeom.CellSize();
 				for (int i = 0; i < cmf.size(); i++) {
 
 					for (MFIter mfi(*cmf[i]); mfi.isValid(); ++mfi)
 					{
 						const Box& bx = mfi.tilebox();//mf_crse_patch.nGrow());//boxGrow);
 						bool ignore_errors = true;
+		                RealBox gridloc =
+							RealBox(coarse_grids[mfi.index()],
+									cgeom.CellSize(), cgeom.ProbLo());
 
 						ca_swe_to_comp_self(BL_TO_FORTRAN_3D((*cmf[i])[mfi]),
-						ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), &ignore_errors);
+							ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()),
+							ZFILL(dx), ZFILL(gridloc.lo()), &ignore_errors);
 					}
 				}
 			}
@@ -214,15 +219,32 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 			}
 
 			if ((ilev_crse == swe_to_comp_level) && (ilev_crse < max_level)) {
+			    const Real* dx        = cgeom.CellSize();
+
 				for (int i = 0; i < cmf.size(); i++) {
+
+					MultiFab base(cmf[i]->boxArray(), cmf[i]->DistributionMap(), cmf[i]->nComp(), cmf[i]->nGrow());
+
+			        int np = cmf[i]->nComp();
+
+					for (MFIter mfi(base); mfi.isValid(); ++mfi)
+			        {
+			            const Box& bx = mfi.tilebox();
+			            RealBox gridloc = RealBox(coarse_grids[mfi.index()],cgeom.CellSize(),cgeom.ProbLo());
+
+			            ca_getbase(ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), BL_TO_FORTRAN_3D((*cmf[i])[mfi]), BL_TO_FORTRAN_3D(base[mfi]), ZFILL(gridloc.lo()), &np);
+			        }
 
 					for (MFIter mfi(*cmf[i]); mfi.isValid(); ++mfi)
 					{
 						const Box& bx = mfi.tilebox();//mf_crse_patch.nGrow());//boxGrow);
-						bool ignore_errors = true;
+				        RealBox gridloc =
+							RealBox(coarse_grids[mfi.index()],
+									cgeom.CellSize(),cgeom.ProbLo());
 
-						ca_comp_to_swe_self(BL_TO_FORTRAN_3D((*cmf[i])[mfi]),
-						ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), &ignore_errors);
+						ca_comp_to_swe(BL_TO_FORTRAN_3D((*cmf[i])[mfi]), BL_TO_FORTRAN_3D(base[mfi]),
+						ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()),
+						ZFILL(gridloc.lo()), ZFILL(dx));
 					}
 				}
 			}
@@ -236,11 +258,11 @@ void InterpFromCoarseLevel (MultiFab& mf, Real time, const MultiFab& cmf,
 			int scomp, int dcomp, int ncomp,
 			const Geometry& cgeom, const Geometry& fgeom,
 			PhysBCFunctBase& cbc, PhysBCFunctBase& fbc, const IntVect& ratio,
-			Interpolater* mapper, const BCRec& bcs, int ilev_crse, int max_level)
+			Interpolater* mapper, const BCRec& bcs, int ilev_crse, int max_level, BoxArray grids)
 {
         Vector<BCRec> bcs_array(1,BCRec(bcs.lo(),bcs.hi()));
         InterpFromCoarseLevel(mf,time,cmf,scomp,dcomp,ncomp,cgeom,fgeom,
-                              cbc,fbc,ratio,mapper,bcs_array,ilev_crse, max_level);
+                              cbc,fbc,ratio,mapper,bcs_array,ilev_crse, max_level, grids);
 }
 
 
@@ -248,7 +270,7 @@ void InterpFromCoarseLevel (MultiFab& mf, Real time, const MultiFab& cmf,
 			int scomp, int dcomp, int ncomp,
 			const Geometry& cgeom, const Geometry& fgeom,
 			PhysBCFunctBase& cbc, PhysBCFunctBase& fbc, const IntVect& ratio,
-			Interpolater* mapper, const Vector<BCRec>& bcs, int ilev_crse, int max_level)
+			Interpolater* mapper, const Vector<BCRec>& bcs, int ilev_crse, int max_level, BoxArray grids)
 {
 	const InterpolaterBoxCoarsener& coarsener = mapper->BoxCoarsener(ratio);
 
@@ -298,13 +320,16 @@ void InterpFromCoarseLevel (MultiFab& mf, Real time, const MultiFab& cmf,
 	ca_get_swe_to_comp_level(&swe_to_comp_level);
 
 	if ((ilev_crse == swe_to_comp_level) && (ilev_crse < max_level)) { // NOTE: not this one
+		const Real* dx        = cgeom.CellSize();
 		for (MFIter mfi(mf_crse_patch); mfi.isValid(); ++mfi)
 		{
 			const Box& bx = mfi.tilebox();//growntilebox(mf_crse_patch.nGrow());
 			// do some conversion stuff
 			bool ignore_errors = false;
+			RealBox gridloc = RealBox(grids[mfi.index()],cgeom.CellSize(),cgeom.ProbLo());
+
 			ca_swe_to_comp_self(BL_TO_FORTRAN_3D(mf_crse_patch[mfi]),
-			ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), &ignore_errors);
+			ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), ZFILL(dx), ZFILL(gridloc.lo()), &ignore_errors);
 		}
 	}
 
@@ -334,13 +359,29 @@ void InterpFromCoarseLevel (MultiFab& mf, Real time, const MultiFab& cmf,
 
 	if ((ilev_crse == swe_to_comp_level) && (ilev_crse < max_level)) {
 		// NOTE::not this one
+		const Real* dx        = cgeom.CellSize();
+
+		MultiFab base(mf_crse_patch.boxArray(), mf_crse_patch.DistributionMap(), mf_crse_patch.nComp(), mf_crse_patch.nGrow());
+
+        int np = mf_crse_patch.nComp();
+
+		for (MFIter mfi(base); mfi.isValid(); ++mfi)
+        {
+            const Box& bx = mfi.tilebox();
+            RealBox gridloc = RealBox(grids[mfi.index()],cgeom.CellSize(),cgeom.ProbLo());
+
+            ca_getbase(ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), BL_TO_FORTRAN_3D(mf_crse_patch[mfi]), BL_TO_FORTRAN_3D(base[mfi]), ZFILL(gridloc.lo()), &np);
+        }
+
 		for (MFIter mfi(mf_crse_patch); mfi.isValid(); ++mfi)
 		{
 			const Box& bx = mfi.tilebox();//growntilebox(mf_crse_patch.nGrow());
 			// do some conversion stuff
-			bool ignore_errors = false;
-			ca_comp_to_swe_self(BL_TO_FORTRAN_3D(mf_crse_patch[mfi]),
-			ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), &ignore_errors);//nope
+			RealBox gridloc = RealBox(grids[mfi.index()],cgeom.CellSize(),cgeom.ProbLo());
+
+			ca_comp_to_swe(BL_TO_FORTRAN_3D(mf_crse_patch[mfi]),
+			BL_TO_FORTRAN_3D(base[mfi]),
+			ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), ZFILL(gridloc.lo()), ZFILL(dx));//nope
 		}
 	}
 
