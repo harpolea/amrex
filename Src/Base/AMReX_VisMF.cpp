@@ -6,6 +6,7 @@
 #include <vector>
 #include <deque>
 #include <cerrno>
+#include <math.h>
 
 #include <AMReX_ccse-mpi.H>
 #include <AMReX_Utility.H>
@@ -232,7 +233,7 @@ operator>> (std::istream&         is,
     }
 
     ar.resize(N);
-    
+
     for( ; i < N; ++i) {
         ar[i].resize(M);
 
@@ -243,9 +244,9 @@ operator>> (std::istream&         is,
 #else
             is >> ar[i][j] >> ch;
 #endif
-	    if( ch != ',' ) {
-	      amrex::Error("Expected a ',' got something else");
-	    }
+    	    if( ch != ',' ) {
+    	      amrex::Error("Expected a ',' got something else");
+    	    }
         }
     }
 
@@ -366,15 +367,15 @@ operator>> (std::istream  &is,
       hd.m_famax.resize(hd.m_ncomp);
       for(int i(0); i < hd.m_famin.size(); ++i) {
         is >> hd.m_famin[i] >> ch;
-	if( ch != ',' ) {
-	  amrex::Error("Expected a ',' when reading hd.m_famin");
-	}
+    	if( ch != ',' ) {
+    	  amrex::Error("Expected a ',' when reading hd.m_famin");
+    	}
       }
       for(int i(0); i < hd.m_famax.size(); ++i) {
         is >> hd.m_famax[i] >> ch;
-	if( ch != ',' ) {
-	  amrex::Error("Expected a ',' when reading hd.m_famax");
-	}
+    	if( ch != ',' ) {
+    	  amrex::Error("Expected a ',' when reading hd.m_famax");
+    	}
       }
     }
     if(hd.m_vers == VisMF::Header::NoFabHeader_v1       ||
@@ -566,7 +567,7 @@ VisMF::DirName (const std::string& filename)
 
     static const std::string TheNullString("");
 
-    const char *str = filename.c_str();    
+    const char *str = filename.c_str();
 
     if(const char *slash = strrchr(str, '/')) {
         //
@@ -696,6 +697,10 @@ VisMF::Header::CalculateMinMax (const FabArray<FArrayBox>& mf,
         for(long j(0); j < m_ncomp; ++j) {
             m_min[idx][j] = mf[mfi].min(m_ba[idx],j);
             m_max[idx][j] = mf[mfi].max(m_ba[idx],j);
+
+            // if (m_max[idx][j] - 1 == m_max[idx][j]) {
+            //     m_max[idx][j] = m_min[idx][j] * 5.0 + 1.0;
+            // }
         }
     }
 
@@ -790,6 +795,13 @@ VisMF::Header::CalculateMinMax (const FabArray<FArrayBox>& mf,
         for(long j(0); j < m_ncomp; ++j) {
             m_min[idx][j] = mf[mfi].min(m_ba[idx],j);
             m_max[idx][j] = mf[mfi].max(m_ba[idx],j);
+            // NOTE: hack to stop it printing out infinities that cause visit to complain
+            if (m_min[idx][j] - 1 == m_min[idx][j] || isnan(m_min[idx][j])) {
+                m_min[idx][j] = 0.0;
+            }
+            if (m_max[idx][j] - 1 == m_max[idx][j] || isnan(m_max[idx][j])) {
+                m_max[idx][j] = m_min[idx][j] * 5.0 + 1.0;
+            }
         }
     }
 #endif /*BL_USE_MPI*/
@@ -837,7 +849,7 @@ VisMF::Header::CalculateMinMax (const FabArray<FArrayBox>& mf,
 long
 VisMF::WriteHeader (const std::string &mf_name,
                     VisMF::Header     &hdr,
-		    int                procToWrite)
+		            int               procToWrite)
 {
     BL_PROFILE("VisMF::WriteHeader");
     long bytesWritten(0);
@@ -857,7 +869,7 @@ VisMF::WriteHeader (const std::string &mf_name,
 
         if( ! MFHdrFile.good()) {
             amrex::FileOpenFailed(MFHdrFileName);
-	}
+    	}
 
         MFHdrFile << hdr;
 
@@ -869,15 +881,15 @@ VisMF::WriteHeader (const std::string &mf_name,
         MFHdrFile.flush();
         MFHdrFile.close();
 
-	if(checkFilePositions) {
+    	if(checkFilePositions) {
           std::stringstream hss;
-	  hss << hdr;
-	  if(hss.tellp() != bytesWritten) {
-	    std::cerr << "**** tellp error: hss.tellp() != bytesWritten :  "
-	              << hss.tellp() << "  " << bytesWritten << std::endl;
-	  }
-	}
-	
+    	  hss << hdr;
+    	  if(hss.tellp() != bytesWritten) {
+    	    std::cerr << "**** tellp error: hss.tellp() != bytesWritten :  "
+    	              << hss.tellp() << "  " << bytesWritten << std::endl;
+    	  }
+    	}
+
     }
     return bytesWritten;
 }
@@ -940,80 +952,80 @@ VisMF::Write (const FabArray<FArrayBox>&    mf,
           int whichRDBytes(whichRD->numBytes()), nFABs(0);
           long writeDataItems(0), writeDataSize(0);
           for(MFIter mfi(mf); mfi.isValid(); ++mfi) {
-	    const FArrayBox &fab = mf[mfi];
-	    if(oldHeader) {
-	      std::stringstream hss;
-	      fio.write_header(hss, fab, fab.nComp());
-	      bytesWritten += hss.tellp();
-	    }
-	    bytesWritten += fab.box().numPts() * mf.nComp() * whichRDBytes;
-	    ++nFABs;
-	  }
-	  char *allFabData(nullptr);
-	  bool canCombineFABs(false);
-	  if((nFABs > 1 || doConvert) && VisMF::useSingleWrite) {
-	    allFabData = new(std::nothrow) char[bytesWritten];
-	  }    // ---- else { no need to make a copy for one fab }
-	  if(allFabData == nullptr) {
-	    canCombineFABs = false;
-	  } else {
-	    canCombineFABs = true;
-	  }
+            const FArrayBox &fab = mf[mfi];
+            if(oldHeader) {
+              std::stringstream hss;
+              fio.write_header(hss, fab, fab.nComp());
+              bytesWritten += hss.tellp();
+            }
+            bytesWritten += fab.box().numPts() * mf.nComp() * whichRDBytes;
+            ++nFABs;
+          }
+    	  char *allFabData(nullptr);
+    	  bool canCombineFABs(false);
+    	  if((nFABs > 1 || doConvert) && VisMF::useSingleWrite) {
+    	    allFabData = new(std::nothrow) char[bytesWritten];
+    	  }    // ---- else { no need to make a copy for one fab }
+    	  if(allFabData == nullptr) {
+    	    canCombineFABs = false;
+    	  } else {
+    	    canCombineFABs = true;
+    	  }
 
-	  if(canCombineFABs) {
+    	  if(canCombineFABs) {
             long writePosition(0);
             for(MFIter mfi(mf); mfi.isValid(); ++mfi) {
               int hLength(0);
               const FArrayBox &fab = mf[mfi];
-	      writeDataItems = fab.box().numPts() * mf.nComp();
-	      writeDataSize = writeDataItems * whichRDBytes;
-	      char *afPtr = allFabData + writePosition;
-	      if(oldHeader) {
-	        std::stringstream hss;
-	        fio.write_header(hss, fab, fab.nComp());
-	        hLength = hss.tellp();
-	        memcpy(afPtr, hss.str().c_str(), hLength);  // ---- the fab header
-	      }
-	      if(doConvert) {
-	        RealDescriptor::convertFromNativeFormat(static_cast<void *> (afPtr + hLength),
-		                                        writeDataItems,
-		                                        fab.dataPtr(), *whichRD);
-	      } else {    // ---- copy from the fab
-	        memcpy(afPtr + hLength, fab.dataPtr(), writeDataSize);
-	      }
+    	      writeDataItems = fab.box().numPts() * mf.nComp();
+    	      writeDataSize = writeDataItems * whichRDBytes;
+    	      char *afPtr = allFabData + writePosition;
+    	      if(oldHeader) {
+    	        std::stringstream hss;
+    	        fio.write_header(hss, fab, fab.nComp());
+    	        hLength = hss.tellp();
+    	        memcpy(afPtr, hss.str().c_str(), hLength);  // ---- the fab header
+    	      }
+    	      if(doConvert) {
+    	        RealDescriptor::convertFromNativeFormat(static_cast<void *> (afPtr + hLength),
+    		                                        writeDataItems,
+    		                                        fab.dataPtr(), *whichRD);
+    	      } else {    // ---- copy from the fab
+    	        memcpy(afPtr + hLength, fab.dataPtr(), writeDataSize);
+    	      }
               writePosition += hLength + writeDataSize;
             }
             nfi.Stream().write(allFabData, bytesWritten);
             nfi.Stream().flush();
-	    delete [] allFabData;
+    	    delete [] allFabData;
 
-	  } else {    // ---- write fabs individually
+    	  } else {    // ---- write fabs individually
             for(MFIter mfi(mf); mfi.isValid(); ++mfi) {
               int hLength(0);
               const FArrayBox &fab = mf[mfi];
-	      writeDataItems = fab.box().numPts() * mf.nComp();
-	      writeDataSize = writeDataItems * whichRDBytes;
-	      if(oldHeader) {
-	        std::stringstream hss;
-	        fio.write_header(hss, fab, fab.nComp());
-	        hLength = hss.tellp();
+    	      writeDataItems = fab.box().numPts() * mf.nComp();
+    	      writeDataSize = writeDataItems * whichRDBytes;
+    	      if(oldHeader) {
+    	        std::stringstream hss;
+    	        fio.write_header(hss, fab, fab.nComp());
+    	        hLength = hss.tellp();
                 nfi.Stream().write(hss.str().c_str(), hLength);    // ---- the fab header
                 nfi.Stream().flush();
-	      }
-	      if(doConvert) {
-	        char *cDataPtr = new char[writeDataSize];
-	        RealDescriptor::convertFromNativeFormat(static_cast<void *> (cDataPtr),
+    	      }
+    	      if(doConvert) {
+    	        char *cDataPtr = new char[writeDataSize];
+    	        RealDescriptor::convertFromNativeFormat(static_cast<void *> (cDataPtr),
 		                                        writeDataItems,
 		                                        fab.dataPtr(), *whichRD);
-                nfi.Stream().write(cDataPtr, writeDataSize);
-                nfi.Stream().flush();
-	        delete [] cDataPtr;
-	      } else {    // ---- copy from the fab
-                nfi.Stream().write((char *) fab.dataPtr(), writeDataSize);
-                nfi.Stream().flush();
-	      }
+                    nfi.Stream().write(cDataPtr, writeDataSize);
+                    nfi.Stream().flush();
+    	        delete [] cDataPtr;
+    	      } else {    // ---- copy from the fab
+                    nfi.Stream().write((char *) fab.dataPtr(), writeDataSize);
+                    nfi.Stream().flush();
+    	      }
             }
-	  }
+	     }
       }
 
 
@@ -1122,7 +1134,6 @@ VisMF::FindOffsets (const FabArray<FArrayBox> &mf,
     }
 #endif /*BL_USE_MPI*/
 
-
     } else {    // ---- calculate offsets
 
       RealDescriptor *whichRD;
@@ -1138,59 +1149,59 @@ VisMF::FindOffsets (const FabArray<FArrayBox> &mf,
       int nComps(mf.nComp());
 
       if(myProc == coordinatorProc) {   // ---- calculate offsets
-	const BoxArray &mfBA = mf.boxArray();
-	const DistributionMapping &mfDM = mf.DistributionMap();
-	Vector<long> fabHeaderBytes(mfBA.size(), 0);
-	int nFiles(NFilesIter::ActualNFiles(nOutFiles));
-	int whichFileNumber(-1);
-	std::string whichFileName;
-	Vector<long> currentOffset(nFiles, 0L);
+    	const BoxArray &mfBA = mf.boxArray();
+    	const DistributionMapping &mfDM = mf.DistributionMap();
+    	Vector<long> fabHeaderBytes(mfBA.size(), 0);
+    	int nFiles(NFilesIter::ActualNFiles(nOutFiles));
+    	int whichFileNumber(-1);
+    	std::string whichFileName;
+    	Vector<long> currentOffset(nFiles, 0L);
 
         if(hdr.m_vers == VisMF::Header::Version_v1) {
-	  // ---- find the length of the fab header instead of asking the file system
-	  for(int i(0); i < mfBA.size(); ++i) {
-            std::stringstream hss;
-	    FArrayBox tempFab(mf.fabbox(i), nComps, false);  // ---- no alloc
-            fio.write_header(hss, tempFab, tempFab.nComp());
-	    fabHeaderBytes[i] = hss.tellp();
-	  }
-	}
+    	  // ---- find the length of the fab header instead of asking the file system
+    	  for(int i(0); i < mfBA.size(); ++i) {
+                std::stringstream hss;
+    	    FArrayBox tempFab(mf.fabbox(i), nComps, false);  // ---- no alloc
+                fio.write_header(hss, tempFab, tempFab.nComp());
+    	    fabHeaderBytes[i] = hss.tellp();
+    	  }
+    	}
 
-	std::map<int, Vector<int> > rankBoxOrder;  // ---- [rank, boxarray index array]
-	for(int i(0); i < mfBA.size(); ++i) {
-	  rankBoxOrder[mfDM[i]].push_back(i);
-	}
+    	std::map<int, Vector<int> > rankBoxOrder;  // ---- [rank, boxarray index array]
+    	for(int i(0); i < mfBA.size(); ++i) {
+    	  rankBoxOrder[mfDM[i]].push_back(i);
+    	}
 
-	Vector<int> fileNumbers;
+    	Vector<int> fileNumbers;
         if(useDynamicSetSelection) {
-	  fileNumbers = nfi.FileNumbersWritten();
+    	  fileNumbers = nfi.FileNumbersWritten();
         } else {
-	  fileNumbers.resize(nProcs);
-	  for(int i(0); i < fileNumbers.size(); ++i) {
-	    fileNumbers[i] = NFilesIter::FileNumber(nFiles, i, groupSets);
-	  }
-	}
-
-	const Vector< Vector<int> > &fileNumbersWriteOrder = nfi.FileNumbersWriteOrder();
-
-	for(int fn(0); fn < fileNumbersWriteOrder.size(); ++fn) {
-	  for(int ri(0); ri < fileNumbersWriteOrder[fn].size(); ++ri) {
-	    int rank(fileNumbersWriteOrder[fn][ri]);
-	    std::map<int, Vector<int> >::iterator rboIter = rankBoxOrder.find(rank);
-	    if(rboIter != rankBoxOrder.end()) {
-	      Vector<int> &index = rboIter->second;
-	      whichFileNumber = fileNumbers[rank];
-	      whichFileName   = VisMF::BaseName(NFilesIter::FileName(whichFileNumber, filePrefix));
-
-	      for(int i(0); i < index.size(); ++i) {
-	        hdr.m_fod[index[i]].m_name = whichFileName;
-	        hdr.m_fod[index[i]].m_head = currentOffset[whichFileNumber];
-	        currentOffset[whichFileNumber] += mf.fabbox(index[i]).numPts() * nComps * whichRDBytes
-	                                          + fabHeaderBytes[index[i]];
-	      }
+    	  fileNumbers.resize(nProcs);
+    	  for(int i(0); i < fileNumbers.size(); ++i) {
+    	    fileNumbers[i] = NFilesIter::FileNumber(nFiles, i, groupSets);
+    	  }
 	    }
-	  }
-	}
+
+    	const Vector< Vector<int> > &fileNumbersWriteOrder = nfi.FileNumbersWriteOrder();
+
+    	for(int fn(0); fn < fileNumbersWriteOrder.size(); ++fn) {
+    	  for(int ri(0); ri < fileNumbersWriteOrder[fn].size(); ++ri) {
+    	    int rank(fileNumbersWriteOrder[fn][ri]);
+    	    std::map<int, Vector<int> >::iterator rboIter = rankBoxOrder.find(rank);
+    	    if(rboIter != rankBoxOrder.end()) {
+    	      Vector<int> &index = rboIter->second;
+    	      whichFileNumber = fileNumbers[rank];
+    	      whichFileName   = VisMF::BaseName(NFilesIter::FileName(whichFileNumber, filePrefix));
+
+    	      for(int i(0); i < index.size(); ++i) {
+    	        hdr.m_fod[index[i]].m_name = whichFileName;
+    	        hdr.m_fod[index[i]].m_head = currentOffset[whichFileNumber];
+    	        currentOffset[whichFileNumber] += mf.fabbox(index[i]).numPts() * nComps * whichRDBytes
+                                              + fabHeaderBytes[index[i]];
+    	      }
+    	    }
+    	  }
+    	}
       }
       delete whichRD;
     }
@@ -1216,14 +1227,14 @@ VisMF::RemoveFiles(const std::string &mf_name, bool verbose)
         std::string fileName(NFilesIter::FileName(nOutFiles, mf_name + FabFileSuffix, ip, true));
         if(verbose) {
           std::cout << "---- removing:  " << fileName << std::endl;
-	}
+    	}
         int rv(std::remove(fileName.c_str()));
         if(verbose) {
           if(rv != 0) {
             std::cout << "---- error removing:  " << fileName << "  errno = "
 	              << strerror(errno) << std::endl;
           }
-	}
+    	}
       }
     }
 }
@@ -1289,24 +1300,24 @@ VisMF::readFAB (int                  idx,
       }
     } else {
       if(whichComp == -1) {    // ---- read all components
-	if(hdr.m_writtenRD == FPC::NativeRealDescriptor()) {
-          infs->read((char *) fab->dataPtr(), fab->nBytes());
-	} else {
-          long readDataItems(fab->box().numPts() * fab->nComp());
-          RealDescriptor::convertToNativeFormat(fab->dataPtr(), readDataItems,
-	                                        *infs, hdr.m_writtenRD);
-	}
+    	if(hdr.m_writtenRD == FPC::NativeRealDescriptor()) {
+              infs->read((char *) fab->dataPtr(), fab->nBytes());
+    	} else {
+              long readDataItems(fab->box().numPts() * fab->nComp());
+              RealDescriptor::convertToNativeFormat(fab->dataPtr(), readDataItems,
+    	                                        *infs, hdr.m_writtenRD);
+    	}
 
       } else {
         long bytesPerComp(fab->box().numPts() * hdr.m_writtenRD.numBytes());
         infs->seekg(bytesPerComp * whichComp, std::ios::cur);
-	if(hdr.m_writtenRD == FPC::NativeRealDescriptor()) {
-          infs->read((char *) fab->dataPtr(), bytesPerComp);
-	} else {
-          long readDataItems(fab->box().numPts());  // ---- one component only
-          RealDescriptor::convertToNativeFormat(fab->dataPtr(), readDataItems,
-	                                        *infs, hdr.m_writtenRD);
-	}
+    	if(hdr.m_writtenRD == FPC::NativeRealDescriptor()) {
+              infs->read((char *) fab->dataPtr(), bytesPerComp);
+    	} else {
+              long readDataItems(fab->box().numPts());  // ---- one component only
+              RealDescriptor::convertToNativeFormat(fab->dataPtr(), readDataItems,
+    	                                        *infs, hdr.m_writtenRD);
+    	}
       }
     }
 
@@ -1371,13 +1382,13 @@ VisMF::Read (FabArray<FArrayBox> &mf,
     {
         hStartTime = ParallelDescriptor::second();
         std::string fileCharPtrString;
-	if(faHeader == nullptr) {
-          Vector<char> fileCharPtr;
-          ParallelDescriptor::ReadAndBcastFile(FullHdrFileName, fileCharPtr);
-          fileCharPtrString = fileCharPtr.dataPtr();
-	} else {
-          fileCharPtrString = faHeader;
-	}
+    	if(faHeader == nullptr) {
+              Vector<char> fileCharPtr;
+              ParallelDescriptor::ReadAndBcastFile(FullHdrFileName, fileCharPtr);
+              fileCharPtrString = fileCharPtr.dataPtr();
+    	} else {
+              fileCharPtrString = faHeader;
+    	}
         std::istringstream infs(fileCharPtrString, std::istringstream::in);
 
         infs >> hdr;
@@ -1386,10 +1397,10 @@ VisMF::Read (FabArray<FArrayBox> &mf,
     }
 
     if (mf.empty()) {
-	DistributionMapping dm(hdr.m_ba);
-	mf.define(hdr.m_ba, dm, hdr.m_ncomp, hdr.m_ngrow, MFInfo(), FArrayBoxFactory());
+    	DistributionMapping dm(hdr.m_ba);
+    	mf.define(hdr.m_ba, dm, hdr.m_ncomp, hdr.m_ngrow, MFInfo(), FArrayBoxFactory());
     } else {
-	BL_ASSERT(amrex::match(hdr.m_ba,mf.boxArray()));
+    	BL_ASSERT(amrex::match(hdr.m_ba,mf.boxArray()));
     }
 
 #ifdef BL_USE_MPI
@@ -1406,7 +1417,7 @@ VisMF::Read (FabArray<FArrayBox> &mf,
 
     // ---- Create an ordered map of which processors read which
     // ---- Fabs in each file
-    
+
     std::map<std::string, Vector<FabReadLink> > FileReadChains;        // ---- [filename, chain]
     std::map<std::string, std::set<int> > readFileRanks;              // ---- [filename, ranks]
 
@@ -1444,14 +1455,14 @@ VisMF::Read (FabArray<FArrayBox> &mf,
       for(int nbpr(0); nbpr < nBoxesPerRank.size(); ++nbpr) {
         for(int nb(0); nb < nBoxesPerRank[nbpr]; ++nb) {
 
-	  baFileOrder.set(indexFileOrder, frc[frcIndex].box);
-	  ranksFileOrder[indexFileOrder] = currentRank;
-	  frc[frcIndex].rankToRead = currentRank;
-	  frc[frcIndex].faIndex    = indexFileOrder;
-	  readFileRanks[fileName].insert(currentRank);
+    	  baFileOrder.set(indexFileOrder, frc[frcIndex].box);
+    	  ranksFileOrder[indexFileOrder] = currentRank;
+    	  frc[frcIndex].rankToRead = currentRank;
+    	  frc[frcIndex].faIndex    = indexFileOrder;
+    	  readFileRanks[fileName].insert(currentRank);
 
-	  ++frcIndex;
-	  ++indexFileOrder;
+    	  ++frcIndex;
+    	  ++indexFileOrder;
         }
         ++currentRank;
         currentRank = std::min(currentRank, nProcs - 1);
@@ -1488,16 +1499,16 @@ VisMF::Read (FabArray<FArrayBox> &mf,
       // ---- split the set into nstreams sets
       int ssSize(rfrSplitSet.size());
       int nStreams(std::min(ssSize, nOpensPerFile));
-      int ranksPerStream(ssSize / nStreams); // ---- plus some remainder... 
+      int ranksPerStream(ssSize / nStreams); // ---- plus some remainder...
       Vector<std::set<int> > streamSets(nStreams);
       int sIndex(0), sCount(0);
       for(setIter = rfrSplitSet.begin(); setIter != rfrSplitSet.end(); ++setIter) {
         streamSets[sIndex].insert(*setIter);
-	if(++sCount >= ranksPerStream) {
-	  sCount = 0;
-	  ++sIndex;
-	  sIndex = std::min<int>(sIndex, streamSets.size() - 1);
-	}
+    	if(++sCount >= ranksPerStream) {
+    	  sCount = 0;
+    	  ++sIndex;
+    	  sIndex = std::min<int>(sIndex, streamSets.size() - 1);
+    	}
       }
 
       for(int iSet(0); iSet < streamSets.size(); ++iSet) {
@@ -1509,69 +1520,69 @@ VisMF::Read (FabArray<FArrayBox> &mf,
 
         if(rfrSet.find(myProc) != rfrSet.end()) {  // ---- myProc needs to read this file
           const std::string &fileName = rfrIter->first;
-	  std::string fullFileName(VisMF::DirName(mf_name) + fileName);
-	  frcIter = FileReadChains.find(fileName);
-	  BL_ASSERT(frcIter != FileReadChains.end());
+    	  std::string fullFileName(VisMF::DirName(mf_name) + fileName);
+    	  frcIter = FileReadChains.find(fileName);
+    	  BL_ASSERT(frcIter != FileReadChains.end());
           Vector<FabReadLink> &frc = frcIter->second;
           for(NFilesIter nfi(fullFileName, readRanks); nfi.ReadyToRead(); ++nfi) {
 
-	      // ---- confirm the data is contiguous in the stream
-	      long firstOffset(-1);
-	      for(int i(0); i < frc.size(); ++i) {
-	        if(myProc == frc[i].rankToRead) {
-		  firstOffset = frc[i].fileOffset;
-		  break;
-		}
-	      }
+    	      // ---- confirm the data is contiguous in the stream
+    	      long firstOffset(-1);
+    	      for(int i(0); i < frc.size(); ++i) {
+    	        if(myProc == frc[i].rankToRead) {
+        		  firstOffset = frc[i].fileOffset;
+        		  break;
+        		}
+    	      }
 
-	      bool dataIsContiguous(true);
-	      long currentOffset(firstOffset), bytesToRead(0);
-	      int nFABs(0);
+    	      bool dataIsContiguous(true);
+    	      long currentOffset(firstOffset), bytesToRead(0);
+    	      int nFABs(0);
 
-	      for(int i(0); i < frc.size(); ++i) {
-	        if(myProc == frc[i].rankToRead) {
-	          if(currentOffset != frc[i].fileOffset) {
-                    dataIsContiguous = false;
-	          } else {
-	            FArrayBox &fab = whichFA[frc[i].faIndex];
-		    long fabBytesToRead(fab.box().numPts() * fab.nComp() * hdr.m_writtenRD.numBytes());
-                    currentOffset += fabBytesToRead;
-                    bytesToRead   += fabBytesToRead;
-		    ++nFABs;
-		  }
-	        }
-	      }
-	      char *allFabData;
-	      bool canCombineFABs(false);
-	      if(nFABs > 1 && dataIsContiguous && VisMF::useSingleRead) {
-	        allFabData = new(std::nothrow) char[bytesToRead];
-		if(allFabData == nullptr) {
-		  canCombineFABs = false;
-		} else {
-		  canCombineFABs = true;
-		}
-	      }
+    	      for(int i(0); i < frc.size(); ++i) {
+    	        if(myProc == frc[i].rankToRead) {
+    	          if(currentOffset != frc[i].fileOffset) {
+                        dataIsContiguous = false;
+    	          } else {
+    	            FArrayBox &fab = whichFA[frc[i].faIndex];
+        		    long fabBytesToRead(fab.box().numPts() * fab.nComp() * hdr.m_writtenRD.numBytes());
+                            currentOffset += fabBytesToRead;
+                            bytesToRead   += fabBytesToRead;
+        		    ++nFABs;
+        		  }
+    	        }
+    	      }
+    	      char *allFabData;
+    	      bool canCombineFABs(false);
+    	      if(nFABs > 1 && dataIsContiguous && VisMF::useSingleRead) {
+    	        allFabData = new(std::nothrow) char[bytesToRead];
+        		if(allFabData == nullptr) {
+        		  canCombineFABs = false;
+        		} else {
+        		  canCombineFABs = true;
+        		}
+    	      }
 	      if(canCombineFABs) {
                 nfi.Stream().seekp(firstOffset, std::ios::beg);
                 nfi.Stream().read(allFabData, bytesToRead);
 
-		currentOffset = 0;  // ---- this is now relative to allFabData
+        		currentOffset = 0;  // ---- this is now relative to allFabData
 
 	        for(int i(0); i < frc.size(); ++i) {
 	          if(myProc == frc[i].rankToRead) {
-		    char *afPtr = allFabData + currentOffset;
+    		    char *afPtr = allFabData + currentOffset;
 	            FArrayBox &fab = whichFA[frc[i].faIndex];
-		    long readDataItems(fab.box().numPts() * fab.nComp());
-		    if(doConvert) {
-		      RealDescriptor::convertToNativeFormat(fab.dataPtr(), readDataItems,
-		                                            afPtr, hdr.m_writtenRD);
-		    } else {
-                      memcpy(fab.dataPtr(), afPtr, fab.nBytes());
-		    }
+    		    long readDataItems(fab.box().numPts() * fab.nComp());
+    		    if(doConvert) {
+    		      RealDescriptor::convertToNativeFormat(fab.dataPtr(), readDataItems,
+    		                                            afPtr, hdr.m_writtenRD);
+    		    } else {
+                          memcpy(fab.dataPtr(), afPtr, fab.nBytes());
+    		    }
                     currentOffset += readDataItems * hdr.m_writtenRD.numBytes();
 	          }
 	        }
-		delete [] allFabData;
+    		delete [] allFabData;
 
 	      } else {          // ---- cannot use one read
 	        for(int i(0); i < frc.size(); ++i) {
@@ -1580,13 +1591,13 @@ VisMF::Read (FabArray<FArrayBox> &mf,
                       nfi.Stream().seekp(frc[i].fileOffset, std::ios::beg);
 	            }
 	            FArrayBox &fab = whichFA[frc[i].faIndex];
-		    long readDataItems(fab.box().numPts() * fab.nComp());
-		    if(doConvert) {
-		      RealDescriptor::convertToNativeFormat(fab.dataPtr(), readDataItems,
-		                                            nfi.Stream(), hdr.m_writtenRD);
-		    } else {
-                      nfi.Stream().read((char *) fab.dataPtr(), fab.nBytes());
-		    }
+    		    long readDataItems(fab.box().numPts() * fab.nComp());
+    		    if(doConvert) {
+    		      RealDescriptor::convertToNativeFormat(fab.dataPtr(), readDataItems,
+    		                                            nfi.Stream(), hdr.m_writtenRD);
+    		    } else {
+                          nfi.Stream().read((char *) fab.dataPtr(), fab.nBytes());
+    		    }
 	          }
 	        }
 	      }
@@ -1625,10 +1636,10 @@ VisMF::Read (FabArray<FArrayBox> &mf,
       }
       if(myProc == coordinatorProc) {
         std::string fname(hdr.m_fod[i].m_name);
-	if(fileNames.insert(std::pair<std::string,int>(fname,allReadsIndex)).second)
-	{
-	  ++allReadsIndex;
-	}
+    	if(fileNames.insert(std::pair<std::string,int>(fname,allReadsIndex)).second)
+    	{
+    	  ++allReadsIndex;
+    	}
       }
     }
 
@@ -1647,14 +1658,14 @@ VisMF::Read (FabArray<FArrayBox> &mf,
         whichProc = mf.DistributionMap()[i];
         iSeekPos = hdr.m_fod[i].m_head;
         std::string fname(hdr.m_fod[i].m_name);
-	fileNamesIter = fileNames.find(fname);
-	if(fileNamesIter != fileNames.end()) {
-	  int findex(fileNames.find(fname)->second);
-	  allReads[findex][whichProc].insert(std::pair<long, int>(iSeekPos, i));
-	} else {
-	  std::cout << "**** Error:  filename not found = " << fname << std::endl;
-	  amrex::Abort("**** Error in VisMF::Read");
-	}
+    	fileNamesIter = fileNames.find(fname);
+    	if(fileNamesIter != fileNames.end()) {
+    	  int findex(fileNames.find(fname)->second);
+    	  allReads[findex][whichProc].insert(std::pair<long, int>(iSeekPos, i));
+    	} else {
+    	  std::cout << "**** Error:  filename not found = " << fname << std::endl;
+    	  amrex::Abort("**** Error in VisMF::Read");
+    	}
       }
     }
 
@@ -1667,16 +1678,16 @@ VisMF::Read (FabArray<FArrayBox> &mf,
       MPI_Status status;
       int doneFlag;
       while(totalIOReqs > 0) {
-	std::vector<int> vReads;
+    	std::vector<int> vReads;
         std::multiset<int>::iterator aFilesIter;
         aFilesIter = availableFiles.begin();
         while(aFilesIter != availableFiles.end()) {  // handle available files
-	  int arIndex(*aFilesIter);
-	  if(allReads[arIndex].empty()) {
-            availableFiles.erase(arIndex);
-            aFilesIter = availableFiles.begin();
-	    continue;
-	  }
+    	  int arIndex(*aFilesIter);
+    	  if(allReads[arIndex].empty()) {
+                availableFiles.erase(arIndex);
+                aFilesIter = availableFiles.begin();
+    	    continue;
+    	  }
           std::map<int,std::map<long,int> >::iterator whichRead;
 	  for(whichRead = allReads[arIndex].begin();
 	      whichRead != allReads[arIndex].end(); ++whichRead)
@@ -1692,20 +1703,20 @@ VisMF::Read (FabArray<FArrayBox> &mf,
 	          imiter != whichRead->second.end(); ++imiter)
 	      {
 	        vReads[ir] = imiter->second;  // the mfindex
-		++ir;
+    		++ir;
 	      }
 	      if(tryProc == ioProcNum) {
-		iopFileIndex = arIndex;
-		for(int irr(0); irr < nReads; ++irr) {
-	          iopReads.push_back(vReads[irr]);
-		}
+    		iopFileIndex = arIndex;
+    		for(int irr(0); irr < nReads; ++irr) {
+    	          iopReads.push_back(vReads[irr]);
+    		}
 	      } else {
 	        ParallelDescriptor::Send(vReads, tryProc, readTag);
-		++messTotal;
-		++reqsPending;
+    		++messTotal;
+    		++reqsPending;
 	      }
-              availableFiles.erase(aFilesIter);
-              aFilesIter = availableFiles.begin();
+          availableFiles.erase(aFilesIter);
+          aFilesIter = availableFiles.begin();
 	      break;
 	    }
 	  }
@@ -1751,12 +1762,12 @@ VisMF::Read (FabArray<FArrayBox> &mf,
       while(nReqs > 0) {
         rmess = ParallelDescriptor::Recv(recReads, ioProcNum, readTag);
         for(int ir(0); ir < static_cast<int>(rmess.count()); ++ir) {
-	  int mfIndex(recReads[ir]);
-	  VisMF::readFAB(mf,mfIndex, mf_name, hdr);
-	}
+          int mfIndex(recReads[ir]);
+          VisMF::readFAB(mf,mfIndex, mf_name, hdr);
+    	}
         nReqs -= rmess.count();
-	iDone[iDoneIndex] = recReads[0];
-	iDone[iDoneCount] = rmess.count();
+    	iDone[iDoneIndex] = recReads[0];
+    	iDone[iDoneCount] = rmess.count();
         ParallelDescriptor::Send(iDone, ioProcNum, doneTag);
       }
     }
@@ -1864,7 +1875,7 @@ VisMF::Check (const std::string& mf_name)
 
       if( ! ifs.good()) {
         std::cout << "**** Error:  could not open file:  " << FullName << std::endl;
-	continue;
+    	continue;
       }
 
       ifs.seekg(fod.m_head, std::ios::beg);
@@ -1882,7 +1893,7 @@ VisMF::Check (const std::string& mf_name)
         badFab = true;
       }
       if(badFab) {
-	++nBadFabs;
+    	++nBadFabs;
         std::cout << "**** Error in file:  " << FullName << "  Bad Fab at index = "
 	          << i << "  seekpos = " << fod.m_head << "  box = " << hdr.m_ba[i]
 	          << std::endl;

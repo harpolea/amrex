@@ -15,7 +15,7 @@ module fabio_module
 
   integer, parameter :: FABIO_DOUBLE = 1
   integer, parameter :: FABIO_SINGLE = 2
-  
+
   interface fabio_write
      module procedure fabio_fab_write_d
      module procedure fabio_multifab_write_d
@@ -266,6 +266,9 @@ contains
              end if
              mnl(j) = minval(dp)
              mxl(j) = maxval(dp)
+             if (mxl(j) + 1 .eq. mxl(j)) then
+                 mxl(j) = mnl(j) * 5.0_dp_t + 1.0_dp_t
+             endif
           end do
        end if
        if ( parallel_IOProcessor() ) then
@@ -445,7 +448,7 @@ contains
     integer :: idummy, rdummy
     type(box) :: lbbox
     real(kind=dp_t) :: ltime
-    
+
     if ( size(mfs) < 1 ) then
        call bl_error("FABIO_ML_MULTIFAB_WRITE_D: write a zero length mlmf")
     end if
@@ -741,7 +744,7 @@ contains
     read(unit=lun,fmt='(a)') str
     if ( str == '&ML_MULTIFAB' ) then
        call bl_error("PLOTFILE_BUILD: not implemented")
-    else if ( str == 'NavierStokes-V1.1' .or. str == 'HyperCLaw-V1.1' ) then 
+    else if ( str == 'NavierStokes-V1.1' .or. str == 'HyperCLaw-V1.1' ) then
        if(useoldplotreader) then
          call build_ns_plotfile_old
        else
@@ -1148,7 +1151,7 @@ contains
     read(unit=lun,fmt='(a)') str
     if ( str == '&ML_MULTIFAB' ) then
        call bl_error("PLOTFILE_BUILD: not implemented")
-    else if ( str == 'NavierStokes-V1.1' .or. str == 'HyperCLaw-V1.1' .or. str == 'CartGrid-V2.0' ) then 
+    else if ( str == 'NavierStokes-V1.1' .or. str == 'HyperCLaw-V1.1' .or. str == 'CartGrid-V2.0' ) then
        call build_ns_plotfile
     else
        call bl_error('FABIO_ML_MULTIFAB_WRITE_D: Header has improper magic string', str)
