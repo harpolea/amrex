@@ -1268,8 +1268,25 @@ FillPatchIteratorHelper::fill (FArrayBox& fab,
         const Vector<BCRec>& theBCs        = AmrLevel::desc_lst[m_index].getBCs();
         const int           NF            = FineBoxes.size();
 
+        MultiFab& S_fine = fineAmrLevel.state[m_index].newData();
+
         int swe_to_comp_level;
         ca_get_swe_to_comp_level(&swe_to_comp_level);
+
+        const int nc = S_fine.nComp();
+        Vector<int> nx = get_horizontal_numpts(fineAmrLevel.geom);
+#if (BL_SPACEDIM == 2)
+		const int npoints = nx[1];
+#elif (BL_SPACEDIM == 3)
+		const int npoints = nx[1] * nx[2];
+#endif
+        allocate_outflow_data(&npoints,&nc);
+        Vector<Real> horizontal_state(npoints*nc,0);
+        Vector<Real> floor_state(npoints*nc,0);
+        if (l == swe_to_comp_level) {
+            make_vertically_avgd_data(S_fine, fineAmrLevel.geom, horizontal_state, m_time);
+            make_floor_data(S_fine, fineAmrLevel.geom, floor_state, m_time);
+        }
 
         for (int ifine = 0; ifine < NF; ++ifine)
         {
@@ -1309,12 +1326,11 @@ FillPatchIteratorHelper::fill (FArrayBox& fab,
                           m_scomp,
                           m_index);
 
-            if ((l == swe_to_comp_level)){//} && (m_index == 0)) {
-                // std::cout << "ca_swe_to_comp in AmrLevel\n";
+            if ((l == swe_to_comp_level)){
                 bool ignore_errors = false;
                 const Real* dx        = fineAmrLevel.geom.CellSize();
                 RealBox gridloc = RealBox(fineAmrLevel.grids[ifine],fineAmrLevel.geom.CellSize(),fineAmrLevel.geom.ProbLo());
-                ca_swe_to_comp_self(BL_TO_FORTRAN_3D(finefab),
+                ca_swe_to_comp_self(BL_TO_FORTRAN_3D(finefab), horizontal_state.dataPtr(), nx.dataPtr(),
                     ARLIM_3D(finefab.box().loVect()), ARLIM_3D(finefab.box().hiVect()), ZFILL(dx), ZFILL(gridloc.lo()), &ignore_errors);
             }
 
@@ -1478,15 +1494,28 @@ AmrLevel::FillCoarsePatch (MultiFab& mf,
 
         // NOTE: calling s2c here seems to be the only way that works
         if (level-1 == swe_to_comp_level) {
+            const int nc = crseMF.nComp();
+            Vector<int> nx = get_horizontal_numpts(cgeom);
+#if (BL_SPACEDIM == 2)
+    		const int npoints = nx[1];
+#elif (BL_SPACEDIM == 3)
+    		const int npoints = nx[1] * nx[2];
+#endif
+    		allocate_outflow_data(&npoints,&nc);
+    		Vector<Real> horizontal_state(npoints*nc,0);
+    		make_vertically_avgd_data(crseMF, cgeom, horizontal_state, time);
+            Vector<Real> floor_state(npoints*nc,0);
+            make_floor_data(crseMF, cgeom, floor_state, time);
+
             const Real* dx        = cgeom.CellSize();
             for (MFIter mfi(crseMF); mfi.isValid(); ++mfi)
             {
-                // std::cout << "ca_swe_to_comp in AmrLevel\n";
-                const Box& bx = mfi.growntilebox(crseMF.nGrow());//boxGrow);
+                const Box& bx = mfi.growntilebox(crseMF.nGrow());
                 bool ignore_errors = false;
                 RealBox gridloc = RealBox(grids[mfi.index()],cgeom.CellSize(),cgeom.ProbLo());
                 ca_swe_to_comp_self(BL_TO_FORTRAN_3D(crseMF[mfi]),
-                ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), ZFILL(dx), ZFILL(gridloc.lo()), &ignore_errors);
+                    horizontal_state.dataPtr(), nx.dataPtr(),
+                    ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), ZFILL(dx), ZFILL(gridloc.lo()), &ignore_errors);
             }
         }
 
@@ -1519,6 +1548,17 @@ AmrLevel::FillCoarsePatch (MultiFab& mf,
 
             int np = crseMF.nComp();
 
+            const int nc = crseMF.nComp();
+            Vector<int> nx = get_horizontal_numpts(cgeom);
+#if (BL_SPACEDIM == 2)
+    		const int npoints = nx[1];
+#elif (BL_SPACEDIM == 3)
+    		const int npoints = nx[1] * nx[2];
+#endif
+    		allocate_outflow_data(&npoints,&nc);
+    		Vector<Real> floor_state(npoints*nc,0);
+    		make_floor_data(crseMF, cgeom, floor_state, time);
+
             for (MFIter mfi(base); mfi.isValid(); ++mfi)
             {
                 const Box& bx = mfi.growntilebox(crseMF.nGrow());
@@ -1534,6 +1574,7 @@ AmrLevel::FillCoarsePatch (MultiFab& mf,
 
                 ca_comp_to_swe(BL_TO_FORTRAN_3D(crseMF[mfi]),
                 BL_TO_FORTRAN_3D(base[mfi]),
+                    floor_state.dataPtr(), nx.dataPtr(),
                 ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), ZFILL(gridloc.lo()), ZFILL(dx));
             }
         }
@@ -1588,6 +1629,22 @@ AmrLevel::derive (const std::string& name,
 
         mf.reset(new MultiFab(dstBA, dmap, rec->numDerive(), ngrow, MFInfo(), *m_factory));
 
+        // do vertical averaging
+
+        const int nc = srcMF.nComp();
+        Vector<int> nx = get_horizontal_numpts(geom);
+
+#if (BL_SPACEDIM == 2)
+        const int npoints = nx[1];
+#elif (BL_SPACEDIM == 3)
+        const int npoints = nx[1] * nx[2];
+#endif
+        allocate_outflow_data(&npoints,&nc);
+        Vector<Real> horizontal_state(npoints*nc,0);
+        make_vertically_avgd_data(srcMF, geom, horizontal_state, time);
+        Vector<Real> floor_state(npoints*nc,0);
+        make_floor_data(srcMF, geom, floor_state, time);
+
 #ifdef CRSEGRNDOMP
 #ifdef _OPENMP
 #pragma omp parallel
@@ -1628,8 +1685,31 @@ AmrLevel::derive (const std::string& name,
         				 &time,&dt,
         				 BCREC_3D(bcr),
         				 &level,&grid_no);
+          } else if (rec->derFuncVerticalAvg() != static_cast<DeriveFuncVerticalAvg>(0)){
+              rec->derFuncVerticalAvg()(ddat,
+                       ARLIM_3D(dlo),ARLIM_3D(dhi),&n_der,
+                       cdat,ARLIM_3D(clo),ARLIM_3D(chi),&n_state,
+                       horizontal_state.dataPtr(), nx.dataPtr(),
+                       ARLIM_3D(lo),ARLIM_3D(hi),
+                       ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),
+                       ZFILL(dx),ZFILL(xlo),
+                       &time,&dt,
+                       BCREC_3D(bcr),
+                       &level,&grid_no);
+        } else if (rec->derFuncFloor() != static_cast<DeriveFuncFloor>(0)){
+            bool a = true;
+            rec->derFuncFloor()(ddat,
+                     ARLIM_3D(dlo),ARLIM_3D(dhi),&n_der,
+                     cdat,ARLIM_3D(clo),ARLIM_3D(chi),&n_state,
+                     floor_state.dataPtr(), nx.dataPtr(), &a,
+                     ARLIM_3D(lo),ARLIM_3D(hi),
+                     ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),
+                     ZFILL(dx),ZFILL(xlo),
+                     &time,&dt,
+                     BCREC_3D(bcr),
+                     &level,&grid_no);
     	    } else {
-    		      amrex::Error("AmeLevel::derive: no function available");
+    		      amrex::Error("AmrLevel::derive: no function available");
     	    }
         }
 #else
@@ -1666,11 +1746,35 @@ AmrLevel::derive (const std::string& name,
         				 &time,&dt,
         				 BCREC_3D(bcr),
         				 &level,&grid_no);
+            } else if (rec->derFuncVerticalAvg() != static_cast<DeriveFuncVerticalAvg>(0)){
+                rec->derFuncVerticalAvg()(ddat,
+                        ARLIM_3D(dlo),ARLIM_3D(dhi),&n_der,
+                        cdat,ARLIM_3D(clo),ARLIM_3D(chi),&n_state,
+                        horizontal_state.dataPtr(), nx.dataPtr(),
+                        ARLIM_3D(dlo),ARLIM_3D(dhi),
+                        ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),
+                        ZFILL(dx),ZFILL(xlo),
+                        &time,&dt,
+                        BCREC_3D(bcr),
+                        &level,&grid_no);
+           } else if (rec->derFuncFloor() != static_cast<DeriveFuncFloor>(0)){
+               bool a = true;
+               rec->derFuncFloor()(ddat,
+                       ARLIM_3D(dlo),ARLIM_3D(dhi),&n_der,
+                       cdat,ARLIM_3D(clo),ARLIM_3D(chi),&n_state,
+                       floor_state.dataPtr(), nx.dataPtr(), &a,
+                       ARLIM_3D(dlo),ARLIM_3D(dhi),
+                       ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),
+                       ZFILL(dx),ZFILL(xlo),
+                       &time,&dt,
+                       BCREC_3D(bcr),
+                       &level,&grid_no);
     	    } else {
-    		          amrex::Error("AmeLevel::derive: no function available");
+		          amrex::Error("AmrLevel::derive: no function available");
     	    }
         }
 #endif
+
     }
     else
     {
@@ -1724,6 +1828,22 @@ AmrLevel::derive (const std::string& name,
             FillPatch(*this,srcMF,ngrow_src,time,index,scomp,ncomp,dc);
         }
 
+        // do vertical averaging
+
+        const int nc = srcMF.nComp();
+        Vector<int> nx = get_horizontal_numpts(geom);
+
+#if (BL_SPACEDIM == 2)
+        const int npoints = nx[1];
+#elif (BL_SPACEDIM == 3)
+        const int npoints = nx[1] * nx[2];
+#endif
+        allocate_outflow_data(&npoints,&nc);
+        Vector<Real> horizontal_state(npoints*nc,0);
+        make_vertically_avgd_data(srcMF, geom, horizontal_state, time);
+        Vector<Real> floor_state(npoints*nc,0);
+        make_floor_data(srcMF, geom, floor_state, time);
+
 #ifdef CRSEGRNDOMP
 #ifdef _OPENMP
 #pragma omp parallel
@@ -1764,8 +1884,31 @@ AmrLevel::derive (const std::string& name,
         				 &time,&dt,
         				 BCREC_3D(bcr),
         				 &level,&idx);
+            } else if (rec->derFuncVerticalAvg() != static_cast<DeriveFuncVerticalAvg>(0)){
+                rec->derFuncVerticalAvg()(ddat,
+                        ARLIM_3D(dlo),ARLIM_3D(dhi),&n_der,
+                        cdat,ARLIM_3D(clo),ARLIM_3D(chi),&n_state,
+                        horizontal_state.dataPtr(), nx.dataPtr(),
+                        ARLIM_3D(lo),ARLIM_3D(hi),
+                        ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),
+                        ZFILL(dx),ZFILL(xlo),
+                        &time,&dt,
+                        BCREC_3D(bcr),
+                        &level,&idx);
+           } else if (rec->derFuncFloor() != static_cast<DeriveFuncFloor>(0)){
+               bool a = true;
+               rec->derFuncFloor()(ddat,
+                       ARLIM_3D(dlo),ARLIM_3D(dhi),&n_der,
+                       cdat,ARLIM_3D(clo),ARLIM_3D(chi),&n_state,
+                       floor_state.dataPtr(), nx.dataPtr(), &a,
+                       ARLIM_3D(lo),ARLIM_3D(hi),
+                       ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),
+                       ZFILL(dx),ZFILL(xlo),
+                       &time,&dt,
+                       BCREC_3D(bcr),
+                       &level,&idx);
     	    } else {
-    		     amrex::Error("AmeLevel::derive: no function available");
+    		     amrex::Error("AmrLevel::derive: no function available");
     	    }
         }
 #else
@@ -1802,8 +1945,30 @@ AmrLevel::derive (const std::string& name,
         				 &time,&dt,
         				 BCREC_3D(bcr),
         				 &level,&idx);
+            } else if (rec->derFuncVerticalAvg() != static_cast<DeriveFuncVerticalAvg>(0)){
+                rec->derFuncVerticalAvg()(ddat,
+                        ARLIM_3D(dlo),ARLIM_3D(dhi),&n_der,
+                        cdat,ARLIM_3D(clo),ARLIM_3D(chi),&n_state,
+                        horizontal_state.dataPtr(), nx.dataPtr(),
+                        ARLIM_3D(dlo),ARLIM_3D(dhi),
+                        ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),
+                        ZFILL(dx),ZFILL(xlo),
+                        &time,&dt,
+                        BCREC_3D(bcr),
+                        &level,&idx);
+           } else if (rec->derFuncFloor() != static_cast<DeriveFuncFloor>(0)){
+               rec->derFuncFloor()(ddat,
+                       ARLIM_3D(dlo),ARLIM_3D(dhi),&n_der,
+                       cdat,ARLIM_3D(clo),ARLIM_3D(chi),&n_state,
+                       floor_state.dataPtr(), nx.dataPtr(), true,
+                       ARLIM_3D(dlo),ARLIM_3D(dhi),
+                       ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),
+                       ZFILL(dx),ZFILL(xlo),
+                       &time,&dt,
+                       BCREC_3D(bcr),
+                       &level,&idx);
     	    } else {
-    		     amrex::Error("AmeLevel::derive: no function available");
+    		     amrex::Error("AmrLevel::derive: no function available");
     	    }
         }
 #endif

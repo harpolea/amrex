@@ -21,18 +21,42 @@ extern "C"
                                const int* lo, const int* hi,
                                const int* domain_lo, const int* domain_hi,
                                const amrex::Real* delta, const amrex::Real* xlo,
-                               const amrex::Real* time, const amrex::Real* dt, 
+                               const amrex::Real* time, const amrex::Real* dt,
                                const int* bcrec,
                                const int* level, const int* grid_no) ;
     // This is dimension agnostic.  For example, dlo always has three elements.
-    typedef void (*DeriveFunc3D)(amrex::Real* data, const int* dlo, const int* dhi, const int* nvar, 
+    typedef void (*DeriveFunc3D)(amrex::Real* data, const int* dlo, const int* dhi, const int* nvar,
 				 const amrex::Real* compdat, const int* clo, const int* chi, const int* ncomp,
 				 const int* lo, const int* hi,
 				 const int* domain_lo, const int* domain_hi,
 				 const amrex::Real* delta, const amrex::Real* xlo,
-				 const amrex::Real* time, const amrex::Real* dt, 
+				 const amrex::Real* time, const amrex::Real* dt,
 				 const int* bcrec,
 				 const int* level, const int* grid_no) ;
+
+     typedef void (*DeriveFuncVerticalAvg)(
+                 amrex::Real* data, const int* dlo, const int* dhi,
+                 const int* nvar,
+ 				 const amrex::Real* compdat, const int* clo, const int* chi, const int* ncomp,
+                 amrex::Real* vert_avg_dat, int* nx,
+ 				 const int* lo, const int* hi,
+ 				 const int* domain_lo, const int* domain_hi,
+ 				 const amrex::Real* delta, const amrex::Real* xlo,
+ 				 const amrex::Real* time, const amrex::Real* dt,
+ 				 const int* bcrec,
+ 				 const int* level, const int* grid_no) ;
+
+     typedef void (*DeriveFuncFloor)(
+                 amrex::Real* data, const int* dlo, const int* dhi,
+                 const int* nvar,
+                 const amrex::Real* compdat, const int* clo, const int* chi, const int* ncomp,
+                 amrex::Real* vert_avg_dat, int* nx, bool *floor,
+                 const int* lo, const int* hi,
+                 const int* domain_lo, const int* domain_hi,
+                 const amrex::Real* delta, const amrex::Real* xlo,
+                 const amrex::Real* time, const amrex::Real* dt,
+                 const int* bcrec,
+                 const int* level, const int* grid_no) ;
 }
 
 namespace amrex {
@@ -55,7 +79,7 @@ class DeriveRec
 
 public:
     //
-    // A pointer to function taking and returning a Box. 
+    // A pointer to function taking and returning a Box.
     //
     typedef Box (*DeriveBoxMap)(const Box&);
 
@@ -82,6 +106,8 @@ public:
     //
     DeriveFunc   derFunc   () const;
     DeriveFunc3D derFunc3D () const;
+    DeriveFuncVerticalAvg derFuncVerticalAvg () const;
+    DeriveFuncFloor derFuncFloor () const;
     //
     // Maps state data box to derived data box.
     //
@@ -131,6 +157,18 @@ protected:
                DeriveFunc3D   der_func_3d,
                DeriveBoxMap   box_map,
                Interpolater*  interp = &pc_interp);
+    DeriveRec (const std::string& name,
+               IndexType      result_type,
+               int            nvar_derive,
+               DeriveFuncVerticalAvg   der_func_vert_avg,
+               DeriveBoxMap   box_map,
+               Interpolater*  interp = &pc_interp);
+    DeriveRec (const std::string& name,
+               IndexType      result_type,
+               int            nvar_derive,
+               DeriveFuncFloor   der_func_floor,
+               DeriveBoxMap   box_map,
+               Interpolater*  interp = &pc_interp);
 
     //
     // Constructor without a Fortran function
@@ -145,15 +183,29 @@ protected:
     DeriveRec (const std::string&  name,
                IndexType           result_type,
                int                 nvar_derive,
-	       Vector<std::string>& var_names,
+    	       Vector<std::string>& var_names,
                DeriveFunc          der_func,
                DeriveBoxMap        box_map,
                Interpolater*       interp = &pc_interp);
     DeriveRec (const std::string&  name,
                IndexType           result_type,
                int                 nvar_derive,
-	       Vector<std::string>& var_names,
+    	       Vector<std::string>& var_names,
                DeriveFunc3D        der_func_3d,
+               DeriveBoxMap        box_map,
+               Interpolater*       interp = &pc_interp);
+    DeriveRec (const std::string&  name,
+               IndexType           result_type,
+               int                 nvar_derive,
+    	       Vector<std::string>& var_names,
+               DeriveFuncVerticalAvg der_func_vert_avg,
+               DeriveBoxMap        box_map,
+               Interpolater*       interp = &pc_interp);
+    DeriveRec (const std::string&  name,
+               IndexType           result_type,
+               int                 nvar_derive,
+    	       Vector<std::string>& var_names,
+               DeriveFuncFloor der_func_floor,
                DeriveBoxMap        box_map,
                Interpolater*       interp = &pc_interp);
 
@@ -179,10 +231,10 @@ private:
     // Name of derived quantity.
     //
     std::string derive_name;
-    //    
+    //
     // Names of derived variables
     //
-    Vector<std::string> variable_names;  
+    Vector<std::string> variable_names;
     //
     // Type of derived quantity.
     //
@@ -196,6 +248,8 @@ private:
     //
     DeriveFunc   func;
     DeriveFunc3D func_3d;
+    DeriveFuncVerticalAvg func_vert_avg;
+    DeriveFuncFloor func_floor;
     //
     // Interpolater for mapping crse grid derived data to finer levels.
     //
@@ -258,6 +312,18 @@ public:
               DeriveFunc3D            der_func_3d,
               DeriveRec::DeriveBoxMap box_map,
               Interpolater*           interp = &pc_interp);
+    void add (const std::string&      name,
+              IndexType               result_type,
+              int                     nvar_derive,
+              DeriveFuncVerticalAvg   der_func_vert_avg,
+              DeriveRec::DeriveBoxMap box_map,
+              Interpolater*           interp = &pc_interp);
+    void add (const std::string&      name,
+              IndexType               result_type,
+              int                     nvar_derive,
+              DeriveFuncFloor         der_func_floor,
+              DeriveRec::DeriveBoxMap box_map,
+              Interpolater*           interp = &pc_interp);
 
     //
     // This version doesn't take a Fortran function.
@@ -273,15 +339,29 @@ public:
     void add (const std::string&      name,
               IndexType               result_type,
               int                     nvar_derive,
-	      Vector<std::string>&     var_names,
+    	      Vector<std::string>&    var_names,
               DeriveFunc              der_func,
               DeriveRec::DeriveBoxMap box_map,
               Interpolater*           interp = &pc_interp);
     void add (const std::string&      name,
               IndexType               result_type,
               int                     nvar_derive,
-	      Vector<std::string>&     var_names,
+    	      Vector<std::string>&    var_names,
               DeriveFunc3D            der_func_3d,
+              DeriveRec::DeriveBoxMap box_map,
+              Interpolater*           interp = &pc_interp);
+    void add (const std::string&      name,
+              IndexType               result_type,
+              int                     nvar_derive,
+    	      Vector<std::string>&    var_names,
+              DeriveFuncVerticalAvg   der_func_vert_avg,
+              DeriveRec::DeriveBoxMap box_map,
+              Interpolater*           interp = &pc_interp);
+    void add (const std::string&      name,
+              IndexType               result_type,
+              int                     nvar_derive,
+    	      Vector<std::string>&    var_names,
+              DeriveFuncFloor   der_func_floor,
               DeriveRec::DeriveBoxMap box_map,
               Interpolater*           interp = &pc_interp);
     //
@@ -292,7 +372,7 @@ public:
                        int                   state_indx,
                        int                   start_comp,
                        int                   ncomp);
- 
+
     std::list<DeriveRec>& dlist ();
 
     void clear () { lst.clear(); }

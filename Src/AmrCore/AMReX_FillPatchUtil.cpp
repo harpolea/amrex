@@ -166,9 +166,25 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 			int swe_to_comp_level;
 			ca_get_swe_to_comp_level(&swe_to_comp_level);
 
-			if ((ilev_crse == swe_to_comp_level) && (ilev_crse < max_level)) {
-   				const Real* dx        = cgeom.CellSize();
+			if ((ilev_crse == swe_to_comp_level) && (ilev_crse < max_level))
+			{
+
+
+				const Real* dx        = cgeom.CellSize();
+
 				for (int i = 0; i < cmf.size(); i++) {
+
+					const int nc = (*cmf[i]).nComp();
+			        Vector<int> nx = get_horizontal_numpts(cgeom);
+#if (BL_SPACEDIM == 2)
+			        const int npoints = nx[1];
+#elif (BL_SPACEDIM == 3)
+			        const int npoints = nx[1] * nx[2];
+#endif
+			        allocate_outflow_data(&npoints,&nc);
+
+			        Vector<Real> horizontal_state(npoints*nc,0);
+			        make_vertically_avgd_data(*cmf[i], cgeom, horizontal_state, time);
 
 					for (MFIter mfi(*cmf[i]); mfi.isValid(); ++mfi)
 					{
@@ -179,6 +195,7 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 									cgeom.CellSize(), cgeom.ProbLo());
 
 						ca_swe_to_comp_self(BL_TO_FORTRAN_3D((*cmf[i])[mfi]),
+							horizontal_state.dataPtr(), nx.dataPtr(),
 							ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()),
 							ZFILL(dx), ZFILL(gridloc.lo()), &ignore_errors);
 					}
@@ -223,6 +240,18 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 
 				for (int i = 0; i < cmf.size(); i++) {
 
+					const int nc = (*cmf[i]).nComp();
+			        Vector<int> nx = get_horizontal_numpts(cgeom);
+#if (BL_SPACEDIM == 2)
+			        const int npoints = nx[1];
+#elif (BL_SPACEDIM == 3)
+			        const int npoints = nx[1] * nx[2];
+#endif
+			        allocate_outflow_data(&npoints,&nc);
+
+			        Vector<Real> floor_state(npoints*nc,0);
+			        make_floor_data(*cmf[i], cgeom, floor_state, time);
+
 					MultiFab base(cmf[i]->boxArray(), cmf[i]->DistributionMap(), cmf[i]->nComp(), cmf[i]->nGrow());
 
 			        int np = cmf[i]->nComp();
@@ -242,9 +271,11 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 							RealBox(coarse_grids[mfi.index()],
 									cgeom.CellSize(),cgeom.ProbLo());
 
-						ca_comp_to_swe(BL_TO_FORTRAN_3D((*cmf[i])[mfi]), BL_TO_FORTRAN_3D(base[mfi]),
-						ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()),
-						ZFILL(gridloc.lo()), ZFILL(dx));
+						ca_comp_to_swe(BL_TO_FORTRAN_3D((*cmf[i])[mfi]),
+							BL_TO_FORTRAN_3D(base[mfi]),
+							floor_state.dataPtr(), nx.dataPtr(),
+							ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()),
+							ZFILL(gridloc.lo()), ZFILL(dx));
 					}
 				}
 			}
@@ -320,6 +351,17 @@ void InterpFromCoarseLevel (MultiFab& mf, Real time, const MultiFab& cmf,
 	ca_get_swe_to_comp_level(&swe_to_comp_level);
 
 	if ((ilev_crse == swe_to_comp_level) && (ilev_crse < max_level)) { // NOTE: not this one
+		const int nc = mf_crse_patch.nComp();
+		Vector<int> nx = get_horizontal_numpts(cgeom);
+#if (BL_SPACEDIM == 2)
+		const int npoints = nx[1];
+#elif (BL_SPACEDIM == 3)
+		const int npoints = nx[1] * nx[2];
+#endif
+		allocate_outflow_data(&npoints,&nc);
+		Vector<Real> horizontal_state(npoints*nc,0);
+		make_vertically_avgd_data(mf_crse_patch, cgeom, horizontal_state, time);
+
 		const Real* dx        = cgeom.CellSize();
 		for (MFIter mfi(mf_crse_patch); mfi.isValid(); ++mfi)
 		{
@@ -328,7 +370,7 @@ void InterpFromCoarseLevel (MultiFab& mf, Real time, const MultiFab& cmf,
 			bool ignore_errors = false;
 			RealBox gridloc = RealBox(grids[mfi.index()],cgeom.CellSize(),cgeom.ProbLo());
 
-			ca_swe_to_comp_self(BL_TO_FORTRAN_3D(mf_crse_patch[mfi]),
+			ca_swe_to_comp_self(BL_TO_FORTRAN_3D(mf_crse_patch[mfi]), horizontal_state.dataPtr(), nx.dataPtr(),
 			ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), ZFILL(dx), ZFILL(gridloc.lo()), &ignore_errors);
 		}
 	}
@@ -365,6 +407,17 @@ void InterpFromCoarseLevel (MultiFab& mf, Real time, const MultiFab& cmf,
 
         int np = mf_crse_patch.nComp();
 
+		const int nc = mf_crse_patch.nComp();
+		Vector<int> nx = get_horizontal_numpts(cgeom);
+#if (BL_SPACEDIM == 2)
+		const int npoints = nx[1];
+#elif (BL_SPACEDIM == 3)
+		const int npoints = nx[1] * nx[2];
+#endif
+		allocate_outflow_data(&npoints,&nc);
+		Vector<Real> floor_state(npoints*nc,0);
+		make_floor_data(mf_crse_patch, cgeom, floor_state, time);
+
 		for (MFIter mfi(base); mfi.isValid(); ++mfi)
         {
             const Box& bx = mfi.tilebox();
@@ -380,8 +433,8 @@ void InterpFromCoarseLevel (MultiFab& mf, Real time, const MultiFab& cmf,
 			RealBox gridloc = RealBox(grids[mfi.index()],cgeom.CellSize(),cgeom.ProbLo());
 
 			ca_comp_to_swe(BL_TO_FORTRAN_3D(mf_crse_patch[mfi]),
-			BL_TO_FORTRAN_3D(base[mfi]),
-			ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), ZFILL(gridloc.lo()), ZFILL(dx));//nope
+				BL_TO_FORTRAN_3D(base[mfi]), floor_state.dataPtr(), nx.dataPtr(),
+				ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), ZFILL(gridloc.lo()), ZFILL(dx));//nope
 		}
 	}
 
@@ -502,4 +555,98 @@ void InterpCrseFineBndryEMfield (InterpEM_t interp_type,
             }
         }
     }
+
+
+void make_vertically_avgd_data(MultiFab & S, const Geometry & lev_geom, Vector<Real> & horizontal_state, Real time)
+{
+	// Average data vertically
+#if (BL_SPACEDIM > 1)
+
+    int swe_to_comp_level;
+    ca_get_swe_to_comp_level(&swe_to_comp_level);
+
+    // We only call this for level = 0
+    BL_ASSERT(level == swe_to_comp_level);
+
+	Vector<int> nx = get_horizontal_numpts(lev_geom);
+
+#if (BL_SPACEDIM == 2)
+    const int npoints = nx[1];
+#elif (BL_SPACEDIM == 3)
+    const int npoints = nx[1] * nx[2];
+#endif
+
+    const Real* dx = lev_geom.CellSize();
+
+    const int nc = S.nComp();
+    for (MFIter mfi(S); mfi.isValid(); ++mfi)
+    {
+        Box bx(mfi.validbox());
+        ca_compute_vertical_avgstate(ARLIM_3D(bx.loVect()),
+			 ARLIM_3D(bx.hiVect()), ZFILL(dx), &nc,
+             BL_TO_FORTRAN_3D(S[mfi]), horizontal_state.dataPtr(),
+             ZFILL(lev_geom.ProbLo()), nx.dataPtr());
+    }
+
+    ParallelDescriptor::ReduceRealSum(horizontal_state.dataPtr(),npoints*nc);
+
+    set_new_outflow_data(horizontal_state.dataPtr(),&time,&npoints,&nc);
+
+#endif
+}
+
+void make_floor_data(MultiFab & S, const Geometry & lev_geom, Vector<Real> & horizontal_state, Real time)
+{
+	// get data at bottom (x = 0) of problem domain
+#if (BL_SPACEDIM > 1)
+
+    int swe_to_comp_level;
+    ca_get_swe_to_comp_level(&swe_to_comp_level);
+
+    // We only call this for level = 0
+    BL_ASSERT(level == swe_to_comp_level);
+
+	Vector<int> nx = get_horizontal_numpts(lev_geom);
+
+#if (BL_SPACEDIM == 2)
+    const int npoints = nx[1];
+#elif (BL_SPACEDIM == 3)
+    const int npoints = nx[1] * nx[2];
+#endif
+
+    const Real* dx = lev_geom.CellSize();
+
+    const int nc = S.nComp();
+    for (MFIter mfi(S); mfi.isValid(); ++mfi)
+    {
+        Box bx(mfi.validbox());
+        ca_compute_floor_state(ARLIM_3D(bx.loVect()),
+			 ARLIM_3D(bx.hiVect()), ZFILL(dx), &nc,
+             BL_TO_FORTRAN_3D(S[mfi]), horizontal_state.dataPtr(),
+             ZFILL(lev_geom.ProbLo()), nx.dataPtr());
+    }
+
+    ParallelDescriptor::ReduceRealSum(horizontal_state.dataPtr(),npoints*nc);
+#endif
+}
+
+Vector<int> get_horizontal_numpts (const Geometry& lev_geom)
+{
+     Box bx(lev_geom.Domain());
+
+	 Vector<int> nx(3,0);
+
+     nx[0] = bx.size()[0];
+
+#if (BL_SPACEDIM >= 2)
+     nx[1] = bx.size()[1];
+#if (BL_SPACEDIM == 3)
+     nx[2] = bx.size()[2];
+#endif
+#endif
+
+return nx;
+
+}
+
 }

@@ -59,6 +59,12 @@ namespace amrex
                                      std::array<MultiFab,BL_SPACEDIM>& fine,
                                      const Geometry& cgeom, const Geometry& fgeom,
                                      int ref_ratio);
+
+    void make_vertically_avgd_data(MultiFab & S, const Geometry & lev_geom, Vector<Real> & horizontal_state, Real time);
+
+    void make_floor_data(MultiFab & S, const Geometry & lev_geom, Vector<Real> & horizontal_state, Real time);
+
+    Vector<int> get_horizontal_numpts (const Geometry& lev_geom);
 }
 
 #endif
