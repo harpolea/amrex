@@ -1488,10 +1488,6 @@ AmrLevel::FillCoarsePatch (MultiFab& mf,
         int swe_to_comp_level;
         ca_get_swe_to_comp_level(&swe_to_comp_level);
 
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-
         // NOTE: calling s2c here seems to be the only way that works
         if (level-1 == swe_to_comp_level) {
             const int nc = crseMF.nComp();
@@ -1508,6 +1504,9 @@ AmrLevel::FillCoarsePatch (MultiFab& mf,
             make_floor_data(crseMF, cgeom, floor_state, time);
 
             const Real* dx        = cgeom.CellSize();
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
             for (MFIter mfi(crseMF); mfi.isValid(); ++mfi)
             {
                 const Box& bx = mfi.tilebox();//crseMF.nGrow());
@@ -1519,6 +1518,9 @@ AmrLevel::FillCoarsePatch (MultiFab& mf,
             }
         }
 
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
     	for (MFIter mfi(mf); mfi.isValid(); ++mfi)
     	{
     	    const Box& dbx = amrex::grow(mfi.validbox(),nghost) & domain_g;
@@ -1558,7 +1560,9 @@ AmrLevel::FillCoarsePatch (MultiFab& mf,
     		allocate_outflow_data(&npoints,&nc);
     		Vector<Real> floor_state(npoints*nc,0);
     		make_floor_data(crseMF, cgeom, floor_state, time);
-
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
             for (MFIter mfi(base); mfi.isValid(); ++mfi)
             {
                 const Box& bx = mfi.tilebox();//crseMF.nGrow());
@@ -1566,7 +1570,9 @@ AmrLevel::FillCoarsePatch (MultiFab& mf,
 
                 ca_getbase(ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), BL_TO_FORTRAN_3D(crseMF[mfi]), BL_TO_FORTRAN_3D(base[mfi]), ZFILL(gridloc.lo()), &np);
             }
-
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
             for (MFIter mfi(base); mfi.isValid(); ++mfi)
             {
                 const Box& bx = mfi.tilebox();//crseMF.nGrow());

@@ -183,7 +183,9 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 
 			        Vector<Real> horizontal_state(npoints*nc,0);
 			        make_vertically_avgd_data(*cmf[i], cgeom, horizontal_state, time);
-
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
 					for (MFIter mfi(*cmf[i]); mfi.isValid(); ++mfi)
 					{
 						const Box& bx = mfi.tilebox();//mf_crse_patch.nGrow());//boxGrow);
@@ -253,7 +255,9 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 					MultiFab base(cmf[i]->boxArray(), cmf[i]->DistributionMap(), cmf[i]->nComp(), cmf[i]->nGrow());
 
 			        int np = cmf[i]->nComp();
-
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
 					for (MFIter mfi(base); mfi.isValid(); ++mfi)
 			        {
 			            const Box& bx = mfi.tilebox();
@@ -261,7 +265,9 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 
 			            ca_getbase(ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), BL_TO_FORTRAN_3D((*cmf[i])[mfi]), BL_TO_FORTRAN_3D(base[mfi]), ZFILL(gridloc.lo()), &np);
 			        }
-
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
 					for (MFIter mfi(*cmf[i]); mfi.isValid(); ++mfi)
 					{
 						const Box& bx = mfi.tilebox();//mf_crse_patch.nGrow());//boxGrow);
@@ -361,6 +367,9 @@ void InterpFromCoarseLevel (MultiFab& mf, Real time, const MultiFab& cmf,
 		make_vertically_avgd_data(mf_crse_patch, cgeom, horizontal_state, time);
 
 		const Real* dx        = cgeom.CellSize();
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
 		for (MFIter mfi(mf_crse_patch); mfi.isValid(); ++mfi)
 		{
 			const Box& bx = mfi.tilebox();//growntilebox(mf_crse_patch.nGrow());
@@ -415,7 +424,9 @@ void InterpFromCoarseLevel (MultiFab& mf, Real time, const MultiFab& cmf,
 		allocate_outflow_data(&npoints,&nc);
 		Vector<Real> floor_state(npoints*nc,0);
 		make_floor_data(mf_crse_patch, cgeom, floor_state, time);
-
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
 		for (MFIter mfi(base); mfi.isValid(); ++mfi)
         {
             const Box& bx = mfi.tilebox();
@@ -423,7 +434,9 @@ void InterpFromCoarseLevel (MultiFab& mf, Real time, const MultiFab& cmf,
 
             ca_getbase(ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), BL_TO_FORTRAN_3D(mf_crse_patch[mfi]), BL_TO_FORTRAN_3D(base[mfi]), ZFILL(gridloc.lo()), &np);
         }
-
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
 		for (MFIter mfi(mf_crse_patch); mfi.isValid(); ++mfi)
 		{
 			const Box& bx = mfi.tilebox();//growntilebox(mf_crse_patch.nGrow());
@@ -577,6 +590,9 @@ void make_vertically_avgd_data(MultiFab & S, const Geometry & lev_geom, Vector<R
     const Real* dx = lev_geom.CellSize();
 
     const int nc = S.nComp();
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
     for (MFIter mfi(S); mfi.isValid(); ++mfi)
     {
         Box bx(mfi.tilebox());
@@ -587,12 +603,6 @@ void make_vertically_avgd_data(MultiFab & S, const Geometry & lev_geom, Vector<R
     }
 
     ParallelDescriptor::ReduceRealSum(horizontal_state.dataPtr(),npoints*nc);
-
-	// std::cout << "horizontal state\n";
-	// for (int i = 0; i < npoints; i++) {
-	// 	std::cout << horizontal_state[i*nc] << ' ';
-	// }
-	// std::cout << '\n';
 
     set_new_outflow_data(horizontal_state.dataPtr(),&time,&npoints,&nc);
 
@@ -621,6 +631,9 @@ void make_floor_data(MultiFab & S, const Geometry & lev_geom, Vector<Real> & hor
     const Real* dx = lev_geom.CellSize();
 
     const int nc = S.nComp();
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
     for (MFIter mfi(S); mfi.isValid(); ++mfi)
     {
         Box bx(mfi.tilebox());
