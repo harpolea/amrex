@@ -1510,7 +1510,7 @@ AmrLevel::FillCoarsePatch (MultiFab& mf,
             const Real* dx        = cgeom.CellSize();
             for (MFIter mfi(crseMF); mfi.isValid(); ++mfi)
             {
-                const Box& bx = mfi.growntilebox(crseMF.nGrow());
+                const Box& bx = mfi.tilebox();//crseMF.nGrow());
                 bool ignore_errors = false;
                 RealBox gridloc = RealBox(grids[mfi.index()],cgeom.CellSize(),cgeom.ProbLo());
                 ca_swe_to_comp_self(BL_TO_FORTRAN_3D(crseMF[mfi]),
@@ -1561,7 +1561,7 @@ AmrLevel::FillCoarsePatch (MultiFab& mf,
 
             for (MFIter mfi(base); mfi.isValid(); ++mfi)
             {
-                const Box& bx = mfi.growntilebox(crseMF.nGrow());
+                const Box& bx = mfi.tilebox();//crseMF.nGrow());
                 RealBox gridloc = RealBox(grids[mfi.index()],cgeom.CellSize(),cgeom.ProbLo());
 
                 ca_getbase(ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), BL_TO_FORTRAN_3D(crseMF[mfi]), BL_TO_FORTRAN_3D(base[mfi]), ZFILL(gridloc.lo()), &np);
@@ -1569,7 +1569,7 @@ AmrLevel::FillCoarsePatch (MultiFab& mf,
 
             for (MFIter mfi(base); mfi.isValid(); ++mfi)
             {
-                const Box& bx = mfi.growntilebox(crseMF.nGrow());
+                const Box& bx = mfi.tilebox();//crseMF.nGrow());
                 RealBox gridloc = RealBox(grids[mfi.index()],cgeom.CellSize(),cgeom.ProbLo());
 
                 ca_comp_to_swe(BL_TO_FORTRAN_3D(crseMF[mfi]),

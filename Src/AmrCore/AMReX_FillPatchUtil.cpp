@@ -168,8 +168,6 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 
 			if ((ilev_crse == swe_to_comp_level) && (ilev_crse < max_level))
 			{
-
-
 				const Real* dx        = cgeom.CellSize();
 
 				for (int i = 0; i < cmf.size(); i++) {
@@ -565,7 +563,7 @@ void make_vertically_avgd_data(MultiFab & S, const Geometry & lev_geom, Vector<R
     int swe_to_comp_level;
     ca_get_swe_to_comp_level(&swe_to_comp_level);
 
-    // We only call this for level = 0
+    // We only call this for level = swe_to_comp_level
     BL_ASSERT(level == swe_to_comp_level);
 
 	Vector<int> nx = get_horizontal_numpts(lev_geom);
@@ -581,7 +579,7 @@ void make_vertically_avgd_data(MultiFab & S, const Geometry & lev_geom, Vector<R
     const int nc = S.nComp();
     for (MFIter mfi(S); mfi.isValid(); ++mfi)
     {
-        Box bx(mfi.validbox());
+        Box bx(mfi.tilebox());
         ca_compute_vertical_avgstate(ARLIM_3D(bx.loVect()),
 			 ARLIM_3D(bx.hiVect()), ZFILL(dx), &nc,
              BL_TO_FORTRAN_3D(S[mfi]), horizontal_state.dataPtr(),
@@ -589,6 +587,12 @@ void make_vertically_avgd_data(MultiFab & S, const Geometry & lev_geom, Vector<R
     }
 
     ParallelDescriptor::ReduceRealSum(horizontal_state.dataPtr(),npoints*nc);
+
+	// std::cout << "horizontal state\n";
+	// for (int i = 0; i < npoints; i++) {
+	// 	std::cout << horizontal_state[i*nc] << ' ';
+	// }
+	// std::cout << '\n';
 
     set_new_outflow_data(horizontal_state.dataPtr(),&time,&npoints,&nc);
 
@@ -619,7 +623,7 @@ void make_floor_data(MultiFab & S, const Geometry & lev_geom, Vector<Real> & hor
     const int nc = S.nComp();
     for (MFIter mfi(S); mfi.isValid(); ++mfi)
     {
-        Box bx(mfi.validbox());
+        Box bx(mfi.tilebox());
         ca_compute_floor_state(ARLIM_3D(bx.loVect()),
 			 ARLIM_3D(bx.hiVect()), ZFILL(dx), &nc,
              BL_TO_FORTRAN_3D(S[mfi]), horizontal_state.dataPtr(),
