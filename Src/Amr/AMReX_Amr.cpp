@@ -1,4 +1,4 @@
-#include "Python.h"
+// #include "Python.h"
 #include <algorithm>
 #include <cstdio>
 #include <list>
@@ -1170,9 +1170,9 @@ Amr::InitializeInit(Real              strt_time,
     //
     int init = true;
 
-    //if (!probin_file.empty()) {
-    //    readProbinFile(init);
-    //}
+    if (!probin_file.empty()) {
+       readProbinFile(init);
+    }
 
     cumtime = strt_time;
     //
@@ -1181,15 +1181,15 @@ Amr::InitializeInit(Real              strt_time,
     //
 
     // need to use Py_Initialize here as can only call it once and both of the next two function calls call the ca_Prob_3d functions.
-    Py_Initialize();
+    // Py_Initialize();
 
     defBaseLevel(strt_time, lev0_grids, pmap);
 
-    if (!probin_file.empty()) {
-        readProbinFile(init);
-    }
-
-    Py_Finalize();
+    // if (!probin_file.empty()) {
+    //     readProbinFile(init);
+    // }
+    //
+    // Py_Finalize();
 }
 
 void
