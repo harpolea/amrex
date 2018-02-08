@@ -1,6 +1,6 @@
 
 #ifndef _StateDescriptor_H_
-#define _StateDescriptor_H_ 
+#define _StateDescriptor_H_
 
 #include <utility>
 #include <memory>
@@ -66,14 +66,14 @@ public:
 	virtual void operator () (Real* data, const int* lo, const int* hi,
 				  const int* dom_lo, const int* dom_hi,
 				  const Real* dx, const Real* grd_lo,
-				  const Real* time, const int* bc) const override;
+				  const Real* time, const int* bc, int* level) const override;
         //
         // Fill boundary cells using "group" function.
         //
         virtual void operator () (Real* data, const int* lo, const int* hi,
                                   const int* dom_lo, const int* dom_hi,
                                   const Real* dx, const Real* grd_lo,
-                                  const Real* time, const int* bc, int ng) const;
+                                  const Real* time, const int* bc, int ng, int* level) const;
 
 	void Print() const;
 
@@ -145,16 +145,16 @@ public:
                     const Interpolater* default_map,
                     int                 start_comp,
                     int                 num_comp,
-                    Interpolater**&     maps, 
+                    Interpolater**&     maps,
                     int&                nmaps,
-                    int*&               map_start_comp, 
+                    int*&               map_start_comp,
                     int*&               map_num_comp,
                     int*&               max_start_comp,
                     int*&               min_end_comp) const;
     //
     // Cleanup interpolaters for a subset of the state vector components.
     //
-    void cleanUpMaps (Interpolater**& maps, 
+    void cleanUpMaps (Interpolater**& maps,
                       int*&           map_start_comp,
                       int*&           map_num_comp,
                       int*&           max_start_comp,

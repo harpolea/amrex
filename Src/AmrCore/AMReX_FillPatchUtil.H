@@ -15,7 +15,7 @@ namespace amrex
     void FillPatchSingleLevel (MultiFab& mf, Real time,
 			       const Vector<MultiFab*>& smf, const Vector<Real>& stime,
 			       int scomp, int dcomp, int ncomp,
-			       const Geometry& geom, PhysBCFunctBase& physbcf);
+			       const Geometry& geom, PhysBCFunctBase& physbcf, int level);
 
     void FillPatchTwoLevels (MultiFab& mf, Real time,
 			     const Vector<MultiFab*>& cmf, const Vector<Real>& ct,

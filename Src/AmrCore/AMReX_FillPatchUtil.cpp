@@ -41,7 +41,7 @@ bool ProperlyNested (const IntVect& ratio, const IntVect& blocking_factor, int n
 void FillPatchSingleLevel (MultiFab& mf, Real time,
 		       const Vector<MultiFab*>& smf, const Vector<Real>& stime,
 		       int scomp, int dcomp, int ncomp,
-		       const Geometry& geom, PhysBCFunctBase& physbcf)
+		       const Geometry& geom, PhysBCFunctBase& physbcf, int level)
     {
 	BL_PROFILE("FillPatchSingleLevel");
 
@@ -110,7 +110,7 @@ void FillPatchSingleLevel (MultiFab& mf, Real time,
 	    amrex::Abort("FillPatchSingleLevel: high-order interpolation in time not implemented yet");
 	}
 
-	physbcf.FillBoundary(mf, dcomp, ncomp, time);
+	physbcf.FillBoundary(mf, dcomp, ncomp, time, level);
 }
 
 
@@ -188,7 +188,7 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 #endif
 					for (MFIter mfi(*cmf[i]); mfi.isValid(); ++mfi)
 					{
-						const Box& bx = mfi.tilebox();//mf_crse_patch.nGrow());//boxGrow);
+						const Box& bx = mfi.tilebox();
 						bool ignore_errors = true;
 		                RealBox gridloc =
 							RealBox(coarse_grids[mfi.index()],
@@ -204,7 +204,7 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 
     		MultiFab mf_crse_patch(fpc.ba_crse_patch, fpc.dm_crse_patch, ncomp, 0, MFInfo(), *fpc.fact_crse_patch);
 
-    		FillPatchSingleLevel(mf_crse_patch, time, cmf, ct, scomp, 0, ncomp, cgeom, cbc);
+    		FillPatchSingleLevel(mf_crse_patch, time, cmf, ct, scomp, 0, ncomp, cgeom, cbc, ilev_crse);
 
     		int idummy1=0, idummy2=0;
     		bool cc = fpc.ba_crse_patch.ixType().cellCentered();
@@ -255,16 +255,7 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 					MultiFab base(cmf[i]->boxArray(), cmf[i]->DistributionMap(), cmf[i]->nComp(), cmf[i]->nGrow());
 
 			        int np = cmf[i]->nComp();
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-					for (MFIter mfi(base); mfi.isValid(); ++mfi)
-			        {
-			            const Box& bx = mfi.tilebox();
-			            RealBox gridloc = RealBox(coarse_grids[mfi.index()],cgeom.CellSize(),cgeom.ProbLo());
 
-			            ca_getbase(ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), BL_TO_FORTRAN_3D((*cmf[i])[mfi]), BL_TO_FORTRAN_3D(base[mfi]), ZFILL(gridloc.lo()), &np);
-			        }
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -275,18 +266,19 @@ void FillPatchTwoLevels (MultiFab& mf, Real time,
 							RealBox(coarse_grids[mfi.index()],
 									cgeom.CellSize(),cgeom.ProbLo());
 
-						ca_comp_to_swe(BL_TO_FORTRAN_3D((*cmf[i])[mfi]),
-							BL_TO_FORTRAN_3D(base[mfi]),
+						bool ignore_errs = false;
+
+						ca_comp_to_swe_self(BL_TO_FORTRAN_3D((*cmf[i])[mfi]),
 							floor_state.dataPtr(), nx.dataPtr(),
 							ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()),
-							ZFILL(gridloc.lo()), ZFILL(dx));
+							ZFILL(gridloc.lo()), ZFILL(dx), &ignore_errs);
 					}
 				}
 			}
 		}
 	}
 
-	FillPatchSingleLevel(mf, time, fmf, ft, scomp, dcomp, ncomp, fgeom, fbc);
+	FillPatchSingleLevel(mf, time, fmf, ft, scomp, dcomp, ncomp, fgeom, fbc, ilev_crse+1);
 }
 
 void InterpFromCoarseLevel (MultiFab& mf, Real time, const MultiFab& cmf,
@@ -347,7 +339,7 @@ void InterpFromCoarseLevel (MultiFab& mf, Real time, const MultiFab& cmf,
 
 	mf_crse_patch.copy(cmf, scomp, 0, ncomp, cgeom.periodicity());
 
-	cbc.FillBoundary(mf_crse_patch, 0, ncomp, time);
+	cbc.FillBoundary(mf_crse_patch, 0, ncomp, time, ilev_crse);
 
 	int idummy1=0, idummy2=0;
 
@@ -424,32 +416,24 @@ void InterpFromCoarseLevel (MultiFab& mf, Real time, const MultiFab& cmf,
 		allocate_outflow_data(&npoints,&nc);
 		Vector<Real> floor_state(npoints*nc,0);
 		make_floor_data(mf_crse_patch, cgeom, floor_state, time);
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-		for (MFIter mfi(base); mfi.isValid(); ++mfi)
-        {
-            const Box& bx = mfi.tilebox();
-            RealBox gridloc = RealBox(grids[mfi.index()],cgeom.CellSize(),cgeom.ProbLo());
 
-            ca_getbase(ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), BL_TO_FORTRAN_3D(mf_crse_patch[mfi]), BL_TO_FORTRAN_3D(base[mfi]), ZFILL(gridloc.lo()), &np);
-        }
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
 		for (MFIter mfi(mf_crse_patch); mfi.isValid(); ++mfi)
 		{
-			const Box& bx = mfi.tilebox();//growntilebox(mf_crse_patch.nGrow());
-			// do some conversion stuff
+			const Box& bx = mfi.tilebox();
 			RealBox gridloc = RealBox(grids[mfi.index()],cgeom.CellSize(),cgeom.ProbLo());
 
-			ca_comp_to_swe(BL_TO_FORTRAN_3D(mf_crse_patch[mfi]),
-				BL_TO_FORTRAN_3D(base[mfi]), floor_state.dataPtr(), nx.dataPtr(),
-				ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), ZFILL(gridloc.lo()), ZFILL(dx));//nope
+			bool ignore_errs = false;
+
+			ca_comp_to_swe_self(BL_TO_FORTRAN_3D(mf_crse_patch[mfi]),
+				floor_state.dataPtr(), nx.dataPtr(),
+				ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), ZFILL(gridloc.lo()), ZFILL(dx), &ignore_errs);
 		}
 	}
 
-	fbc.FillBoundary(mf, dcomp, ncomp, time);
+	fbc.FillBoundary(mf, dcomp, ncomp, time, ilev_crse+1);
 }
 
 // B fields are assumed to be on staggered grids.

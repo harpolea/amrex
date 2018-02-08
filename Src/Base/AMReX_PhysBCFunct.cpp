@@ -33,15 +33,15 @@ void
 BndryFunctBase::operator () (Real* data,const int* lo,const int* hi,
 			     const int* dom_lo, const int* dom_hi,
 			     const Real* dx, const Real* grd_lo,
-			     const Real* time, const int* bc) const
+			     const Real* time, const int* bc, int * level) const
 {
     BL_ASSERT(m_func != 0 || m_func3D != 0);
 
     if (m_func != 0) {
-	m_func(data,ARLIM(lo),ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc);
+    	m_func(data,ARLIM(lo),ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc,level);
     } else {
-	m_func3D(data,ARLIM_3D(lo),ARLIM_3D(hi),ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),
-		 ZFILL(dx),ZFILL(grd_lo),time,bc);
+    	m_func3D(data,ARLIM_3D(lo),ARLIM_3D(hi),ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),
+		 ZFILL(dx),ZFILL(grd_lo),time,bc,level);
     }
 }
 
@@ -59,12 +59,12 @@ PhysBCFunct::define (const Geometry& geom, const BCRec& bcr, const BndryFunctBas
 }
 
 void
-PhysBCFunct::FillBoundary (MultiFab& mf, int, int, Real time)
+PhysBCFunct::FillBoundary (MultiFab& mf, int, int, Real time, int level)
 {
     BL_PROFILE("PhysBCFunct::FillBoundary");
 
     if (mf.nGrow() == 0) return;
-    
+
     if (m_geom.isAllPeriodic()) return;
 
     const Box&     domain      = m_geom.Domain();
@@ -77,9 +77,9 @@ PhysBCFunct::FillBoundary (MultiFab& mf, int, int, Real time)
     // create a grown domain box containing valid + periodic cells
     Box gdomain = amrex::convert(domain, mf.boxArray().ixType());
     for (int i = 0; i < BL_SPACEDIM; ++i) {
-	if (m_geom.isPeriodic(i)) {
-	    gdomain.grow(i, mf.nGrow());
-	}
+    	if (m_geom.isPeriodic(i)) {
+    	    gdomain.grow(i, mf.nGrow());
+    	}
     }
 
 #ifdef _OPENMP
@@ -87,25 +87,25 @@ PhysBCFunct::FillBoundary (MultiFab& mf, int, int, Real time)
 #endif
     for (MFIter mfi(mf); mfi.isValid(); ++mfi)
     {
-	FArrayBox& dest = mf[mfi];
-	const Box& bx = dest.box();
-        
-        // if there are cells not in the valid + periodic grown box
-        // we need to fill them here
-	if (!gdomain.contains(bx)) {
+    	FArrayBox& dest = mf[mfi];
+    	const Box& bx = dest.box();
 
-	    const int* fablo = bx.loVect();
-	    const int* fabhi = bx.hiVect();
+            // if there are cells not in the valid + periodic grown box
+            // we need to fill them here
+    	if (!gdomain.contains(bx)) {
 
-	    Real xlo[BL_SPACEDIM];
-	    for (int i = 0; i < BL_SPACEDIM; i++)
-	    {
-		xlo[i] = problo[i] + dx[i]*(fablo[i]-dlo[i]);
-	    }
+    	    const int* fablo = bx.loVect();
+    	    const int* fabhi = bx.hiVect();
 
-	    (*m_bc_func)(dest.dataPtr(), fablo, fabhi, dlo, dhi,
-			 dx, xlo, &time, m_bcr.vect());
-	}
+    	    Real xlo[BL_SPACEDIM];
+    	    for (int i = 0; i < BL_SPACEDIM; i++)
+    	    {
+    		xlo[i] = problo[i] + dx[i]*(fablo[i]-dlo[i]);
+    	    }
+
+    	    (*m_bc_func)(dest.dataPtr(), fablo, fabhi, dlo, dhi,
+    			 dx, xlo, &time, m_bcr.vect(), &level);
+    	}
     }
 }
 

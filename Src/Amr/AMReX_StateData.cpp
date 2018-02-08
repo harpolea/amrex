@@ -425,6 +425,7 @@ StateData::FillBoundary (FArrayBox&     dest,
                          Real           time,
                          const Real*    dx,
                          const RealBox& prob_domain,
+                         int            level,
                          int            dest_comp,
                          int            src_comp,
                          int            num_comp)
@@ -485,20 +486,20 @@ StateData::FillBoundary (FArrayBox&     dest,
                 //
                 // Use the "group" boundary fill routine.
                 //
-        		desc->bndryFill(sc)(dat,dlo,dhi,plo,phi,dx,xlo,&time,bcrs.dataPtr(),groupsize);
+        		desc->bndryFill(sc)(dat,dlo,dhi,plo,phi,dx,xlo,&time,bcrs.dataPtr(),groupsize,&level);
                 i += groupsize;
             }
             else
             {
                 amrex::setBC(bx,domain,desc->getBC(sc),bcr);
-                desc->bndryFill(sc)(dat,dlo,dhi,plo,phi,dx,xlo,&time,bcr.vect());
+                desc->bndryFill(sc)(dat,dlo,dhi,plo,phi,dx,xlo,&time,bcr.vect(),&level);
                 i++;
             }
         }
         else
         {
             amrex::setBC(bx,domain,desc->getBC(sc),bcr);
-            desc->bndryFill(sc)(dat,dlo,dhi,plo,phi,dx,xlo,&time,bcr.vect());
+            desc->bndryFill(sc)(dat,dlo,dhi,plo,phi,dx,xlo,&time,bcr.vect(),&level);
             i++;
         }
     }
@@ -790,7 +791,7 @@ StateDataPhysBCFunct::StateDataPhysBCFunct (StateData&sd, int sc, const Geometry
 { }
 
 void
-StateDataPhysBCFunct::FillBoundary (MultiFab& mf, int dest_comp, int num_comp, Real time)
+StateDataPhysBCFunct::FillBoundary (MultiFab& mf, int dest_comp, int num_comp, Real time, int level)
 {
     BL_PROFILE("StateDataPhysBCFunct::FillBoundary");
 
@@ -826,7 +827,7 @@ StateDataPhysBCFunct::FillBoundary (MultiFab& mf, int dest_comp, int num_comp, R
 
 	    if (has_phys_bc)
 	    {
-		statedata->FillBoundary(dest, time, dx, prob_domain, dest_comp, src_comp, num_comp);
+		statedata->FillBoundary(dest, time, dx, prob_domain, level, dest_comp, src_comp, num_comp);
 
 		if (is_periodic) // fix up corner
 		{
@@ -862,7 +863,7 @@ StateDataPhysBCFunct::FillBoundary (MultiFab& mf, int dest_comp, int num_comp, R
     			    tmp.copy(dest,dest_comp,0,num_comp);
     			    tmp.shift(dir,domain.length(dir));
 
-    			    statedata->FillBoundary(tmp, time, dx, prob_domain, dest_comp, src_comp, num_comp);
+    			    statedata->FillBoundary(tmp, time, dx, prob_domain, level, dest_comp, src_comp, num_comp);
 
     			    tmp.shift(dir,-domain.length(dir));
     			    dest.copy(tmp,0,dest_comp,num_comp);
@@ -876,7 +877,7 @@ StateDataPhysBCFunct::FillBoundary (MultiFab& mf, int dest_comp, int num_comp, R
     			    tmp.copy(dest,dest_comp,0,num_comp);
     			    tmp.shift(dir,-domain.length(dir));
 
-    			    statedata->FillBoundary(tmp, time, dx, prob_domain, dest_comp, src_comp, num_comp);
+    			    statedata->FillBoundary(tmp, time, dx, prob_domain, level, dest_comp, src_comp, num_comp);
 
     			    tmp.shift(dir,domain.length(dir));
     			    dest.copy(tmp,0,dest_comp,num_comp);

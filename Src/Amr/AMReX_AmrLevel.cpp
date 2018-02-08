@@ -538,7 +538,7 @@ AmrLevel::setPhysBoundaryValues (FArrayBox& dest,
                                  int        num_comp)
 {
     state[state_indx].FillBoundary(dest,time,geom.CellSize(),
-                                   geom.ProbDomain(),dest_comp,src_comp,num_comp);
+                                   geom.ProbDomain(),level,dest_comp,src_comp,num_comp);
 }
 
 FillPatchIteratorHelper::FillPatchIteratorHelper (AmrLevel& amrlevel,
@@ -986,7 +986,7 @@ FillPatchIterator::FillFromLevel0 (Real time, int idx, int scomp, int dcomp, int
 
     StateDataPhysBCFunct physbcf(statedata,scomp,geom);
 
-    amrex::FillPatchSingleLevel (m_fabs, time, smf, stime, scomp, dcomp, ncomp, geom, physbcf);
+    amrex::FillPatchSingleLevel (m_fabs, time, smf, stime, scomp, dcomp, ncomp, geom, physbcf, m_amrlevel.level);
 }
 
 void
@@ -1478,7 +1478,7 @@ AmrLevel::FillCoarsePatch (MultiFab& mf,
 
     	    StateDataPhysBCFunct physbcf(statedata,SComp,cgeom);
 
-            amrex::FillPatchSingleLevel(crseMF,time,smf,stime,SComp,0,NComp,cgeom,physbcf);
+            amrex::FillPatchSingleLevel(crseMF,time,smf,stime,SComp,0,NComp,cgeom,physbcf,level);
     	}
     	else
     	{
@@ -1560,33 +1560,26 @@ AmrLevel::FillCoarsePatch (MultiFab& mf,
     		allocate_outflow_data(&npoints,&nc);
     		Vector<Real> floor_state(npoints*nc,0);
     		make_floor_data(crseMF, cgeom, floor_state, time);
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
             for (MFIter mfi(base); mfi.isValid(); ++mfi)
             {
-                const Box& bx = mfi.tilebox();//crseMF.nGrow());
+                const Box& bx = mfi.tilebox();
                 RealBox gridloc = RealBox(grids[mfi.index()],cgeom.CellSize(),cgeom.ProbLo());
 
-                ca_getbase(ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), BL_TO_FORTRAN_3D(crseMF[mfi]), BL_TO_FORTRAN_3D(base[mfi]), ZFILL(gridloc.lo()), &np);
-            }
-#ifdef _OPENMP
-#pragma omp parallel
-#endif
-            for (MFIter mfi(base); mfi.isValid(); ++mfi)
-            {
-                const Box& bx = mfi.tilebox();//crseMF.nGrow());
-                RealBox gridloc = RealBox(grids[mfi.index()],cgeom.CellSize(),cgeom.ProbLo());
+                bool ignore_errs = false;
 
-                ca_comp_to_swe(BL_TO_FORTRAN_3D(crseMF[mfi]),
-                BL_TO_FORTRAN_3D(base[mfi]),
+                ca_comp_to_swe_self(BL_TO_FORTRAN_3D(crseMF[mfi]),
                     floor_state.dataPtr(), nx.dataPtr(),
-                ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()), ZFILL(gridloc.lo()), ZFILL(dx));
+                    ARLIM_3D(bx.loVect()), ARLIM_3D(bx.hiVect()),
+                    ZFILL(gridloc.lo()), ZFILL(dx), &ignore_errs);
             }
         }
 
     	StateDataPhysBCFunct physbcf(state[idx],SComp,geom);
-    	physbcf.FillBoundary(mf, DComp, NComp, time);
+    	physbcf.FillBoundary(mf, DComp, NComp, time, level);
 
         DComp += NComp;
     }

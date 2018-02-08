@@ -76,24 +76,24 @@ void
 StateDescriptor::BndryFunc::operator () (Real* data,const int* lo,const int* hi,
                                          const int* dom_lo, const int* dom_hi,
                                          const Real* dx, const Real* grd_lo,
-                                         const Real* time, const int* bc) const
+                                         const Real* time, const int* bc, int* level) const
 {
     BL_ASSERT(m_func != 0 || m_func3D != 0);
 
     bool thread_safe = bf_thread_safety(lo, hi, dom_lo, dom_hi, bc, 1);
     if (thread_safe) {
       if (m_func != 0)
-	m_func(data,ARLIM(lo),ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc);
+    	m_func(data,ARLIM(lo),ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc,level);
       else
-	m_func3D(data,ARLIM_3D(lo),ARLIM_3D(hi),ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),ZFILL(dx),ZFILL(grd_lo),time,bc);
+    	m_func3D(data,ARLIM_3D(lo),ARLIM_3D(hi),ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),ZFILL(dx),ZFILL(grd_lo),time,bc,level);
     } else {
 #ifdef _OPENMP
 #pragma omp critical (bndryfunc)
 #endif
       if (m_func != 0)
-	m_func(data,ARLIM(lo),ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc);
+    	m_func(data,ARLIM(lo),ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc,level);
       else
-	m_func3D(data,ARLIM_3D(lo),ARLIM_3D(hi),ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),ZFILL(dx),ZFILL(grd_lo),time,bc);
+    	m_func3D(data,ARLIM_3D(lo),ARLIM_3D(hi),ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),ZFILL(dx),ZFILL(grd_lo),time,bc,level);
     }
 }
 
@@ -101,24 +101,24 @@ void
 StateDescriptor::BndryFunc::operator () (Real* data,const int* lo,const int* hi,
                                          const int* dom_lo, const int* dom_hi,
                                          const Real* dx, const Real* grd_lo,
-                                         const Real* time, const int* bc, int ng) const
+                                         const Real* time, const int* bc, int ng, int* level) const
 {
     BL_ASSERT(m_gfunc != 0 || m_gfunc3D != 0);
 
     bool thread_safe = bf_thread_safety(lo, hi, dom_lo, dom_hi, bc, ng);
     if (thread_safe) {
         if (m_gfunc != 0)
-	  m_gfunc(data,ARLIM(lo),ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc);
-	else
-	  m_gfunc3D(data,ARLIM_3D(lo),ARLIM_3D(hi),ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),ZFILL(dx),ZFILL(grd_lo),time,bc);
+    	  m_gfunc(data,ARLIM(lo),ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc,level);
+    	else
+    	  m_gfunc3D(data,ARLIM_3D(lo),ARLIM_3D(hi),ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),ZFILL(dx),ZFILL(grd_lo),time,bc,level);
     } else {
 #ifdef _OPENMP
 #pragma omp critical (bndryfunc)
 #endif
         if (m_gfunc != 0)
-	  m_gfunc(data,ARLIM(lo),ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc);
-	else
-	  m_gfunc3D(data,ARLIM_3D(lo),ARLIM_3D(hi),ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),ZFILL(dx),ZFILL(grd_lo),time,bc);
+    	  m_gfunc(data,ARLIM(lo),ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc,level);
+    	else
+    	  m_gfunc3D(data,ARLIM_3D(lo),ARLIM_3D(hi),ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),ZFILL(dx),ZFILL(grd_lo),time,bc,level);
     }
 }
 
@@ -196,7 +196,7 @@ DescriptorList::addDescriptor (int                         indx,
                                IndexType                   typ,
                                StateDescriptor::TimeCenter ttyp,
                                int                         nextra,
-                               int                         num_comp, 
+                               int                         num_comp,
                                Interpolater*               interp,
                                bool                        extrap,
                                bool                        a_store_in_checkpoint)
@@ -204,7 +204,7 @@ DescriptorList::addDescriptor (int                         indx,
     if (indx >= desc.size())
         desc.resize(indx+1);
     desc[indx].reset(new StateDescriptor(typ,ttyp,indx,nextra,num_comp,interp,extrap,a_store_in_checkpoint));
-}  
+}
 
 
 void
@@ -231,7 +231,7 @@ StateDescriptor::StateDescriptor ()
 StateDescriptor::StateDescriptor (IndexType                   btyp,
                                   StateDescriptor::TimeCenter ttyp,
                                   int                         ident,
-                                  int                         nextra, 
+                                  int                         nextra,
                                   int                         num_comp,
                                   Interpolater*               a_interp,
                                   bool                        a_extrap,
@@ -247,7 +247,7 @@ StateDescriptor::StateDescriptor (IndexType                   btyp,
     m_store_in_checkpoint(a_store_in_checkpoint)
 {
     BL_ASSERT (num_comp > 0);
-   
+
     names.resize(num_comp);
     bc.resize(num_comp);
     bc_func.resize(num_comp);
@@ -361,7 +361,7 @@ StateDescriptor::define (IndexType                   btyp,
                          int                         num_comp,
                          Interpolater*               a_interp,
                          bool                        a_extrap,
-                         bool                        a_store_in_checkpoint) 
+                         bool                        a_store_in_checkpoint)
 {
     type     = btyp;
     t_type   = ttyp;
@@ -373,7 +373,7 @@ StateDescriptor::define (IndexType                   btyp,
     m_store_in_checkpoint = a_store_in_checkpoint;
 
     BL_ASSERT (num_comp > 0);
-   
+
     names.resize(num_comp);
     bc.resize(num_comp);
     bc_func.resize(num_comp);
@@ -389,7 +389,7 @@ StateDescriptor::setComponent (int                               comp,
                                const std::string&                nm,
                                const BCRec&                      bcr,
                                const StateDescriptor::BndryFunc& func,
-                               Interpolater*                     a_interp, 
+                               Interpolater*                     a_interp,
                                int                               max_map_start_comp_,
                                int                               min_map_end_comp_)
 {
@@ -450,10 +450,10 @@ StateDescriptor::setUpMaps (int&                use_default_map,
                             const Interpolater* default_map,
                             int                 start_comp,
                             int                 num_comp,
-                            Interpolater**&     maps, 
+                            Interpolater**&     maps,
                             int&                nmaps,
                             int*&               map_start_comp,
-                            int*&               map_num_comp, 
+                            int*&               map_num_comp,
                             int*&               max_start_comp,
                             int*&               min_end_comp) const
 {
@@ -469,7 +469,7 @@ StateDescriptor::setUpMaps (int&                use_default_map,
     //
     Interpolater* map = mapper_comp[start_comp];
     if (!map) map = (Interpolater*) default_map;
-    nmaps = 1; 
+    nmaps = 1;
     int icomp = start_comp+1;
 
     use_default_map = 1;
@@ -550,7 +550,7 @@ StateDescriptor::setUpMaps (int&                use_default_map,
 }
 
 void
-StateDescriptor::cleanUpMaps (Interpolater**& maps, 
+StateDescriptor::cleanUpMaps (Interpolater**& maps,
                               int*&           map_start_comp,
                               int*&           map_num_comp,
                               int*&           max_start_comp,
@@ -665,4 +665,3 @@ StateDescriptor::Print () const
 }
 
 }
-
