@@ -1,16 +1,5 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-#ifndef _FACEINDEX_H_
-#define _FACEINDEX_H_
+#ifndef AMREX_FACEINDEX_H_
+#define AMREX_FACEINDEX_H_
 
 #include "AMReX_LoHiSide.H"
 #include "AMReX_VolIndex.H"
@@ -89,7 +78,12 @@ namespace amrex
     ///
     /**
      */
-    bool operator== (const FaceIndex& a_facein) const;
+    bool operator== (const FaceIndex& a_facein) const {
+	return ((m_loIndex == a_facein.m_loIndex) &&
+		(m_hiIndex == a_facein.m_hiIndex) &&
+		(m_loiv == a_facein.m_loiv) &&
+		(m_hiiv == a_facein.m_hiiv));
+    }
 
     ///
     /**

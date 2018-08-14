@@ -8,7 +8,7 @@
 
 namespace amrex {
 
-#ifdef USE_PARTICLES
+#ifdef AMREX_PARTICLES
 class AmrParGDB;
 #endif
 
@@ -26,14 +26,14 @@ class AmrCore
 public:
 
     AmrCore ();
-    AmrCore (const RealBox* rb, int max_level_in, const Array<int>& n_cell_in, int coord=-1);
+    AmrCore (const RealBox* rb, int max_level_in, const Vector<int>& n_cell_in, int coord=-1);
 
     AmrCore (const AmrCore& rhs) = delete;
     AmrCore& operator= (const AmrCore& rhs) = delete;
 
     virtual ~AmrCore ();
 
-#ifdef USE_PARTICLES
+#ifdef AMREX_PARTICLES
     AmrParGDB* GetParGDB () const { return m_gdb.get(); }
 #endif
 
@@ -52,6 +52,8 @@ public:
     static void Finalize ();
 
     void printGridSummary (std::ostream& os, int min_lev, int max_lev) const;
+
+    int Verbose () const { return verbose; }
 
 protected:
 
@@ -73,7 +75,7 @@ protected:
 
     int              verbose;
 
-#ifdef USE_PARTICLES
+#ifdef AMREX_PARTICLES
     std::unique_ptr<AmrParGDB> m_gdb;
 #endif
 

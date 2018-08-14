@@ -1,6 +1,6 @@
 
-#ifndef _BNDRYREGISTER_H_
-#define _BNDRYREGISTER_H_
+#ifndef AMREX_BNDRYREGISTER_H_
+#define AMREX_BNDRYREGISTER_H_
 
 #include <AMReX_BoxArray.H>
 #include <AMReX_FabSet.H>
@@ -107,14 +107,13 @@ public:
 		 int                        ncomp,
 		 const DistributionMapping& dm);
 
+    void clear ();
+
     //! Get box domain (as an array of boxes).
     const BoxArray& boxes () const { return grids; }
 
     //! Return the number of grids in this domain.
     int size () const { return grids.size(); }
-
-    //! Return color
-    ParallelDescriptor::Color color() const { return bndry[0].color(); }
 
     //! Return const set of FABs bounding the domain grid boxes on a given orientation
     const FabSet& operator[] (Orientation face) const { return bndry[face]; }
@@ -134,14 +133,16 @@ public:
                              int             nghost,
                              int             src_comp,
                              int             dest_comp,
-                             int             num_comp);
+                             int             num_comp,
+                             const Periodicity& period = Periodicity::NonPeriodic());
 
     //! Increment the boundary FABs on intersect with given MultiFab.
     BndryRegister& plusFrom (const MultiFab& src,
                              int             nghost,
                              int             src_comp,
                              int             dest_comp,
-                             int             num_comp);
+                             int             num_comp,
+                             const Periodicity& period = Periodicity::NonPeriodic());
 
     //! Linear combination: this := a*mfa + b*mfb on intersection of MultiFabs with the boundary FABs
     BndryRegister& linComb (Real            a,
@@ -169,16 +170,12 @@ public:
     //! Local copy function
     static void Copy (BndryRegister& dst, const BndryRegister& src);
 
-    //! AddProcsToComp
-    virtual void AddProcsToComp(int ioProcNumSCS, int ioProcNumAll,
-                                int scsMyId, MPI_Comm scsComm);
-
 protected:
     //! Used by the copy constructor and assignment operator.
     void init (const BndryRegister& src);
 
     //! The data.
-    FabSet    bndry[2*BL_SPACEDIM];
+    FabSet    bndry[2*AMREX_SPACEDIM];
     BoxArray  grids;
 };
 

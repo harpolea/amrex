@@ -1,21 +1,8 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-
-#ifndef _EBCELLFACTORY_H_
-#define _EBCELLFACTORY_H_
+#ifndef AMREX_EBCELLFACTORY_H_
+#define AMREX_EBCELLFACTORY_H_
 
 #include <cmath>
 #include <cstdlib>
-#include <vector>
 #include "AMReX_EBISLayout.H"
 #include "AMReX_EBCellFAB.H"
 
@@ -37,11 +24,18 @@ namespace amrex
        and returns a pointer to it.  Responsiblitly
        for calling operator 'delete' on this pointer is passed to the user.
     */
-    virtual EBCellFAB* create (const Box& box, int ncomps, const FabInfo& info, int box_index) const
+    virtual EBCellFAB* create (const Box& box, int ncomps, const FabInfo& info, int box_index) const override
       {
         EBISBox ebisBox = m_ebisl[box_index];
         return new EBCellFAB(ebisBox, box, ncomps);
       }
+
+    virtual EBCellFactory* clone () const override {
+        return new EBCellFactory(*this);
+    }
+
+    EBCellFactory(const EBCellFactory& a_inputs) = default;
+
     ///
     /**
        create the factory with an ispace.  calls full define function
@@ -60,7 +54,6 @@ namespace amrex
     EBISLayout m_ebisl;
 
     //disallowed constructors and all that
-    EBCellFactory(const EBCellFactory& a_inputs);
 
     EBCellFactory();
 

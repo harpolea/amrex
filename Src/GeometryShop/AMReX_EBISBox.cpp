@@ -1,16 +1,3 @@
-
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-
 #include "AMReX_EBISBox.H"
 #include "AMReX_VoFIterator.H"
 #include "AMReX_BoxIterator.H"
@@ -73,36 +60,13 @@ namespace amrex
 /*******************************/
 
 /*******************************/
-  std::vector<VolIndex>
+  Vector<VolIndex>
   EBISBox::getVoFs(const VolIndex& a_vof,
                    const int& a_dir,
                    const Side::LoHiSide& a_sd,
                    const int& a_steps) const
   {
-    assert((a_dir >= 0) && (a_dir < SpaceDim));
-    assert(a_steps >= 0);
-
-    std::vector<VolIndex> retVoFs(1, a_vof);
-    for (int irad = 1; irad <= a_steps; irad++)
-    {
-      std::vector<VolIndex> tempVoFs(0);
-      for (int ivof = 0; ivof < retVoFs.size(); ivof++)
-      {
-        const VolIndex& stepVoF = retVoFs[ivof];
-        std::vector<FaceIndex> faces = getFaces(stepVoF, a_dir, a_sd);
-        for (int iface = 0; iface < faces.size(); iface++)
-        {
-          const FaceIndex& face = faces[iface];
-          if (!face.isBoundary())
-          {
-            const VolIndex& flipVoF = face.getVoF(a_sd);
-            tempVoFs.push_back(flipVoF);
-          }
-        }
-      }
-      retVoFs = tempVoFs;
-    }
-    return retVoFs;
+    return m_graph.getVoFs(a_vof, a_dir, a_sd, a_steps);
   }
 /*******************************/
 
@@ -112,7 +76,7 @@ namespace amrex
                     const int& a_idir,
                     const Side::LoHiSide& a_sd) const
   {
-    std::vector<FaceIndex> faces = getFaces(a_vof, a_idir, a_sd);
+    Vector<FaceIndex> faces = getFaces(a_vof, a_idir, a_sd);
     int retval = faces.size();
     return retval;
   }
@@ -145,7 +109,7 @@ namespace amrex
     {
       for (SideIterator sit; sit.ok(); ++sit)
       {
-        std::vector<FaceIndex> faces = getFaces(a_vof, idir, sit());
+        Vector<FaceIndex> faces = getFaces(a_vof, idir, sit());
         for (int iface=0; iface<faces.size(); iface++)
         {
           alphaMax = std::max(areaFrac(faces[iface]), alphaMax);
@@ -167,7 +131,7 @@ namespace amrex
                    const int& a_idir,
                    const Side::LoHiSide& a_sd) const
   {
-    Real retval;
+    Real retval=0;
     if (isRegular(a_vof.gridIndex()))
     {
       retval = 1.0;
@@ -179,7 +143,7 @@ namespace amrex
     else
     {
       retval = 0.0;
-      std::vector<FaceIndex> faces = getFaces(a_vof, a_idir, a_sd);
+      Vector<FaceIndex> faces = getFaces(a_vof, a_idir, a_sd);
       for (int iface = 0; iface < faces.size(); iface++)
       {
         retval += areaFrac(faces[iface]);
@@ -188,7 +152,7 @@ namespace amrex
     return retval;
   }
 /*******************************/
-  std::vector<VolIndex>
+  Vector<VolIndex>
   EBISBox::refine(const VolIndex& a_coarVoF) const
   {
     return(m_graph.refine(a_coarVoF));
@@ -385,7 +349,7 @@ namespace amrex
     m_graph.setToAllCovered();
   }
 /*******************************/
-  std::vector<FaceIndex>
+  Vector<FaceIndex>
   EBISBox::refine(const FaceIndex& a_coarFace,const EBISBox& a_fineEBISBox) const
   {
     return m_graph.refine(a_coarFace, a_fineEBISBox.m_graph);

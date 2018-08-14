@@ -1,14 +1,3 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
 #include "AMReX_GraphNode.H"
 #include "AMReX_BoxIterator.H"
 #include "AMReX_SPMD.H"
@@ -21,10 +10,7 @@ namespace amrex
   GraphNodeImplem::GraphNodeImplem(const GraphNodeImplem& a_impin)
   {
 
-    for (int iarc = 0; iarc < 2*SpaceDim; iarc++)
-    {
-      m_arc[iarc] = a_impin.m_arc[iarc];
-    }
+    m_arc = a_impin.m_arc;
     m_verbose = false;
     m_isRegular   = a_impin.m_isRegular;
     m_isValid     = a_impin.m_isValid;
@@ -38,11 +24,7 @@ namespace amrex
   {
     if (&a_impin != this)
     {
-      for (int iarc = 0; iarc < 2*SpaceDim; iarc++)
-      {
-        m_arc[iarc] = a_impin.m_arc[iarc];
-      }
-
+      m_arc = a_impin.m_arc;
       m_isRegular   = a_impin.m_isRegular;
       m_isValid     = a_impin.m_isValid;
       m_coarserNode = a_impin.m_coarserNode;
@@ -78,7 +60,7 @@ namespace amrex
   {
     if (!hasValidCellList())
     {
-      m_cellList = new std::vector<GraphNodeImplem>();
+      m_cellList = new Vector<GraphNodeImplem>();
     }
 
     if (m_cellList->size() < cellIndex+1)
@@ -93,16 +75,16 @@ namespace amrex
   {
     if (!hasValidCellList())
     {
-      m_cellList = new std::vector<GraphNodeImplem>();
+      m_cellList = new Vector<GraphNodeImplem>();
     }
 
     m_cellList->push_back(a_nodein);
   }
 
 /*******************************/
-  std::vector<VolIndex> GraphNode::getVoFs(const IntVect& a_iv) const
+  Vector<VolIndex> GraphNode::getVoFs(const IntVect& a_iv) const
   {
-    std::vector<VolIndex> retvec;
+    Vector<VolIndex> retvec;
     if (isCovered())
     {
       //return empty vector
@@ -113,7 +95,7 @@ namespace amrex
     }
     else
     {
-      const std::vector<GraphNodeImplem>& vofVec = *m_cellList;
+      const Vector<GraphNodeImplem>& vofVec = *m_cellList;
       for (int ivec = 0; ivec < vofVec.size(); ivec++)
       {
         VolIndex vof(a_iv, ivec);
@@ -123,13 +105,13 @@ namespace amrex
     return retvec;
   }
 
-  std::vector<FaceIndex> GraphNode::getFaces(const IntVect&        a_this,
+  Vector<FaceIndex> GraphNode::getFaces(const IntVect&        a_this,
                                              const int&            a_idir,
                                              const Side::LoHiSide& a_sd,
                                              const Box&  a_domain) const
   {
-    static std::vector<FaceIndex> emptyVec;
-    static std::vector<FaceIndex> regularVec(1);
+    Vector<FaceIndex> emptyVec;
+    Vector<FaceIndex> regularVec(1);
 
     IntVect otherIV = a_this +sign(a_sd)*BASISV(a_idir);
     if (isRegular())
@@ -153,11 +135,11 @@ namespace amrex
     }
     else
     {
-      const std::vector<GraphNodeImplem>& nodeVec = *m_cellList;
+      const Vector<GraphNodeImplem>& nodeVec = *m_cellList;
       if (nodeVec.size()==1)
       {
         const GraphNodeImplem& node =  nodeVec[0];
-        const std::vector<int>& arcs = node.m_arc[node.index(a_idir, a_sd)];
+        const Vector<int>& arcs = node.m_arc[node.index(a_idir, a_sd)];
         if (arcs.size()==0)
         {
           return emptyVec;
@@ -170,7 +152,7 @@ namespace amrex
           face.define(vof, otherVoF, a_idir);
           return regularVec;
         }
-        std::vector<FaceIndex> faces;
+        Vector<FaceIndex> faces;
         for (int a=0; a<arcs.size(); a++)
         {
           VolIndex otherVoF(otherIV, arcs[a]);
@@ -178,11 +160,11 @@ namespace amrex
         }
         return faces;
       }
-      std::vector<FaceIndex> faces;
+      Vector<FaceIndex> faces;
       for (int v = 0; v<nodeVec.size(); ++v)
       {
         const GraphNodeImplem& node =  nodeVec[v];
-        const std::vector<int>& arcs = node.m_arc[node.index(a_idir, a_sd)];
+        const Vector<int>& arcs = node.m_arc[node.index(a_idir, a_sd)];
         VolIndex vof(a_this, v);
         for (int a=0; a<arcs.size(); a++)
         {
@@ -192,17 +174,16 @@ namespace amrex
       }
       return faces;
     }
-    return emptyVec;  //make compiler happy
   }
 
 /*******************************/
-  std::vector<FaceIndex> GraphNode::getFaces(const VolIndex&       a_vof,
+  Vector<FaceIndex> GraphNode::getFaces(const VolIndex&       a_vof,
                                         const int&            a_idir,
                                         const Side::LoHiSide& a_sd,
                                         const Box&  a_domain) const
   {
-    static std::vector<FaceIndex> emptyVec;
-    static std::vector<FaceIndex> regularVec(1);
+    Vector<FaceIndex> emptyVec;
+    Vector<FaceIndex> regularVec(1);
 
     IntVect otherIV = a_vof.gridIndex() +sign(a_sd)*BASISV(a_idir);
 
@@ -226,9 +207,9 @@ namespace amrex
     }
     else
     {
-      const std::vector<GraphNodeImplem>& nodeVec = *m_cellList;
+      const Vector<GraphNodeImplem>& nodeVec = *m_cellList;
       const GraphNodeImplem& node =  nodeVec[a_vof.cellIndex()];
-      const std::vector<int>& arcs = node.m_arc[node.index(a_idir, a_sd)];
+      const Vector<int>& arcs = node.m_arc[node.index(a_idir, a_sd)];
       if (arcs.size()==0)
       {
         return emptyVec;
@@ -241,7 +222,7 @@ namespace amrex
         return regularVec;
       }
 
-      std::vector<FaceIndex> retvec;
+      Vector<FaceIndex> retvec;
       //cell index of the list is the same as the
       //index into the vector. if the input cell
       //index is too big (or < 0), we can tell by std::vector
@@ -254,13 +235,12 @@ namespace amrex
       }
       return retvec;
     }
-    return emptyVec;
   }
 
 /*******************************/
-  std::vector<VolIndex> GraphNode::refine(const VolIndex& a_coarVoF) const
+  Vector<VolIndex> GraphNode::refine(const VolIndex& a_coarVoF) const
   {
-    std::vector<VolIndex> retvec;
+    Vector<VolIndex> retvec;
     if (isCovered())
     {
       //return empty vector
@@ -284,7 +264,7 @@ namespace amrex
       //index into the vector. if the input cell
       //index is too big (or < 0), we can tell by std::vector
       //going out of bounds
-      const std::vector<GraphNodeImplem>& nodeVec = *m_cellList;
+      const Vector<GraphNodeImplem>& nodeVec = *m_cellList;
       const GraphNodeImplem& node =  nodeVec[a_coarVoF.cellIndex()];
       retvec = node.m_finerNodes;
     }
@@ -306,7 +286,7 @@ namespace amrex
       }
       else
       {
-        m_cellList = new std::vector<GraphNodeImplem>();
+        m_cellList = new Vector<GraphNodeImplem>();
         (*m_cellList) = (*a_nodein.m_cellList);
       }
     }
@@ -325,7 +305,7 @@ namespace amrex
     }
     else
     {
-      m_cellList = new std::vector<GraphNodeImplem>();
+      m_cellList = new Vector<GraphNodeImplem>();
       (*m_cellList) = *(a_nodein.m_cellList);
     }
   }
@@ -347,7 +327,7 @@ namespace amrex
     }
     else
     {
-      const std::vector<GraphNodeImplem>& nodes = *m_cellList;
+      const Vector<GraphNodeImplem>& nodes = *m_cellList;
       int inode = a_fineVoF.cellIndex();
 
       cellIndexCoar = nodes[inode].m_coarserNode;
@@ -371,7 +351,7 @@ namespace amrex
       // number of vofs
       retval = 2*sizeof(int);
       // node data
-      const std::vector<GraphNodeImplem>& nodes = *m_cellList;
+      const Vector<GraphNodeImplem>& nodes = *m_cellList;
       for (int inode = 0; inode < nodes.size(); inode++)
       {
         retval +=  nodes[inode].linearSize();
@@ -424,7 +404,7 @@ namespace amrex
       unsigned char* buffer=(unsigned char*) intbuf;
 
       //now put in the actual nodes
-      const std::vector<GraphNodeImplem>& nodes = *m_cellList;
+      const Vector<GraphNodeImplem>& nodes = *m_cellList;
       for (int inode = 0; inode < nodes.size(); inode++)
       {
         nodes[inode].linearOut(buffer);
@@ -538,7 +518,7 @@ namespace amrex
     //space for each int in each vector + size of the vector
     for (int iarc = 0; iarc < 2*SpaceDim; iarc++)
     {
-      const std::vector<int>& thisArc = m_arc[iarc];
+      const Vector<int>& thisArc = m_arc[iarc];
       *intbuf = thisArc.size();
       intbuf++;
       linSize += sizeof(int);
@@ -593,7 +573,7 @@ namespace amrex
     //space for each int in each vector + size of the vector
     for (int iarc = 0; iarc < 2*SpaceDim; iarc++)
     {
-      std::vector<int>& thisArc = m_arc[iarc];
+      Vector<int>& thisArc = m_arc[iarc];
       int thisArcSize = *intbuf;
       intbuf++;
       linSize += sizeof(int);

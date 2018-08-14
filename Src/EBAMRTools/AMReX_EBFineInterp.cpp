@@ -1,21 +1,8 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-
 #include "AMReX_EBFineInterp.H"
 #include "AMReX_VoFIterator.H"
 #include "AMReX_EBCellFactory.H"
 #include "AMReX_EBLoHiCenter.H"
 #include "AMReX_EBFortND_F.H"
-
 
 namespace amrex
 {
@@ -87,8 +74,8 @@ namespace amrex
       
     for(MFIter mfi(m_eblgFine.getDBL(), m_eblgFine.getDM()); mfi.isValid(); ++mfi)
     {
-      std::vector< std::shared_ptr<BaseIndex  > > baseDstVoFs;
-      std::vector< std::shared_ptr<BaseStencil> > baseSten;
+      Vector< std::shared_ptr<BaseIndex  > > baseDstVoFs;
+      Vector< std::shared_ptr<BaseStencil> > baseSten;
       const EBISBox  & ebisFine =   m_eblgFine.getEBISL()[ mfi];
       const EBISBox  & ebisCoFi =   m_eblgCoFi.getEBISL()[ mfi];
 
@@ -107,10 +94,10 @@ namespace amrex
       }
 
       VoFIterator vofit(ivsIrreg, ebisFine.getEBGraph());
-      const std::vector<VolIndex>& volvec = vofit.getVector();
+      const Vector<VolIndex>& volvec = vofit.getVector();
       baseDstVoFs.resize(volvec.size());
       baseSten.resize(   volvec.size());
-      std::vector<VoFStencil> allsten(volvec.size());
+      Vector<VoFStencil> allsten(volvec.size());
       for(int ivec = 0; ivec < volvec.size(); ivec++)
       {
         getStencil(allsten[ivec],  volvec[ivec], ebisFine, ebisCoFi, mfi);
@@ -146,14 +133,6 @@ namespace amrex
     VolIndex fineVoF = a_vofFine;
     //the values of these do not matter as this is interpolation
 
-    //begin debug
-    //IntVect iv = a_vofFine.gridIndex();
-    //int ideb = 0;
-    //if((iv[0]==30) && (iv[1]==24))
-    //{
-    //  ideb = 1;
-    //}
-    ////end debug
     Real dxFine = 1.0;  Real dxCoar = m_refRat;
     a_stencil.clear();
     VolIndex coarVoF = m_eblgFine.getEBISL().coarsen(fineVoF, m_refRat, a_mfi);
@@ -259,8 +238,8 @@ namespace amrex
       if(m_slowMode)
       {
 
-        vector<VolIndex  >& vofs     = m_slowVoFs[mfi];
-        vector<VoFStencil>& stencils = m_slowStencils[mfi];
+        Vector<VolIndex  >& vofs     = m_slowVoFs[mfi];
+        Vector<VoFStencil>& stencils = m_slowStencils[mfi];
         for(int ivof = 0; ivof < vofs.size(); ivof++)
         {
           for(int icomp = 0; icomp < inco; icomp++)

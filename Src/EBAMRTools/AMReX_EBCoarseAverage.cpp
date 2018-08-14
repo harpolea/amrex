@@ -1,15 +1,3 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-
 #include "AMReX_EBCoarseAverage.H"
 #include "AMReX_VoFIterator.H"
 #include "AMReX_EBCellFactory.H"
@@ -17,7 +5,6 @@
 #include "AMReX_EBLevelDataOps.H"
 #include "AMReX_MultiFabUtil.H"
 #include "AMReX_EBFortND_F.H"
-
 
 namespace amrex
 {
@@ -88,11 +75,11 @@ namespace amrex
  
       IntVectSet ivs = ebisCoFi.getIrregIVS(gridCoFi);
       VoFIterator vofit(ivs, ebisCoFi.getEBGraph());
-      const std::vector<VolIndex>& vofvec = vofit.getVector();
+      const Vector<VolIndex>& vofvec = vofit.getVector();
       // cast from VolIndex to BaseIndex
-      std::vector<std::shared_ptr<BaseIndex> >    dstVoF(vofvec.size());
-      std::vector<std::shared_ptr<BaseStencil> > stencil(vofvec.size());
-      std::vector<VoFStencil>  allsten(vofvec.size());
+      Vector<std::shared_ptr<BaseIndex> >    dstVoF(vofvec.size());
+      Vector<std::shared_ptr<BaseStencil> > stencil(vofvec.size());
+      Vector<VoFStencil>  allsten(vofvec.size());
       // fill stencils for the vofs
       for(int ivec = 0; ivec < vofvec.size(); ivec++)
       {
@@ -136,11 +123,11 @@ namespace amrex
  
         IntVectSet ivs = ebisCoFi.getIrregIVS(gridCoFi);
         FaceIterator faceit(ivs, ebisCoFi.getEBGraph(), faceDir, FaceStop::SurroundingWithBoundary);
-        const std::vector<FaceIndex>& facevec = faceit.getVector();
+        const Vector<FaceIndex>& facevec = faceit.getVector();
         // cast from FaceIndex to BaseIndex
-        std::vector<std::shared_ptr<BaseIndex> >   dstFace(facevec.size());
-        std::vector<std::shared_ptr<BaseStencil> > stencil(facevec.size());
-        std::vector<FaceStencil>  allsten(facevec.size());
+        Vector<std::shared_ptr<BaseIndex> >   dstFace(facevec.size());
+        Vector<std::shared_ptr<BaseStencil> > stencil(facevec.size());
+        Vector<FaceStencil>  allsten(facevec.size());
         // fill stencils for the vofs
         for(int ivec = 0; ivec < facevec.size(); ivec++)
         {
@@ -162,19 +149,23 @@ namespace amrex
     {
       BL_PROFILE("irreg stencil definition");
       const     Box& gridCoFi = m_eblgCoFi.getDBL()  [mfi];
+      const     Box& gridFine = m_eblgFine.getDBL()  [mfi];
       const EBISBox& ebisCoFi = m_eblgCoFi.getEBISL()[mfi];
- 
+      const EBISBox& ebisFine = m_eblgFine.getEBISL()[mfi];
+
+      IntVectSet ivsFine = ebisFine.getIrregIVS(gridFine);
       IntVectSet ivs = ebisCoFi.getIrregIVS(gridCoFi);
       VoFIterator vofit(ivs, ebisCoFi.getEBGraph());
-      const std::vector<VolIndex>& vofvec = vofit.getVector();
+      const Vector<VolIndex>& vofvec = vofit.getVector();
+
       // cast from VolIndex to BaseIndex
-      std::vector<std::shared_ptr<BaseIndex> >    dstVoF(vofvec.size());
-      std::vector<std::shared_ptr<BaseStencil> > stencil(vofvec.size());
-      std::vector<VoFStencil>  allsten(vofvec.size());
+      Vector<std::shared_ptr<BaseIndex> >    dstVoF(vofvec.size());
+      Vector<std::shared_ptr<BaseStencil> > stencil(vofvec.size());
+      Vector<VoFStencil>  allsten(vofvec.size());
       // fill stencils for the vofs
       for(int ivec = 0; ivec < vofvec.size(); ivec++)
       {
-        definePointStencilIrreg(allsten[ivec], vofvec[ivec], mfi, ivs);
+          definePointStencilIrreg(allsten[ivec], vofvec[ivec], mfi, ivsFine);
 
         // another cast from VolIndex to BaseIndex
         dstVoF[ivec]  = std::shared_ptr<BaseIndex  >((BaseIndex*)(&vofvec[ivec]), &null_deleter_ebc_ind);
@@ -191,7 +182,7 @@ namespace amrex
   EBCoarseAverage::
   definePointStencil(VoFStencil& a_sten, const VolIndex& a_vofCoFi, const MFIter& a_mfi)
   {
-    std::vector<VolIndex> fineVoFs = m_eblgCoFi.getEBISL().refine(a_vofCoFi, m_refRat, a_mfi);
+    Vector<VolIndex> fineVoFs = m_eblgCoFi.getEBISL().refine(a_vofCoFi, m_refRat, a_mfi);
     a_sten.clear();
     Real sumKappa = 0;
     for(int ivof = 0; ivof < fineVoFs.size(); ivof++)
@@ -230,16 +221,16 @@ namespace amrex
   definePointStencilIrreg(VoFStencil& a_sten, 
                           const VolIndex& a_vofCoFi, 
                           const MFIter& a_mfi,
-                          const IntVectSet& a_ivsIrreg)
+                          const IntVectSet& a_ivsIrregFine)
   {
     BL_ASSERT(m_enableFaceAveraging);
-    std::vector<VolIndex> fineVoFs = m_eblgCoFi.getEBISL().refine(a_vofCoFi, m_refRat, a_mfi);
+    Vector<VolIndex> fineVoFs = m_eblgCoFi.getEBISL().refine(a_vofCoFi, m_refRat, a_mfi);
     a_sten.clear();
     Real sumBndryArea = 0;
     for(int ivof = 0; ivof < fineVoFs.size(); ivof++)
     {
       const VolIndex & fineVoF = fineVoFs[ivof];
-      if(a_ivsIrreg.contains(fineVoF.gridIndex())) //only want cells that are actually cut
+      if(a_ivsIrregFine.contains(fineVoF.gridIndex())) //only want cells that are actually cut
       {
         Real area = m_eblgFine.getEBISL()[a_mfi].bndryArea(fineVoF);
         Real weight = area;
@@ -264,7 +255,7 @@ namespace amrex
   definePointStencilFace(FaceStencil& a_sten, const FaceIndex& a_faceCoFi, const MFIter& a_mfi)
   {
     BL_ASSERT(m_enableFaceAveraging);
-    std::vector<FaceIndex> fineFaces = m_eblgCoFi.getEBISL().refine(a_faceCoFi, m_refRat, a_mfi);
+    Vector<FaceIndex> fineFaces = m_eblgCoFi.getEBISL().refine(a_faceCoFi, m_refRat, a_mfi);
     a_sten.clear();
     Real sumArea = 0;
     for(int iface = 0; iface < fineFaces.size(); iface++)

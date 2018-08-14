@@ -1,16 +1,5 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-#ifndef _VOLINDEX_H_
-#define _VOLINDEX_H_
+#ifndef AMREX_VOLINDEX_H_
+#define AMREX_VOLINDEX_H_
 
 #include "AMReX_REAL.H"
 #include "AMReX_IntVect.H"
@@ -40,7 +29,10 @@ namespace amrex
 
     ///
     
-    bool operator== (const VolIndex& a_vofin) const;
+    bool operator== (const VolIndex& a_vofin) const {
+	return ((m_cellIndex == a_vofin.m_cellIndex) &&
+		(m_iv == a_vofin.m_iv));
+    }
 
     ///
     

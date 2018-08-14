@@ -130,7 +130,7 @@ namespace amrex
     pp.get("verbosity", verbosity);
     GeometryShop gshop(sphere, verbosity);
     BaseFab<int> regIrregCovered;
-    std::vector<IrregNode> nodes;
+    Vector<IrregNode> nodes;
 
     IntVect ivlo = IntVect::TheZeroVector();
     IntVect ivhi;
@@ -145,7 +145,8 @@ namespace amrex
     Box ghostRegion = domain; //whole domain so ghosting does not matter
     RealVect origin = RealVect::Zero;
     Real dx = domlen/ncellsvec[0];
-    gshop.fillGraph(regIrregCovered, nodes, validRegion, ghostRegion, domain, origin, dx);
+    NodeMap nodemap;
+    gshop.fillGraph(regIrregCovered, nodes, nodemap, validRegion, ghostRegion, domain, origin, dx);
 
 
     EBGraph ebgraph(domain, 1);

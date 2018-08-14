@@ -3,15 +3,15 @@
 #include <AMReX_InterpBndryData.H>
 #include <AMReX_INTERPBNDRYDATA_F.H>
 
-#if (BL_SPACEDIM == 1)
+#if (AMREX_SPACEDIM == 1)
 #define NUMDERIV 2
 #endif
 
-#if (BL_SPACEDIM == 2)
+#if (AMREX_SPACEDIM == 2)
 #define NUMDERIV 2
 #endif
 
-#if (BL_SPACEDIM == 3)
+#if (AMREX_SPACEDIM == 3)
 #define NUMDERIV 5
 #endif
 
@@ -35,7 +35,7 @@ namespace
 {
     bool initialized = false;
 
-    BDInterpFunc* bdfunc[2*BL_SPACEDIM];
+    BDInterpFunc* bdfunc[2*AMREX_SPACEDIM];
 }
 
 static
@@ -45,21 +45,21 @@ bdfunc_init ()
     const Orientation xloface(0,Orientation::low);
     const Orientation xhiface(0,Orientation::high);
 
-    bdfunc[xloface] = FORT_BDINTERPXLO;
-    bdfunc[xhiface] = FORT_BDINTERPXHI;
+    bdfunc[xloface] = amrex_bdinterpxlo;
+    bdfunc[xhiface] = amrex_bdinterpxhi;
 
-#if (BL_SPACEDIM > 1)
+#if (AMREX_SPACEDIM > 1)
     const Orientation yloface(1,Orientation::low);
     const Orientation yhiface(1,Orientation::high);
-    bdfunc[yloface] = FORT_BDINTERPYLO;
-    bdfunc[yhiface] = FORT_BDINTERPYHI;
+    bdfunc[yloface] = amrex_bdinterpylo;
+    bdfunc[yhiface] = amrex_bdinterpyhi;
 #endif
 
-#if (BL_SPACEDIM > 2)
+#if (AMREX_SPACEDIM > 2)
     const Orientation zloface(2,Orientation::low);
     const Orientation zhiface(2,Orientation::high);
-    bdfunc[zloface] = FORT_BDINTERPZLO;
-    bdfunc[zhiface] = FORT_BDINTERPZHI;
+    bdfunc[zloface] = amrex_bdinterpzlo;
+    bdfunc[zhiface] = amrex_bdinterpzhi;
 #endif
 }
 
@@ -86,9 +86,9 @@ InterpBndryData::operator= (const InterpBndryData& rhs)
 InterpBndryData::InterpBndryData (const BoxArray& _grids,
 				  const DistributionMapping& _dmap,
                                   int             _ncomp,
-                                  const Geometry& geom)
+                                  const Geometry& _geom)
     :
-    BndryData(_grids,_dmap,_ncomp,geom)
+    BndryData(_grids,_dmap,_ncomp,_geom)
 {}
 
 InterpBndryData::~InterpBndryData () {}
@@ -113,25 +113,45 @@ InterpBndryData::setBndryValues (const MultiFab& mf,
                                  int             num_comp,
                                  const BCRec&    bc)
 {
+    setBndryValues(mf, mf_start, bnd_start, num_comp, IntVect::TheUnitVector(), bc);
+}
+
+void
+InterpBndryData::setBndryValues (const MultiFab& mf,
+                                 int             mf_start,
+                                 int             bnd_start,
+                                 int             num_comp,
+                                 int             ref_ratio,
+                                 const BCRec&    bc)
+{
+    setBndryValues(mf, mf_start, bnd_start, num_comp, IntVect{ref_ratio}, bc);
+}
+
+void
+InterpBndryData::setBndryValues (const MultiFab& mf,
+                                 int             mf_start,
+                                 int             bnd_start,
+                                 int             num_comp,
+                                 const IntVect&  ref_ratio,
+                                 const BCRec&    bc)
+{
     //
     // Check that boxarrays are identical.
     //
     BL_ASSERT(grids.size());
     BL_ASSERT(grids == mf.boxArray());
 
-    IntVect ref_ratio = IntVect::TheUnitVector();
-
-    for (int n = bnd_start; n < bnd_start+num_comp; ++n)
+    for (int n = bnd_start; n < bnd_start+num_comp; ++n) {
 	setBndryConds(bc, ref_ratio, n);
+    }
 
+    // TODO: tiling - wqz
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-    for (MFIter mfi(mf); mfi.isValid(); ++mfi)
+    for (MFIter mfi(mf,MFItInfo().SetDynamic(true)); mfi.isValid(); ++mfi)
     {
-        BL_ASSERT(grids[mfi.index()] == mfi.validbox());
-
-        const Box& bx = grids[mfi.index()];
+        const Box& bx = mfi.validbox();
 
         for (OrientationIter fi; fi; ++fi)
         {
@@ -168,18 +188,37 @@ InterpBndryData::setBndryValues (BndryRegister& crse,
                                  const BCRec&    bc,
                                  int             max_order)
 {
-    if (!initialized)
+    if (!initialized) {
         bdfunc_init();
+    }
+
+    BndryValuesDoIt (crse, c_start, &fine, f_start, bnd_start, num_comp, ratio, &bc, max_order);
+}
+
+void
+InterpBndryData::BndryValuesDoIt (BndryRegister&  crse,
+                                  int             c_start,
+                                  const MultiFab* fine,
+                                  int             f_start,
+                                  int             bnd_start,
+                                  int             num_comp,
+                                  const IntVect&  ratio, 
+                                  const BCRec*    bc,
+                                  int             max_order)
+{
     //
     // Check that boxarrays are identical.
     //
     BL_ASSERT(grids.size());
-    BL_ASSERT(grids == fine.boxArray());
+    BL_ASSERT(fine == nullptr || grids == fine->boxArray());
     //
     // Set bndry types and bclocs.
     //
-    for (int n = bnd_start; n < bnd_start+num_comp; ++n)
-	setBndryConds(bc, ratio, n);
+    if (bc != nullptr) {
+        for (int n = bnd_start; n < bnd_start+num_comp; ++n) {
+            setBndryConds(*bc, ratio, n);
+        }
+    }
     //
     // First interpolate from coarse to fine on bndry.
     //
@@ -189,26 +228,30 @@ InterpBndryData::setBndryValues (BndryRegister& crse,
     //
     if (max_order==3 || max_order==1)
     {
+        MultiFab foo(grids,bndry[0].DistributionMap(), 1, 0, MFInfo().SetAlloc(false), FArrayBoxFactory());
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
-        for (MFIter fine_mfi(fine); fine_mfi.isValid(); ++fine_mfi)
         {
-            BL_ASSERT(grids[fine_mfi.index()] == fine_mfi.validbox());
+        Vector<Real> derives;
 
-            const Box&       fine_bx  = fine_mfi.validbox();
+        for (MFIter mfi(foo,MFItInfo().SetDynamic(true)); mfi.isValid(); ++mfi)
+        {
+            BL_ASSERT(grids[mfi.index()] == mfi.validbox());
+
+            const Box&       fine_bx  = mfi.validbox();
             const Box&       crse_bx  = amrex::coarsen(fine_bx,ratio);
             const int*       cblo     = crse_bx.loVect();
             const int*       cbhi     = crse_bx.hiVect();
             const int        mxlen    = crse_bx.longside() + 2;
             const int*       lo       = fine_bx.loVect();
             const int*       hi       = fine_bx.hiVect();
-            const FArrayBox& fine_grd = fine[fine_mfi];
 
-            for (int i = 0; i < 2*BL_SPACEDIM; i++)
+            for (int i = 0; i < 2*AMREX_SPACEDIM; i++)
             {
-                const int               dir  = ((i<BL_SPACEDIM) ? i : (i-BL_SPACEDIM));
-                const Orientation::Side side = ((i<BL_SPACEDIM) ? Orientation::low : Orientation::high);
+                const int               dir  = ((i<AMREX_SPACEDIM) ? i : (i-AMREX_SPACEDIM));
+                const Orientation::Side side = ((i<AMREX_SPACEDIM) ? Orientation::low : Orientation::high);
 
                 const Orientation face(dir,side);
 
@@ -217,17 +260,17 @@ InterpBndryData::setBndryValues (BndryRegister& crse,
                     //
                     // Internal or periodic edge, interpolate from crse data.
                     //
-                    Array<Real> derives(AMREX_D_TERM(1,*mxlen,*mxlen)*NUMDERIV);
+                    derives.resize(AMREX_D_TERM(1,*mxlen,*mxlen)*NUMDERIV);
 
-                    const Mask&      mask           = masks[face][fine_mfi];
+                    const Mask&      mask           = masks[face][mfi];
                     const int*       mlo            = mask.loVect();
                     const int*       mhi            = mask.hiVect();
                     const int*       mdat           = mask.dataPtr();
-                    const FArrayBox& crse_fab       = crse[face][fine_mfi];
+                    const FArrayBox& crse_fab       = crse[face][mfi];
                     const int*       clo            = crse_fab.loVect();
                     const int*       chi            = crse_fab.hiVect();
                     const Real*      cdat           = crse_fab.dataPtr(c_start);
-                    FArrayBox&       bnd_fab        = bndry[face][fine_mfi];
+                    FArrayBox&       bnd_fab        = bndry[face][mfi];
                     const int*       blo            = bnd_fab.loVect();
                     const int*       bhi            = bnd_fab.hiVect();
                     Real*            bdat           = bnd_fab.dataPtr(bnd_start);
@@ -240,27 +283,29 @@ InterpBndryData::setBndryValues (BndryRegister& crse,
 
                     if (max_order == 3) 
                     {
-                        for (int k=0;k<BL_SPACEDIM;k++)
+                        for (int k=0;k<AMREX_SPACEDIM;k++)
                             if (k!=dir)
                                 crsebnd.grow(k,2);
                         BL_ASSERT(crse_fab.box().contains(crsebnd));
                     }
 
-                    bdfunc[face](bdat,ARLIM(blo),ARLIM(bhi),
-                                 lo,hi,ARLIM(cblo),ARLIM(cbhi),
+                    bdfunc[face](bdat,AMREX_ARLIM(blo),AMREX_ARLIM(bhi),
+                                 lo,hi,AMREX_ARLIM(cblo),AMREX_ARLIM(cbhi),
                                  &num_comp,ratio.getVect(),&is_not_covered,
-                                 mdat,ARLIM(mlo),ARLIM(mhi),
-                                 cdat,ARLIM(clo),ARLIM(chi),derives.dataPtr(),&max_order);
+                                 mdat,AMREX_ARLIM(mlo),AMREX_ARLIM(mhi),
+                                 cdat,AMREX_ARLIM(clo),AMREX_ARLIM(chi),derives.dataPtr(),&max_order);
                 }
-                else
+                else if (fine != nullptr)
                 {
                     //
                     // Physical bndry, copy from ghost region of corresponding grid
                     //
-                    FArrayBox& bnd_fab = bndry[face][fine_mfi];
+                    const FArrayBox& fine_grd = (*fine)[mfi];
+                    FArrayBox& bnd_fab = bndry[face][mfi];
                     bnd_fab.copy(fine_grd,f_start,bnd_start,num_comp);
                 }
             }
+        }
         }
     }
     else
@@ -282,6 +327,34 @@ InterpBndryData::setBndryValues (BndryRegister&  crse,
 {
     const IntVect& ratio_vect = ratio * IntVect::TheUnitVector();
     setBndryValues(crse,c_start,fine,f_start,bnd_start,num_comp,ratio_vect,bc,max_order);
+}
+
+void
+InterpBndryData::updateBndryValues (BndryRegister& crse, int c_start, int bnd_start, int num_comp,
+                                    const IntVect& ratio, int max_order)
+{
+    BndryValuesDoIt(crse, c_start, nullptr, 0, bnd_start, num_comp, ratio, nullptr, max_order);
+}
+
+void
+InterpBndryData::updateBndryValues (BndryRegister& crse, int c_start, int bnd_start, int num_comp,
+                                    int ratio, int max_order)
+{
+    updateBndryValues(crse, c_start, bnd_start, num_comp, IntVect{ratio}, max_order);
+}
+
+void
+InterpBndryData::setHomogValues ()
+{
+    for (OrientationIter fi; fi; ++fi)
+    {
+        const Orientation face  = fi();
+        
+        for (FabSetIter fsi(bndry[face]); fsi.isValid(); ++fsi)
+        {
+            bndry[face][fsi].setVal(0.);
+        }
+    }
 }
 
 }

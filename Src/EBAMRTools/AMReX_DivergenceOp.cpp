@@ -1,15 +1,3 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-
 #include "AMReX_DivergenceOp.H"
 #include "AMReX_VoFIterator.H"
 #include "AMReX_EBCellFactory.H"
@@ -33,10 +21,12 @@ namespace amrex
          const Real          & a_dx,
          const int           & a_nComp,
          const int           & a_ghostCellsInData,
+         bool a_multiplyFluxByArea,
          int a_redistRad)
   {
     m_isDefined = true;
     m_eblg          = a_eblg;
+    m_multiplyFluxByArea = a_multiplyFluxByArea;
     m_dx            = a_dx;
     m_nComp         = a_nComp;
     m_dataGhost     = a_ghostCellsInData;
@@ -80,10 +70,10 @@ namespace amrex
       IntVectSet ivsIrreg = ebis.getIrregIVS(grid);
       VoFIterator & vofit = m_vofit[mfi];
       vofit.define(ivsIrreg, ebis.getEBGraph());
-      const std::vector<VolIndex>& volvec = vofit.getVector();
+      const Vector<VolIndex>& volvec = vofit.getVector();
 
       //destination vofs are the same for both open and boundary faces
-      std::vector< std::shared_ptr<BaseIndex  > > baseDstVoFs(volvec.size());
+      Vector< std::shared_ptr<BaseIndex  > > baseDstVoFs(volvec.size());
       for(int ivec = 0; ivec < volvec.size(); ivec++)
       {
         baseDstVoFs [ivec]  = std::shared_ptr<BaseIndex  >((BaseIndex*)(&volvec[ivec]), &null_deleter_divs_ind);
@@ -92,8 +82,8 @@ namespace amrex
       //THIS IS NOT MEANT TO WORK IN CASES WHERE EMBEDDED BOUNDARIES CROSS COARSE FINE BOUNDARIES
       //first let us dal with the boundary flux stencil
       {
-        std::vector< std::shared_ptr<BaseStencil> > baseSten(volvec.size());
-        std::vector<VoFStencil> allvofsten(volvec.size());
+        Vector< std::shared_ptr<BaseStencil> > baseSten(volvec.size());
+        Vector<VoFStencil> allvofsten(volvec.size());
         for(int ivec = 0; ivec < volvec.size(); ivec++)
         {
           Real bndryArea = ebis.bndryArea(volvec[ivec]);
@@ -107,11 +97,18 @@ namespace amrex
         m_bdryStencil[mfi] = std::shared_ptr<AggStencil <IrregFAB, EBCellFAB>  >
           (new AggStencil<IrregFAB, EBCellFAB >(baseDstVoFs, baseSten, fluxProxy[mfi].getEBFlux(), cellProxy[mfi]));
       }
+
+      Real full_vol = 1;
+      for (int idir = 0; idir < SpaceDim; ++idir)
+      {
+        full_vol *= m_dx;
+      }
+      Real inv_vol = 1/full_vol;
       // now do open flux stencils for each face direction
       for(int idir = 0; idir < SpaceDim; idir++)
       {
-        std::vector< std::shared_ptr<BaseStencil> > baseSten(volvec.size());
-        std::vector<FaceStencil> allFaceSten(volvec.size());
+        Vector< std::shared_ptr<BaseStencil> > baseSten(volvec.size());
+        Vector<FaceStencil> allFaceSten(volvec.size());
         for(int ivec = 0; ivec < volvec.size(); ivec++)
         {
           
@@ -120,14 +117,21 @@ namespace amrex
           dirStencil.clear();
           for(SideIterator sit; sit.ok(); ++sit)
           {
-            vector<FaceIndex> faces = ebis.getFaces(vof, idir, sit());
+            Vector<FaceIndex> faces = ebis.getFaces(vof, idir, sit());
             int isign = sign(sit());
             for(int iface = 0; iface < faces.size(); iface++)
             {
               IntVectSet cfivs;//empty--see comment above
               FaceStencil interpSten = EBArith::getInterpStencil(faces[iface], cfivs, ebis, domain);
               Real areaFrac = ebis.areaFrac(faces[iface]);
-              interpSten *= (isign*areaFrac/m_dx);
+              if(m_multiplyFluxByArea)
+              {
+                interpSten *= (isign*areaFrac/m_dx);
+              }
+              else
+              {
+                interpSten *= isign * areaFrac * inv_vol;
+              }
               dirStencil += interpSten;
             }
           }
@@ -147,6 +151,7 @@ namespace amrex
                    int isrc, int idst, int inco,
                    bool a_trustRegDivF)
   {
+/**/
     BL_ASSERT(isDefined());
     BL_ASSERT(a_flux.nGrow() == m_dataGhost);
     BL_ASSERT(a_divF.nGrow() == m_dataGhost);
@@ -156,22 +161,30 @@ namespace amrex
       EBCellFAB       & divF = m_kappaDivergence[mfi];
       const EBFluxFAB & flux = a_flux[mfi];
 
-      if(!a_trustRegDivF)
+      if(a_trustRegDivF)
+      {
+        divF.copy(a_divF[mfi]);
+      }
+      else
       {
         BaseFab<Real>       &  regDivF = divF.getSingleValuedFAB();
-        vector<const BaseFab<Real>*> regFlux(3, &(flux[0].getSingleValuedFAB()));
+        Vector<const BaseFab<Real>*> regFlux(3, &(flux[0].getSingleValuedFAB()));
         for(int idir = 0; idir < SpaceDim; idir++)
         {
           regFlux[idir] = &(flux[idir].getSingleValuedFAB());
         }
         const Box& grid = m_eblg.getDBL()[mfi];
       
+        int multiplyByArea = 0;
+        if(m_multiplyFluxByArea) multiplyByArea = 1;
+
         //first do everything as if it has no eb.
         ebfnd_divflux(BL_TO_FORTRAN_FAB(regDivF),
                       BL_TO_FORTRAN_FAB((*regFlux[0])),
                       BL_TO_FORTRAN_FAB((*regFlux[1])),
                       BL_TO_FORTRAN_FAB((*regFlux[2])),
                       BL_TO_FORTRAN_BOX(grid),
+                      &multiplyByArea,
                       &m_dx, &isrc, &idst, &inco);
       }
       //turn off increment only for bndry flux.  This sets the initial divergence at 
@@ -206,11 +219,13 @@ namespace amrex
           const  Real& kappaDivC = m_kappaDivergence[mfi](vof, ivar);
           const  Real& divFNC    =            a_divF[mfi](vof, ivar);
           m_massDiff[mfi](vof, ivar) = (1. - kappa)*(kappaDivC-kappa*divFNC);
+          a_divF[mfi](vof, ivar) = kappaDivC + (1.-kappa)*divFNC;
         }
       }
       m_eblevelRedist.increment(m_massDiff[mfi], mfi, idst, inco);
     }
     m_eblevelRedist.redistribute(a_divF, idst, inco);
+/**/
   }
   /************************************/
 }

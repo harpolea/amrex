@@ -16,14 +16,14 @@ using std::ios;
 #include <AMReX_Utility.H>
 #include <AMReX_VisMF.H>
 
-#ifndef NDEBUG
+#ifdef AMREX_DEBUG
 #include <TV_TempWrite.H>
 #endif
 
 #include <AVGDOWN_F.H>
 
 #define GARBAGE 666.e+40
-
+using namespace amrex;
 static
 void
 PrintUsage (const char* progName)

@@ -1,92 +1,48 @@
 
-#ifndef BL_ARRAY_H
-#define BL_ARRAY_H
+#ifndef AMREX_ARRAY_H_
+#define AMREX_ARRAY_H_
 
-#include <algorithm>
-#include <vector>
+#include <array>
 #include <memory>
 #include <AMReX_BLassert.H>
-
+#include <AMReX_SPACE.H>
+#include <AMReX_REAL.H>
 
 namespace amrex {
-/**
-* \brief This class is a thin wrapper around std::vector.  Unlike vector,
-* Array::operator[] provides bound checking when compiled with
-* DEBUG=TRUE.
-*/
 
-template <class T>
-class Array
-    :
-    public std::vector<T>
-{
-public:
+    template <class T, std::size_t N>
+    using Array = std::array<T,N>;
 
-    using std::vector<T>::vector;
-
-    T& operator[] (std::size_t i)
-    {
-	BL_ASSERT(i < this->size());
-	return this->std::vector<T>::operator[](i);
-    }
-
-    const T& operator[] (std::size_t i) const
-    {
-	BL_ASSERT(i < this->size());
-	return this->std::vector<T>::operator[](i);
-    }
-
-    //! get access to the underlying array 
-    T* dataPtr () { return this->data(); }
-    //! get access to the underlying array 
-    const T* dataPtr () const { return this->data(); }
-};
-
+    using RealArray = Array<Real,AMREX_SPACEDIM>;
+    using IntArray  = Array<int ,AMREX_SPACEDIM>;
 }
 
 namespace amrex
 {
     template <class T>
-    Array<T*> GetArrOfPtrs (const Array<std::unique_ptr<T> >& a)
+    std::array<T*,AMREX_SPACEDIM> GetArrOfPtrs (std::array<T,AMREX_SPACEDIM>& a)
     {
-	Array<T*> r;
-	for (const auto& x : a)  r.push_back(x.get());
-	return r;
+        return {AMREX_D_DECL(&a[0], &a[1], &a[2])};
     }
 
     template <class T>
-    Array<const T*> GetArrOfConstPtrs (const Array<std::unique_ptr<T> >& a)
+    std::array<T const*,AMREX_SPACEDIM> GetArrOfConstPtrs (const std::array<T,AMREX_SPACEDIM>& a)
     {
-	Array<const T*> r;
-	for (const auto& x : a)  r.push_back(x.get());
-	return r;
+        return {AMREX_D_DECL(&a[0], &a[1], &a[2])};
     }
 
     template <class T>
-    Array<const T*> GetArrOfConstPtrs (const Array<T*>& a)
+    std::array<T*,AMREX_SPACEDIM> GetArrOfPtrs (const std::array<std::unique_ptr<T>,AMREX_SPACEDIM>& a)
     {
-	return {a.begin(), a.end()};
+        return {AMREX_D_DECL(a[0].get(), a[1].get(), a[2].get())};
     }
 
     template <class T>
-    Array<Array<T*> > GetArrOfArrOfPtrs (const Array<Array<std::unique_ptr<T> > >& a)
+    std::array<T const*,AMREX_SPACEDIM> GetArrOfConstPtrs (const std::array<std::unique_ptr<T>,AMREX_SPACEDIM>& a)
     {
-	Array<Array<T*> > r;
-	for (const auto& x : a)  r.push_back(GetArrOfPtrs(x));
-	return r;
-    }
-
-    template <class T>
-    void FillNull (Array<T*>& a)
-    {
-	std::for_each(a.begin(), a.end(), [](T*& p) { p = nullptr; });
-    }
-
-    template <class T>
-    void FillNull (Array<std::unique_ptr<T> >& a)
-    {
-	std::for_each(a.begin(), a.end(), [](std::unique_ptr<T>& p) { p.reset(); });
+        return {AMREX_D_DECL(a[0].get(), a[1].get(), a[2].get())};
     }
 }
 
-#endif /*BL_ARRAY_H*/
+#endif
+

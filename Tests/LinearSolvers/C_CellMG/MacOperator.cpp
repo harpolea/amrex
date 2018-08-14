@@ -137,11 +137,11 @@ MacOperator::setCoefficients (MultiFab*   area,
         const Real* den_dat = den.dataPtr(rho_comp);
 
 #if (BL_SPACEDIM == 2)
-        FORT_MACCOEF(bx_dat,ARLIM(bxlo),ARLIM(bxhi),
-                     by_dat,ARLIM(bylo),ARLIM(byhi),
-                     ax_dat,ARLIM(axlo),ARLIM(axhi),
-                     ay_dat,ARLIM(aylo),ARLIM(ayhi),
-                     den_dat,ARLIM(dlo),ARLIM(dhi),lo,hi,dx);
+        FORT_MACCOEF(bx_dat,AMREX_ARLIM(bxlo),AMREX_ARLIM(bxhi),
+                     by_dat,AMREX_ARLIM(bylo),AMREX_ARLIM(byhi),
+                     ax_dat,AMREX_ARLIM(axlo),AMREX_ARLIM(axhi),
+                     ay_dat,AMREX_ARLIM(aylo),AMREX_ARLIM(ayhi),
+                     den_dat,AMREX_ARLIM(dlo),AMREX_ARLIM(dhi),lo,hi,dx);
 #endif
 #if (BL_SPACEDIM == 3)
         FArrayBox& bz       = bzcoef[rhomfi];
@@ -150,13 +150,13 @@ MacOperator::setCoefficients (MultiFab*   area,
         DEF_CLIMITS(az,az_dat,azlo,azhi);
         DEF_LIMITS(bz,bz_dat,bzlo,bzhi);
 
-        FORT_MACCOEF(bx_dat,ARLIM(bxlo),ARLIM(bxhi),
-                     by_dat,ARLIM(bylo),ARLIM(byhi),
-                     bz_dat,ARLIM(bzlo),ARLIM(bzhi),
-                     ax_dat,ARLIM(axlo),ARLIM(axhi),
-                     ay_dat,ARLIM(aylo),ARLIM(ayhi),
-                     az_dat,ARLIM(azlo),ARLIM(azhi),
-                     den_dat,ARLIM(dlo),ARLIM(dhi),lo,hi,dx);
+        FORT_MACCOEF(bx_dat,AMREX_ARLIM(bxlo),AMREX_ARLIM(bxhi),
+                     by_dat,AMREX_ARLIM(bylo),AMREX_ARLIM(byhi),
+                     bz_dat,AMREX_ARLIM(bzlo),AMREX_ARLIM(bzhi),
+                     ax_dat,AMREX_ARLIM(axlo),AMREX_ARLIM(axhi),
+                     ay_dat,AMREX_ARLIM(aylo),AMREX_ARLIM(ayhi),
+                     az_dat,AMREX_ARLIM(azlo),AMREX_ARLIM(azhi),
+                     den_dat,AMREX_ARLIM(dlo),AMREX_ARLIM(dhi),lo,hi,dx);
 #endif
     }
   
@@ -201,12 +201,12 @@ MacOperator::defRHS (MultiFab* area,
         DEF_LIMITS(rhs,rhs_dat,rlo,rhi);
 
 #if (BL_SPACEDIM == 2)
-        FORT_MACRHS(ux_dat,ARLIM(uxlo),ARLIM(uxhi),
-                    uy_dat,ARLIM(uylo),ARLIM(uyhi),
-                    ax_dat,ARLIM(axlo),ARLIM(axhi),
-                    ay_dat,ARLIM(aylo),ARLIM(ayhi),
-                    vol_dat,ARLIM(vlo),ARLIM(vhi), 
-                    rhs_dat,ARLIM(rlo),ARLIM(rhi),
+        FORT_MACRHS(ux_dat,AMREX_ARLIM(uxlo),AMREX_ARLIM(uxhi),
+                    uy_dat,AMREX_ARLIM(uylo),AMREX_ARLIM(uyhi),
+                    ax_dat,AMREX_ARLIM(axlo),AMREX_ARLIM(axhi),
+                    ay_dat,AMREX_ARLIM(aylo),AMREX_ARLIM(ayhi),
+                    vol_dat,AMREX_ARLIM(vlo),AMREX_ARLIM(vhi), 
+                    rhs_dat,AMREX_ARLIM(rlo),AMREX_ARLIM(rhi),
                     lo,hi,&scale);
 #endif
 #if (BL_SPACEDIM == 3)
@@ -216,14 +216,14 @@ MacOperator::defRHS (MultiFab* area,
         const FArrayBox& uz = vel[2][Rhsmfi];
         DEF_CLIMITS(uz,uz_dat,uzlo,uzhi);
 
-        FORT_MACRHS(ux_dat,ARLIM(uxlo),ARLIM(uxhi),
-                    uy_dat,ARLIM(uylo),ARLIM(uyhi),
-                    uz_dat,ARLIM(uzlo),ARLIM(uzhi),
-                    ax_dat,ARLIM(axlo),ARLIM(axhi),
-                    ay_dat,ARLIM(aylo),ARLIM(ayhi),
-                    az_dat,ARLIM(azlo),ARLIM(azhi),
-                    vol_dat,ARLIM(vlo),ARLIM(vhi),
-                    rhs_dat,ARLIM(rlo),ARLIM(rhi),
+        FORT_MACRHS(ux_dat,AMREX_ARLIM(uxlo),AMREX_ARLIM(uxhi),
+                    uy_dat,AMREX_ARLIM(uylo),AMREX_ARLIM(uyhi),
+                    uz_dat,AMREX_ARLIM(uzlo),AMREX_ARLIM(uzhi),
+                    ax_dat,AMREX_ARLIM(axlo),AMREX_ARLIM(axhi),
+                    ay_dat,AMREX_ARLIM(aylo),AMREX_ARLIM(ayhi),
+                    az_dat,AMREX_ARLIM(azlo),AMREX_ARLIM(azhi),
+                    vol_dat,AMREX_ARLIM(vlo),AMREX_ARLIM(vhi),
+                    rhs_dat,AMREX_ARLIM(rlo),AMREX_ARLIM(rhi),
                     lo,hi,&scale);
 #endif
     }
@@ -264,21 +264,21 @@ mac_vel_update (int              init,
     
 #if (BL_SPACEDIM == 2)
     FORT_MACUPDATE(&init,
-                   ux_dat,ARLIM(uxlo),ARLIM(uxhi),
-                   uy_dat,ARLIM(uylo),ARLIM(uyhi),
-                   phi_dat,ARLIM(p_lo),ARLIM(p_hi),
-                   rho_dat,ARLIM(rlo),ARLIM(rhi),
+                   ux_dat,AMREX_ARLIM(uxlo),AMREX_ARLIM(uxhi),
+                   uy_dat,AMREX_ARLIM(uylo),AMREX_ARLIM(uyhi),
+                   phi_dat,AMREX_ARLIM(p_lo),AMREX_ARLIM(p_hi),
+                   rho_dat,AMREX_ARLIM(rlo),AMREX_ARLIM(rhi),
                    lo,hi,dx,&scale);
 #endif
 #if (BL_SPACEDIM == 3)
     DEF_LIMITS(uz,uz_dat,uzlo,uzhi);
     
     FORT_MACUPDATE(&init,
-                   ux_dat,ARLIM(uxlo),ARLIM(uxhi),
-                   uy_dat,ARLIM(uylo),ARLIM(uyhi),
-                   uz_dat,ARLIM(uzlo),ARLIM(uzhi),
-                   phi_dat,ARLIM(p_lo),ARLIM(p_hi),
-                   rho_dat,ARLIM(rlo),ARLIM(rhi),
+                   ux_dat,AMREX_ARLIM(uxlo),AMREX_ARLIM(uxhi),
+                   uy_dat,AMREX_ARLIM(uylo),AMREX_ARLIM(uyhi),
+                   uz_dat,AMREX_ARLIM(uzlo),AMREX_ARLIM(uzhi),
+                   phi_dat,AMREX_ARLIM(p_lo),AMREX_ARLIM(p_hi),
+                   rho_dat,AMREX_ARLIM(rlo),AMREX_ARLIM(rhi),
                    lo,hi,dx,&scale);
 #endif
 }
@@ -339,8 +339,8 @@ MacOperator::syncRhs (const MultiFab& Volume,
 
         DEF_CLIMITS(vol,vol_dat,vlo,vhi);
         DEF_LIMITS(rhs,rhs_dat,rlo,rhi);
-        FORT_MACSYNCRHS(rhs_dat,ARLIM(rlo),ARLIM(rhi),lo,hi,
-                        vol_dat,ARLIM(vlo),ARLIM(vhi),&rhs_scale);
+        FORT_MACSYNCRHS(rhs_dat,AMREX_ARLIM(rlo),AMREX_ARLIM(rhi),lo,hi,
+                        vol_dat,AMREX_ARLIM(vlo),AMREX_ARLIM(vhi),&rhs_scale);
     }
     Rhs.mult(-1.0,Rhs.nGrow());
 }
@@ -411,13 +411,13 @@ mac_level_driver (AmrCore*        parent,
     }
     else if (the_solver == 3 ) 
     {
-        Array<BoxArray> bav(1);
+        Vector<BoxArray> bav(1);
         bav[0] = mac_phi->boxArray();
-        Array<DistributionMapping> dmv(1);
+        Vector<DistributionMapping> dmv(1);
         dmv[0] = Rhs.DistributionMap();
         bool nodal = false;
 	int stencil = CC_CROSS_STENCIL;
-        Array<Geometry> geom(1);
+        Vector<Geometry> geom(1);
         geom[0] = mac_bndry.getGeom();
 
         int mg_bc[2*BL_SPACEDIM];
@@ -430,15 +430,15 @@ mac_level_driver (AmrCore*        parent,
             }
             else
             {
-                mg_bc[i*2 + 0] = phys_bc.lo(i)==Outflow? MGT_BC_DIR : MGT_BC_NEU;
-                mg_bc[i*2 + 1] = phys_bc.hi(i)==Outflow? MGT_BC_DIR : MGT_BC_NEU;
+                mg_bc[i*2 + 0] = phys_bc.lo(i)==PhysBCType::outflow? MGT_BC_DIR : MGT_BC_NEU;
+                mg_bc[i*2 + 1] = phys_bc.hi(i)==PhysBCType::outflow? MGT_BC_DIR : MGT_BC_NEU;
             }
         }
         MGT_Solver mgt_solver(geom, mg_bc, bav, dmv, nodal, stencil);
 
         // Set xa and xb locally so we don't have to pass the mac_bndry to set_mac_coefficients
-        Array< Array<Real> > xa(1);
-        Array< Array<Real> > xb(1);
+        Vector< Vector<Real> > xa(1);
+        Vector< Vector<Real> > xb(1);
  
         xa[0].resize(BL_SPACEDIM);
         xb[0].resize(BL_SPACEDIM);
@@ -457,7 +457,7 @@ mac_level_driver (AmrCore*        parent,
         }
 
         // Set alpha and beta as in (alpha - del dot beta grad)
-	Array<Array<MultiFab*> > bb_p(1);
+	Vector<Vector<MultiFab*> > bb_p(1);
 	bb_p[0].resize(BL_SPACEDIM);
         for ( int i = 0; i < BL_SPACEDIM; ++i )
         {
@@ -466,8 +466,8 @@ mac_level_driver (AmrCore*        parent,
 
         mgt_solver.set_mac_coefficients(bb_p, xa, xb);
 
-	Array<MultiFab*> mac_phi_p = { mac_phi };
-	Array<MultiFab*> Rhs_p = { &Rhs };
+	Vector<MultiFab*> mac_phi_p = { mac_phi };
+	Vector<MultiFab*> Rhs_p = { &Rhs };
 
 	int always_use_bnorm = 0;
         Real final_resnorm;
@@ -544,13 +544,13 @@ mac_sync_driver (AmrCore*            parent,
     }
     else if (the_solver == 3 )
     {
-        Array<BoxArray> bav(1);
+        Vector<BoxArray> bav(1);
         bav[0] = mac_sync_phi->boxArray();
-        Array<DistributionMapping> dmv(1);
+        Vector<DistributionMapping> dmv(1);
         dmv[0] = Rhs.DistributionMap();
         bool nodal = false;
 	int stencil = CC_CROSS_STENCIL;
-        Array<Geometry> geom(1);
+        Vector<Geometry> geom(1);
         geom[0] = mac_bndry.getGeom();
 
         int mg_bc[2*BL_SPACEDIM];
@@ -563,16 +563,16 @@ mac_sync_driver (AmrCore*            parent,
             }
             else
             {
-                mg_bc[i*2 + 0] = phys_bc.lo(i)==Outflow? MGT_BC_DIR : MGT_BC_NEU;
-                mg_bc[i*2 + 1] = phys_bc.hi(i)==Outflow? MGT_BC_DIR : MGT_BC_NEU;
+                mg_bc[i*2 + 0] = phys_bc.lo(i)==PhysBCType::outflow? MGT_BC_DIR : MGT_BC_NEU;
+                mg_bc[i*2 + 1] = phys_bc.hi(i)==PhysBCType::outflow? MGT_BC_DIR : MGT_BC_NEU;
             }
         }
 
         MGT_Solver mgt_solver(geom, mg_bc, bav, dmv, nodal, stencil);
 
         // Set xa and xb locally so we don't have to pass the mac_bndry to set_mac_coefficients
-        Array< Array<Real> > xa(1);
-        Array< Array<Real> > xb(1);
+        Vector< Vector<Real> > xa(1);
+        Vector< Vector<Real> > xb(1);
  
         xa[0].resize(BL_SPACEDIM);
         xb[0].resize(BL_SPACEDIM);
@@ -591,7 +591,7 @@ mac_sync_driver (AmrCore*            parent,
         }
 
         // Set alpha and beta as in (alpha - del dot beta grad)
-	Array<Array<MultiFab*> > bb_p(1);
+	Vector<Vector<MultiFab*> > bb_p(1);
 	bb_p[0].resize(BL_SPACEDIM);
         for ( int i = 0; i < BL_SPACEDIM; ++i )
         {
@@ -600,8 +600,8 @@ mac_sync_driver (AmrCore*            parent,
 
         mgt_solver.set_mac_coefficients(bb_p, xa, xb);
 
-        Array<MultiFab*> mac_phi_p = { mac_sync_phi };
-        Array<MultiFab*> Rhs_p = { &Rhs };
+        Vector<MultiFab*> mac_phi_p = { mac_sync_phi };
+        Vector<MultiFab*> Rhs_p = { &Rhs };
 
 	int always_use_bnorm = 0;
         Real final_resnorm;

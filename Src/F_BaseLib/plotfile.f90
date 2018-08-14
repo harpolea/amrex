@@ -59,8 +59,8 @@ module plotfile_module
      integer :: flevel = 0
      real(kind=dp_t) :: tm
      integer, pointer :: refrat(:,:) => Null()
-     real(kind=dp_t), pointer :: phi(:)
-     real(kind=dp_t), pointer :: plo(:)
+     real(kind=dp_t), pointer :: phi(:) => Null()
+     real(kind=dp_t), pointer :: plo(:) => Null()
   end type plotfile
 
   interface nboxes
@@ -271,7 +271,8 @@ contains
     read(unit=lun,fmt='(a)') str
     if ( str == '&PLOTFILE' ) then
        call build_pf
-    else if ( str == 'NavierStokes-V1.1' .or. str == 'HyperCLaw-V1.1' .or. str == 'PorousMedia-V1.1' ) then 
+    else if ( str == 'NavierStokes-V1.1' .or. str == 'HyperCLaw-V1.1' &
+         .or. str == 'CartGrid-V2.0' .or. str == 'PorousMedia-V1.1' ) then 
        call build_ns_plotfile
     else
        call bl_error('BUILD_PLOTIFILE: Header has improper magic string', str)
@@ -357,6 +358,10 @@ contains
       read(unit=lun, fmt=*) pf%tm
       read(unit=lun, fmt=*) pf%flevel
       pf%flevel = pf%flevel + 1
+
+      if (pf%flevel .eq. 0) then
+         return
+      end if
 
       allocate(pf%grids(pf%flevel), pf%plo(pf%dim), pf%phi(pf%dim))
 
@@ -455,10 +460,21 @@ contains
        end do
        deallocate(pf%grids(i)%fabs)
     end do
-    deallocate(pf%refrat)
-    deallocate(pf%names)
-    deallocate(pf%grids)
-    deallocate(pf%plo, pf%phi)
+    if (associated(pf%refrat)) then
+       deallocate(pf%refrat)
+    end if
+    if (associated(pf%names)) then
+       deallocate(pf%names)
+    end if
+    if (associated(pf%grids)) then
+       deallocate(pf%grids)
+    end if
+    if (associated(pf%plo)) then
+       deallocate(pf%plo)
+    end if
+    if (associated(pf%phi)) then
+       deallocate(pf%phi)
+    end if
   end subroutine plotfile_destroy
 
   subroutine fab_bind_level_comp(pf, i, c)

@@ -1,14 +1,3 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
 #ifndef _EBDIVERGENCEOP_H___
 #define _EBDIVERGENCEOP_H___
 
@@ -64,10 +53,11 @@ namespace amrex
                  const Real          & a_dx,
                  const int           & a_numComp,
                  const int           & a_ghostCellsInData,
+                 bool a_multiplyFluxByArea = true,
                  int a_redistRad = 1)
       {
 
-        define(a_eblg, a_dx, a_numComp, a_ghostCellsInData, a_redistRad);
+        define(a_eblg, a_dx, a_numComp, a_ghostCellsInData, a_multiplyFluxByArea, a_redistRad);
       }
 
     ///
@@ -78,6 +68,7 @@ namespace amrex
                 const Real          & a_dx,
                 const int           & a_numComp,
                 const int           & a_ghostCellsInData,
+                bool a_multiplyFluxByArea = true,
                 int a_redistRad = 1);
 
 
@@ -134,7 +125,7 @@ namespace amrex
     FabArray<IrregFAB>  m_massDiff;
 
     EBLevelRedist  m_eblevelRedist;
-
+    bool m_multiplyFluxByArea;
     EBNormalizeByVolumeFraction  m_normalizor;
     int m_nComp;
     Real m_dx;

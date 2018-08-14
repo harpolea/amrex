@@ -1,16 +1,5 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-#ifndef _EBDebugOut_H_
-#define _EBDebugOut_H_
+#ifndef AMREX_EBDebugOut_H_
+#define AMREX_EBDebugOut_H_
 
 #include "AMReX_Box.H"
 #include "AMReX_IntVectSet.H"
@@ -19,6 +8,8 @@
 #include "AMReX_EBCellFAB.H"
 #include "AMReX_BaseIVFAB.H"
 #include "AMReX_BoxIterator.H"
+#include "AMReX_FabArray.H"
+#include "AMReX_Stencils.H"
 
 
 ///bunch of functions to call from the debugger
@@ -61,6 +52,13 @@ namespace amrex
    */
   void dumpEBFAB(const EBCellFAB* a_fab);
 
+
+  ///
+  /**
+     Dump inputs to standard out.  For use inside debuggers.
+   */
+  void dumpEBLevel(const FabArray<EBCellFAB>* a_fab);
+
   ///
   /**
      Dump inputs to standard out.  For use inside debuggers.
@@ -71,10 +69,16 @@ namespace amrex
   void dumpEBFace(const EBFaceFAB* a_fab);
 
   /// 
-  void dumpVVoFs(const vector<VolIndex>* vvofs);
+  void dumpVVoFs(const Vector<VolIndex>* vvofs);
 
   /// 
-  void dumpVFaces(const vector<FaceIndex>* vvofs);
+  void dumpVFaces(const Vector<FaceIndex>* vvofs);
+
+  ///
+  void dumpFaceSten(const FaceStencil* a_stenPtr);
+
+  ///
+  void dumpVoFSten(const   VoFStencil* a_stenPtr);
 
 }
 #endif

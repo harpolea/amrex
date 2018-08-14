@@ -2,10 +2,12 @@
 #ifndef BL_UTILITY_H
 #define BL_UTILITY_H
 
-
+#include <cstdlib>
 #include <iostream>
 #include <string>
 #include <map>
+#include <chrono>
+#include <type_traits>
 
 #include <sys/types.h>
 #include <unistd.h>
@@ -14,6 +16,7 @@
 #include <AMReX_BLassert.H>
 #include <AMReX_REAL.H>
 #include <AMReX_Array.H>
+#include <AMReX_Vector.H>
 #include <AMReX_Box.H>
 #include <AMReX_BoxArray.H>
 #include <AMReX_DistributionMapping.H>
@@ -24,6 +27,9 @@ namespace amrex
 /**
 * \brief Useful C++ Utility Functions
 */
+
+    //! This shuts up the compiler about unused variables
+    template<class T> void ignore_unused( const T& ) { }
 
     //! Return true if argument is a non-zero length string of digits.
     bool is_integer (const char* str);
@@ -198,8 +204,7 @@ namespace amrex
     *  INTEGER seed
     *  call blinitrand(seed)
     */
-    void InitRandom (unsigned long seed);
-    void InitRandom (unsigned long seed, int nprocs);
+    void InitRandom (unsigned long seed, int nprocs=ParallelDescriptor::NProcs());
 
     void ResetRandomSeed(unsigned long seed);
     /**
@@ -219,14 +224,27 @@ namespace amrex
     *   if you want all processors to have the same set,
     *   call this on one processor and broadcast the array
     */
-    void UniqueRandomSubset (Array<int> &uSet, int setSize, int poolSize,
+    void UniqueRandomSubset (Vector<int> &uSet, int setSize, int poolSize,
                              bool printSet = false);
 
     /**
     * \brief Fill binCounts with the number of items for each bin.
     *   The remainder items are randomly assigned.
     */
-    void NItemsPerBin (int totalItems, Array<int> &binCounts);
+    void NItemsPerBin (int totalItems, Vector<int> &binCounts);
+
+    /* \brief cumulative refinement ratio between levels */
+    int CRRBetweenLevels(int fromlevel, int tolevel,
+                         const Vector<int> &refratios);
+
+    /* \brief Create a semi-unique hash output to compare Distribution Maps.
+              Use multiple hashes of different sizes to ensure uniqueness. */
+    int HashDistributionMap(const DistributionMapping & dm, int hashSize);
+
+    /* \brief Create a semi-unique hash output to compare BoxArrays
+              Use multiple hashes of different sizes to ensure uniqueness. */
+    int HashBoxArray(const BoxArray & ba, int hashSize);
+
 
     class expect;
     std::istream& operator>>(std::istream&, const expect& exp);
@@ -267,10 +285,10 @@ namespace amrex
 	static int nStreamErrors;
     };
 
-    Array<char> SerializeStringArray(const Array<std::string> &stringArray);
-    Array<std::string> UnSerializeStringArray(const Array<char> &charArray);
-    void SyncStrings(const Array<std::string> &localStrings,
-                     Array<std::string> &syncedStrings, bool &alreadySynced);
+    Vector<char> SerializeStringArray(const Vector<std::string> &stringArray);
+    Vector<std::string> UnSerializeStringArray(const Vector<char> &charArray);
+    void SyncStrings(const Vector<std::string> &localStrings,
+                     Vector<std::string> &syncedStrings, bool &alreadySynced);
 
     //
     // Memory Usage Counting
@@ -281,17 +299,22 @@ namespace amrex
     template <typename T> long bytesOf (const std::vector<T>& v);
     template <typename Key, typename T, class Compare> long bytesOf (const std::map<Key,T,Compare>& m);
 
-    template<class T> void BroadcastArray(Array<T> &aT, int myLocalId, int rootId, const MPI_Comm &localComm);
-    void BroadcastBox(Box &bB, int myLocalId, int rootId, const MPI_Comm &localComm);
-    void BroadcastBoxArray(BoxArray &bBA, int myLocalId, int rootId, const MPI_Comm &localComm);
-    void BroadcastDistributionMapping(DistributionMapping &dM,
-                                      int myLocalId, int rootId, const MPI_Comm &localComm,
-				      bool addToCache);
+    void BroadcastBool(bool &bBool, int myLocalId, int rootId, const MPI_Comm &localComm);
+
+    void BroadcastString(std::string &bStr, int myLocalId, int rootId, const MPI_Comm &localComm);
+    void BroadcastStringArray(Vector<std::string> &bSA, int myLocalId, int rootId, const MPI_Comm &localComm);
+
+    template<class T> void BroadcastArray(Vector<T> &aT, int myLocalId, int rootId, const MPI_Comm &localComm);
     void USleep(double sleepsec);
 
+
+    using MaxResSteadyClock = std::conditional<std::chrono::high_resolution_clock::is_steady,
+                                               std::chrono::high_resolution_clock,
+                                               std::chrono::steady_clock>::type;
+    double second ();
 }
 
-template<class T> void amrex::BroadcastArray(Array<T> &aT, int myLocalId, int rootId, const MPI_Comm &localComm)
+template<class T> void amrex::BroadcastArray(Vector<T> &aT, int myLocalId, int rootId, const MPI_Comm &localComm)
 {
   int aT_Size(-2);
   if(myLocalId == rootId) {
@@ -384,6 +407,12 @@ long
 amrex::bytesOf (const std::map<Key,T,Compare>& m)
 {
     return sizeof(m) + m.size()*(sizeof(Key)+sizeof(T)+gcc_map_node_extra_bytes);
+}
+
+
+extern "C" {
+    void* amrex_malloc (std::size_t size);
+    void amrex_free (void* p);
 }
 
 #endif /*BL_UTILITY_H*/

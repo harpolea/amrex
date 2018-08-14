@@ -1,18 +1,5 @@
-
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-
-#ifndef _BASEEBFACEFABI_H_
-#define _BASEEBFACEFABI_H_
+#ifndef AMREX_BASEEBFACEFABI_H_
+#define AMREX_BASEEBFACEFABI_H_
 
 #include "AMReX_BoxIterator.H"
 
@@ -44,7 +31,7 @@ namespace amrex
         const IntVect& ivCell = bit();
         for (SideIterator sit; sit.ok(); ++sit)
         {
-          const std::vector< FaceIndex >& faces = m_ebisBox.getAllFaces(ivCell,m_iDir,sit());
+          const Vector< FaceIndex >& faces = m_ebisBox.getAllFaces(ivCell,m_iDir,sit());
           if ( (faces.size()==0) || (faces.size()>1) )
           {
             const int& hilo =  sign(sit());
@@ -326,7 +313,7 @@ namespace amrex
     const IntVect& ivhi = a_facein.gridIndex(Side::Hi);
     BL_ASSERT(m_regionFace.contains(ivhi));
 
-    const std::vector<FaceIndex>& multiFaces = m_irrFAB.getFaces();
+    const Vector<FaceIndex>& multiFaces = m_irrFAB.getFaces();
     T* returnval;
 
     bool isFaceHere = false;
@@ -360,7 +347,7 @@ namespace amrex
     const IntVect& ivhi = a_facein.gridIndex(Side::Hi);
     BL_ASSERT(m_regionFace.contains(ivhi));
 
-    const std::vector<FaceIndex>& multiFaces = m_irrFAB.getFaces();
+    const Vector<FaceIndex>& multiFaces = m_irrFAB.getFaces();
     const T* returnval;
 
     bool isFaceHere = false;

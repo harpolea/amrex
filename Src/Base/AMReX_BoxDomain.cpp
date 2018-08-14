@@ -70,7 +70,7 @@ BoxDomain::complementIn (const Box&       b,
 
 BoxDomain
 complementIn (const Box&       b,
-		      const BoxDomain& bl)
+              const BoxDomain& bl)
 {
     BoxDomain result;
     result.complementIn(b,bl);
@@ -116,7 +116,7 @@ BoxDomain::add (const Box& b)
 {
     BL_ASSERT(b.ixType() == ixType());
 
-    Array<Box> tmp, check;
+    Vector<Box> tmp, check;
 
     check.push_back(b);
 
@@ -154,7 +154,7 @@ BoxDomain::rmBox (const Box& b)
 {
     BL_ASSERT(b.ixType() == ixType());
 
-    Array<Box> tmp;
+    Vector<Box> tmp;
 
     for (auto& bx : *this)
     {
@@ -189,9 +189,9 @@ BoxDomain::ok () const
             {
                 if (bli->intersects(*blii))
                 {
-		    amrex::Print(Print::AllProcs) << "Invalid DOMAIN, boxes overlap" << '\n'
-						  << "b1 = " << *bli << '\n'
-						  << "b2 = " << *blii << '\n';
+//		    amrex::Print(Print::AllProcs) << "Invalid DOMAIN, boxes overlap" << '\n'
+//						  << "b1 = " << *bli << '\n'
+//						  << "b2 = " << *blii << '\n';
                     status = false;
                 }
             }

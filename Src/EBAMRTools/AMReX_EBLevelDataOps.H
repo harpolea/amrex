@@ -1,13 +1,3 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
 
 #ifndef _EBLEVELDATAOPS_H___
 #define _EBLEVELDATAOPS_H___
@@ -20,7 +10,9 @@
 #include "AMReX_EBCellFactory.H"
 #include "AMReX_EBFluxFAB.H"
 #include "AMReX_EBFluxFactory.H"
+#include "AMReX_MultiFab.H"
 #include "AMReX_EBLevelGrid.H"
+#include "AMReX_EBArith.H"
 
 
 //for creating simple grids for tests
@@ -42,6 +34,28 @@ namespace amrex
     ~EBLevelDataOps()
       {
       }
+
+    ///quick and dirty debugging vis.
+    static void  viewEBLevel(const FabArray<EBCellFAB> * a_data, const EBLevelGrid* a_eblg);
+
+    ///writes plotfile that visit can eat.   Just single-valued stuff
+    static void writeSingleLevelEBPlotFile(const std::string         & a_filename,
+                                           const FabArray<EBCellFAB> & a_data,
+                                           const EBLevelGrid         & a_eblg,
+                                           const Vector<string>      & a_varNames);
+
+
+    ///writes plotfile that visit can eat.   Just single-valued stuff
+    static void writeEBAMRPlotFile(const std::string                   & a_filename,
+                                   const Vector<FabArray<EBCellFAB>* > & a_data,
+                                   const Vector<EBLevelGrid>           & a_eblg,
+                                   const Vector<int>                   & a_refRat,
+                                   const Vector<string>                & a_varNames);
+
+    /// tacks on volume fraction as the last variable
+    static void makePlotMultiFab(MultiFab                              & a_mfSingleValued,
+                                 const FabArray<EBCellFAB>             & a_ebdata,
+                                 const EBLevelGrid                     & a_eblg);
 
     ///
     /**
@@ -133,6 +147,13 @@ namespace amrex
 
     ///
     /**
+    */
+    static void scale(FabArray<EBCellFAB>       & a_lhs,
+                      const FabArray<EBCellFAB> & a_scale);
+
+
+    ///
+    /**
        If comp < 0, set all components
      */
     static void setVal(FabArray<EBCellFAB> & a_result,
@@ -203,7 +224,7 @@ namespace amrex
                              const FabArray<EBCellFAB>       &   a_errorCoar,
                              const EBLevelGrid               &   a_eblgFine,
                              const EBLevelGrid               &   a_eblgCoar,
-                             std::vector<string> a_names = std::vector<string>(),
+                             Vector<string> a_names = Vector<string>(),
                              bool a_useGhost = false);
     ///
     /**

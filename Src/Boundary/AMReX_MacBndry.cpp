@@ -40,7 +40,7 @@ MacBndry::setBndryConds (const BCRec&   phys_bc,
     // ALL BCLOC VALUES ARE NOW DEFINED AS A LENGTH IN PHYSICAL
     // DIMENSIONS *RELATIVE* TO THE FACE, NOT IN ABSOLUTE PHYSICAL SPACE
     //
-    const BoxArray& grids  = boxes();
+    const BoxArray& ba     = boxes();
     const Real*     dx     = geom.CellSize();
     const Box&      domain = geom.Domain();
     //
@@ -50,9 +50,9 @@ MacBndry::setBndryConds (const BCRec&   phys_bc,
     for (FabSetIter fsi(bndry[Orientation(0,Orientation::low)]); fsi.isValid(); ++fsi)
     {
         const int                  i     = fsi.index();
-        const Box&                 grd   = grids[i];
-        RealTuple&                 bloc  = bcloc[i];
-        Array< Array<BoundCond> >& bctag = bcond[i];
+        const Box&                 grd   = ba[i];
+        RealTuple&                 bloc  = bcloc[fsi];
+        Vector< Vector<BoundCond> >& bctag = bcond[fsi];
 
         for (OrientationIter fi; fi; ++fi)
         {
@@ -66,7 +66,8 @@ MacBndry::setBndryConds (const BCRec&   phys_bc,
                 //
                 const int p_bc  = (face.isLow() ? phys_bc.lo(dir) : phys_bc.hi(dir));
 
-                bctag[face][comp] = (p_bc == Outflow) ? LO_DIRICHLET : LO_NEUMANN;
+                bctag[face][comp] = (p_bc == PhysBCType::outflow) 
+                    ? AMREX_LO_DIRICHLET : AMREX_LO_NEUMANN;
                 bloc[face]        = 0;
             }
             else
@@ -76,7 +77,7 @@ MacBndry::setBndryConds (const BCRec&   phys_bc,
                 //
                 const Real delta = dx[dir]*ratio[dir];
 
-                bctag[face][comp] = LO_DIRICHLET;
+                bctag[face][comp] = AMREX_LO_DIRICHLET;
 		bloc[face]        = 0.5*delta;
             }
         }

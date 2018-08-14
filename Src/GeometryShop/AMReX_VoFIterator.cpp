@@ -1,14 +1,3 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
 #include "AMReX_VoFIterator.H"
 #include "AMReX_EBGraph.H"
 #include <cassert>
@@ -17,7 +6,7 @@ namespace amrex
 {
 
   /********************************/
-  const std::vector<VolIndex> &
+  const Vector<VolIndex> &
   VoFIterator::getVector() const
   {
     assert(m_isDefined);
@@ -47,7 +36,7 @@ namespace amrex
     m_vols.resize(0);
     for (IVSIterator ivsit(a_ivs); ivsit.ok(); ++ivsit)
     {
-      std::vector<VolIndex> vols = (a_ebgraph.getVoFs(ivsit()));
+      Vector<VolIndex> vols = (a_ebgraph.getVoFs(ivsit()));
       for(int ivol = 0; ivol < vols.size(); ivol++)
       {
         m_vols.push_back(vols[ivol]);
@@ -63,7 +52,7 @@ namespace amrex
     m_vols.resize(0);
     for (IVSIterator ivsit(a_ivs); ivsit.ok(); ++ivsit)
     {
-      std::vector<VolIndex> vols = (a_ebgraph.getVoFs(ivsit()));
+      Vector<VolIndex> vols = (a_ebgraph.getVoFs(ivsit()));
       for(int ivol = 0; ivol < vols.size(); ivol++)
       {
         m_vols.push_back(vols[ivol]);

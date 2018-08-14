@@ -1,19 +1,6 @@
+#ifndef AMREX_EBFLUXFAB_H_
+#define AMREX_EBFLUXFAB_H_
 
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-#ifndef _EBFLUXFAB_H_
-#define _EBFLUXFAB_H_
-
-#include <vector>
 #include "AMReX_Box.H"
 #include "AMReX_EBFaceFAB.H"
 #include "AMReX_IrregFAB.H"
@@ -34,10 +21,11 @@ namespace amrex
     /**
        This stuff required by LevelData in parallel:
     */
-    static int preAllocatable()
+    static bool preAllocatable()
       {
-        return 1; // symmetric messaging
+        return true; // symmetric messaging
       }
+    static bool isCopyOMPSafe () { return true; }
 
     /// default constructor
     EBFluxFAB();
@@ -208,7 +196,7 @@ namespace amrex
     bool m_isDefined;
 
     /// CH_SPACEDIM EBFaceFABes which hold fluxes
-    EBFaceFAB m_fluxes[BL_SPACEDIM];
+    EBFaceFAB m_fluxes[AMREX_SPACEDIM];
     IrregFAB  m_irrFlux;
 
 

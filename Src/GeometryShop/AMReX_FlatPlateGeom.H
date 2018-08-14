@@ -1,17 +1,5 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-
-#ifndef _FLATPLATEGEOM_H_
-#define _FLATPLATEGEOM_H_
+#ifndef AMREX_FLATPLATEGEOM_H_
+#define AMREX_FLATPLATEGEOM_H_
 
 #include "AMReX_REAL.H"
 #include "AMReX_RealVect.H"
@@ -98,7 +86,7 @@ namespace amrex
                   const Real     & a_dx) const;
 
     void
-    addIrregularNodes(std::vector<IrregNode>   & a_nodes,
+    addIrregularNodes(Vector<IrregNode>        & a_nodes,
                       const BaseFab<int>       & a_numVolumes,
                       const IntVect            & a_iv,
                       const Box                & a_domain,
@@ -107,12 +95,13 @@ namespace amrex
     /**
     */
     virtual void fillGraph(BaseFab<int>&              a_regIrregCovered,
-                           std::vector<IrregNode>&    a_nodes,
+                           Vector<IrregNode>&         a_nodes,
+                           NodeMap&                   a_intersections,
                            const Box&                 a_validRegion,
                            const Box&                 a_ghostRegion,
                            const Box&                 a_domain,
                            const RealVect&            a_origin,
-                           const Real&                a_dx) const;
+                           const Real&                a_dx) const override;
 
   private:
 

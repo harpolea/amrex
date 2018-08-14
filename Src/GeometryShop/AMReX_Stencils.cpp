@@ -1,20 +1,33 @@
-/*
- *      .o.       ooo        ooooo ooooooooo.             ooooooo  ooooo 
- *     .888.      `88.       .888' `888   `Y88.            `8888    d8'  
- *    .8"888.      888b     d'888   888   .d88'  .ooooo.     Y888..8P    
- *   .8' `888.     8 Y88. .P  888   888ooo88P'  d88' `88b     `8888'     
- *  .88ooo8888.    8  `888'   888   888`88b.    888ooo888    .8PY888.    
- * .8'     `888.   8    Y     888   888  `88b.  888    .o   d8'  `888b   
- *o88o     o8888o o8o        o888o o888o  o888o `Y8bod8P' o888o  o88888o 
- *
- */
-
 #include "AMReX_Stencils.H"
 #include "AMReX_EBCellFAB.H"
+#include "AMReX_parstream.H"
 
 namespace amrex
 {
-  /** s */
+  ///
+  void 
+  VoFStencil::
+  outputToPout() const
+  {
+    pout() << "num vof \t  weight \t variable = " << endl;
+    for(int ivof = 0; ivof < this->size(); ivof++)
+    {
+      pout() << "(" << ivof << "):" << vofs[ivof]  << "\t" << weights[ivof]<< "\t" << variables[ivof] << endl;
+    }
+  }
+
+  ///
+  void 
+  FaceStencil::
+  outputToPout() const
+  {
+    pout() << " face \t  weight = " << endl;
+    for(int ivof = 0; ivof < this->size(); ivof++)
+    {
+      pout() << faces[ivof]  << "\t" << weights[ivof]<< endl;
+    }
+  }
+
 
   /**************/
   int
@@ -64,8 +77,8 @@ namespace amrex
   {
     for(int ivof = 0; ivof < this->size(); ivof++)
       {
-        VolIndex& vof = vofs[ivof];
-        vof.shift(a_shift);
+        VolIndex& vf = vofs[ivof];
+        vf.shift(a_shift);
       }
   }
 
@@ -76,8 +89,8 @@ namespace amrex
   {
     for(int iface = 0; iface < this->size(); iface++)
       {
-        FaceIndex& face = faces[iface];
-        face.shift(a_shift);
+        FaceIndex& f = faces[iface];
+        f.shift(a_shift);
       }
 
   }
@@ -125,21 +138,21 @@ namespace amrex
   /**************/
   /**************/
   void
-  VoFStencil::add(const VolIndex& vof,const Real& weight, int ivar)
+  VoFStencil::add(const VolIndex& a_vof,const Real& wgt, int ivar)
   {
     bool alreadyhere = false;
     for (int ivof = 0; ivof < vofs.size(); ivof++)
       {
-        if ((vofs[ivof] == vof) && (variables[ivof] == ivar))
+        if ((vofs[ivof] == a_vof) && (variables[ivof] == ivar))
           {
             alreadyhere = true;
-            weights[ivof] += weight;
+            weights[ivof] += wgt;
           }
       }
     if (!alreadyhere)
       {
-        vofs.push_back(vof);
-        weights.push_back(weight);
+        vofs.push_back(a_vof);
+        weights.push_back(wgt);
         variables.push_back(ivar);
       }
   }
@@ -209,21 +222,21 @@ namespace amrex
   /**************/
   /**************/
   void
-  FaceStencil::add(const FaceIndex& face,const Real& weight, int ivar)
+  FaceStencil::add(const FaceIndex& a_face,const Real& a_weight, int ivar)
   {
     bool alreadyhere = false;
     for (int iface = 0; iface < faces.size(); iface++)
       {
-        if ( (faces[iface] == face) && (variables[iface] == ivar))
+        if ( (faces[iface] == a_face) && (variables[iface] == ivar))
           {
             alreadyhere = true;
-            weights[iface] += weight;
+            weights[iface] += a_weight;
           }
       }
     if (!alreadyhere)
       {
-        faces.push_back(face);
-        weights.push_back(weight);
+        faces.push_back(a_face);
+        weights.push_back(a_weight);
         variables.push_back(ivar);
       }
   }

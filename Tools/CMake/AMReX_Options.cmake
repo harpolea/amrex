@@ -6,110 +6,230 @@
 ###############################################
 
 #
-# Check weather the AMReX_CMakeVariables.cmake
-# has been loaded; abort if not
-#
-if ( NOT AMREX_VARIABLES_LOADED )
-   message ( FATAL_ERROR "AMReX_Options.cmake must be included\
-after including AMReX_CMakeVariables.cmake" )
+# Include module 
+# 
+include (CMakeDependentOption)
+
+if (DEFINED __AMREX_OPTIONS__)
+   return ()
 endif ()
 
+# Define the following variable
+# so that other included file can check if this file has been
+# run already
+set (__AMREX_OPTIONS__ "")
 
 #
 # Define a macro to check the value of the inputs integer options 
 # 
-macro (check_option_value NAME VALUE RANGE_STARTS RANGE_ENDS )
-   
-   if ( ( ${VALUE} GREATER ${RANGE_ENDS} ) OR ( ${VALUE} LESS ${RANGE_STARTS} ) )
-      message ( FATAL_ERROR "Variable ${NAME} has value ${VALUE}. \
-Allowed range is [${RANGE_STARTS}:${RANGE_ENDS}]." )
-   endif ()
-
-   message ( STATUS "   ${NAME} = ${VALUE} (INT: ${RANGE_STARTS},${RANGE_ENDS})" )
+macro (print_option var)
+   message ( STATUS "   ${var} = ${${var}}")
 endmacro ()
-
 
 #
 # Populate the cache and check the value of the user-definable options 
 #
 message (STATUS "Configuring AMReX with the following options: ")
 
-if ( NOT CMAKE_BUILD_TYPE )
-   # Default to Release if no other build type specified
-   set ( CMAKE_BUILD_TYPE "Release" CACHE STRING
-      "Choose the type of build, options are: Debug Release."
-      FORCE )
+#
+# This is the option to enable/disable xSDK mode
+#
+option ( USE_XSDK_DEFAULTS "Enable xSDK mode"  OFF )
+print_option ( USE_XSDK_DEFAULTS )
+
+#
+# Option to control the build type.
+# If xSDK mode is enabled, the build type is determined by
+# CMAKE_BUILD_TYPE and DEBUG is a regular variable.
+# If xSDK mode is disabled, the build type is determined by DEBUG
+# and CMAKE_BUILD_TYPE is set accordingly.
+# 
+if ( USE_XSDK_DEFAULTS )
+   set ( DEBUG OFF )
+   if ( ( "${CMAKE_BUILD_TYPE}" MATCHES "Debug" ) OR
+	( NOT CMAKE_BUILD_TYPE ) )
+      set ( DEBUG ON )
+   endif ()
+else ()
+   option ( DEBUG "Build in debug mode" OFF )
 endif ()
 
-set ( AMREX_BUILD_TYPE ${CMAKE_BUILD_TYPE} )
+if (DEBUG)
+   set (CMAKE_BUILD_TYPE "Debug")
+else ()
+   set (CMAKE_BUILD_TYPE "Release")
+endif ()
 
-# Need to be uppercase so it can be used to refer to CMAKE variable names
-string ( TOUPPER ${AMREX_BUILD_TYPE} AMREX_BUILD_TYPE) 
+if ( USE_XSDK_DEFAULTS )
+   print_option (CMAKE_BUILD_TYPE)
+else ()
+   print_option (DEBUG)
+endif ()
+
+string ( TOUPPER ${CMAKE_BUILD_TYPE} AMREX_BUILD_TYPE ) 
+
+#
+# Option to control the type of library build: static vs shared
+#
+if ( USE_XSDK_DEFAULTS )
+   option ( BUILD_SHARED_LIBS "Build AMReX shared library" ON )
+else ()
+   option ( BUILD_SHARED_LIBS "Build AMReX shared library" OFF )
+endif ()
+print_option ( BUILD_SHARED_LIBS ) 
+
+#
+# Print out info on install path
+# 
+print_option ( CMAKE_INSTALL_PREFIX )
 
 
-message ( STATUS "   CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE} (STRING:\
- Debug|Release|RelWithDebInfo|MinSizeRel)" )
+set (DIM 3 CACHE STRING "Dimension of AMReX build")
+if ( (${DIM} GREATER 3) OR (${DIM} LESS 1) )
+   message ( FATAL_ERROR "DIM must be either 1, 2 or 3.")
+endif ()
+print_option ( DIM )
 
-message ( STATUS "   CMAKE_INSTALL_PREFIX = ${CMAKE_INSTALL_PREFIX} (STRING: <path to install dir>)" )
+option ( ENABLE_PIC "Build position-independent code" OFF)
+print_option ( ENABLE_PIC )
 
+option ( ENABLE_MPI  "Enable MPI"  ON)
+print_option ( ENABLE_MPI )
 
-set (ENABLE_FORTRAN_MPI 1 CACHE INT "Enable Fortran MPI Communicator" )
-check_option_value ( "ENABLE_FORTRAN_MPI" ${ENABLE_FORTRAN_MPI} 0 1 )
+option ( ENABLE_OMP  "Enable OpenMP" OFF)
+print_option ( ENABLE_OMP )
 
-set (ENABLE_FBASELIB 0 CACHE INT "Enable Fortran BaseLib" )
-check_option_value ( "ENABLE_FBASELIB" ${ENABLE_FBASELIB} 0 1 )
-
-set (ENABLE_PIC 0 CACHE INT
-   "Compile with position-independent code enabled")
-check_option_value ( "ENABLE_PIC" ${ENABLE_PIC} 0 1 )
-
-set (BL_SPACEDIM 3 CACHE INT "Dimension of AMReX build")
-check_option_value ( "BL_SPACEDIM" ${BL_SPACEDIM} 2 3 )
-
-set (ENABLE_MPI 1 CACHE INT "Enable build with MPI")
-check_option_value ( "ENABLE_MPI" ${ENABLE_MPI} 0 1 )
-
-set (ENABLE_OMP 0 CACHE INT "Enable build with OpenMP")
-check_option_value ( "ENABLE_OMP" ${ENABLE_OMP} 0 1 )
-
-set (ENABLE_DP 1 CACHE INT "Enable double precision build")
-check_option_value ( "ENABLE_DP" ${ENABLE_DP} 0 1 )
-
-set (ENABLE_PARTICLES 0 CACHE INT "Include Particles classes in AMReX build")
-check_option_value ( "ENABLE_PARTICLES" ${ENABLE_PARTICLES} 0 1 )
-
-set (ENABLE_DP_PARTICLES 1 CACHE INT "Enable double-precision for particles data") 
-check_option_value ( "ENABLE_DP_PARTICLES" ${ENABLE_DP_PARTICLES} 0 1 )
-
-set (ENABLE_PROFILING 0 CACHE INT "Include profiling information in AMReX build")
-check_option_value ( "ENABLE_PROFILING" ${ENABLE_PROFILING} 0 1 )
-
-set (ENABLE_TINY_PROFILING 0 CACHE INT "Include 'tiny'-profiling information in AMReX build")
-check_option_value ( "ENABLE_TINY_PROFILING" ${ENABLE_TINY_PROFILING} 0 1 )
-
-set (ENABLE_BACKTRACE 1 CACHE INT "Include backtrace information in AMReX build")
-check_option_value ( "ENABLE_BACKTRACE" ${ENABLE_BACKTRACE} 0 1 )
-
-set (ENABLE_FPE 0 CACHE INT "Enable Floating Point Exceptions checks")
-check_option_value ( "ENABLE_FPE" ${ENABLE_FPE} 0 1 )
-   
-set (AMREX_FFLAGS_OVERRIDES "" CACHE STRING "User-defined Fortran compiler flags" )
-
-set (AMREX_CXXFLAGS_OVERRIDES "" CACHE STRING "User-defined C++ compiler flags" )
+if ( USE_XSDK_DEFAULTS )
+   set ( XSDK_PRECISION "DOUBLE" CACHE STRING "Precision:<SINGLE,DOUBLE>" )
+   if ( "${XSDK_PRECISION}" STREQUAL "DOUBLE" )
+      set ( ENABLE_DP ON )
+   elseif ( "${XSDK_PRECISION}" STREQUAL "SINGLE" )
+      set ( ENABLE_DP OFF )
+   else ()
+      message ( WARNING "Unsupported precision ${XSDK_PRECISION}: defaulting to DOUBLE" )
+      set ( XSDK_PRECISION "DOUBLE" CACHE STRING "Precision:<SINGLE,DOUBLE>" )
+      set ( ENABLE_DP ON )
+   endif ()
+   print_option ( XSDK_PRECISION )
+else ()
+   option ( ENABLE_DP "Enable double precision" ON )
+   print_option ( ENABLE_DP )
+endif ()
 
 
 #
-# The following are a set of options from previous
-# version of AMReX/CMake. Their use is unclear
+# AMReX components selection
+# 
+option ( ENABLE_EB "Build EB Code" OFF )
+print_option (ENABLE_EB)
+
+if ( USE_XSDK_DEFAULTS )
+   option ( XSDK_ENABLE_Fortran "Build Fortran API" OFF )
+   print_option (XSDK_ENABLE_Fortran)
+   set ( ENABLE_FORTRAN_INTERFACES ${XSDK_ENABLE_Fortran} )
+   print_option (ENABLE_FORTRAN_INTERFACES)
+else() 
+   option ( ENABLE_FORTRAN_INTERFACES "Build Fortran API" ON )
+   print_option (ENABLE_FORTRAN_INTERFACES)
+endif ()
+
+option ( ENABLE_LINEAR_SOLVERS  "Build AMReX Linear solvers" ON )
+print_option ( ENABLE_LINEAR_SOLVERS )
+
+############ To be removed #####################
+set ( ENABLE_FBASELIB "DEPRECATED" CACHE STRING "Build Fortran kernel (deprecated)" FORCE)
+print_option (ENABLE_FBASELIB)
+################################################
+
+option ( ENABLE_AMRDATA "Build data services" OFF)
+print_option ( ENABLE_AMRDATA )
+
+option ( ENABLE_PARTICLES "Build particle classes" OFF)
+print_option ( ENABLE_PARTICLES )
+
+if ( ENABLE_PARTICLES )
+   if ( USE_XSDK_DEFAULTS )
+      if ( "${XSDK_PRECISION}" STREQUAL "DOUBLE" )
+	 set ( ENABLE_DP_PARTICLES ON )
+      elseif ( "${XSDK_PRECISION}" STREQUAL "SINGLE" )
+	 set ( ENABLE_DP_PARTICLES OFF )
+      endif ()
+   else ()
+      option ( ENABLE_DP_PARTICLES "Enable double-precision particle data" ON )
+      print_option ( ENABLE_DP_PARTICLES )
+   endif ()
+endif ()
+
 #
-set ( ENABLE_MG_BOXLIB 0 CACHE INT "Enable Fortran for MultiGrid Solver" )
-check_option_value ( "ENABLE_FMG" ${ENABLE_MG_BOXLIB} 0 1 )
+# Compilation options
+#  
+option (ENABLE_FPE "Enable Floating Point Exceptions checks" OFF)
+print_option ( ENABLE_FPE )
 
-set ( ENABLE_FBASELIB 0 CACHE INT  "Enable Fortran BaseLib" )
-check_option_value ( "ENABLE_FBASELIB" ${ENABLE_FBASELIB} 0 1 )
+if (DEBUG)
+   option ( ENABLE_ASSERTIONS "Enable assertions" ON)
+else ()
+   option ( ENABLE_ASSERTIONS "Enable assertions" OFF)
+endif ()
 
-# After the options are set, define the following variable
-# so that other included file can check if this file has been
-# run already
-set ( AMREX_OPTIONS_SET  "TRUE" )  
+print_option ( ENABLE_ASSERTIONS )
+
+
+#
+# Profiling options
+# 
+option ( ENABLE_BASE_PROFILE "Enable basic profiling" OFF )
+print_option ( ENABLE_BASE_PROFILE )
+
+option ( ENABLE_TINY_PROFILE "NOT ENABLE_BASE_DEBUG" OFF)
+print_option ( ENABLE_TINY_PROFILE ) 
+
+option ( ENABLE_TRACE_PROFILE "Enable trace-profiling" OFF )
+print_option ( ENABLE_TRACE_PROFILE )
+
+option ( ENABLE_MEM_PROFILE   "Enable memory profiling" OFF )
+print_option ( ENABLE_MEM_PROFILE )
+
+option ( ENABLE_COMM_PROFILE  "Enable communicator-profiling" OFF )
+print_option ( ENABLE_COMM_PROFILE )
+
+option ( ENABLE_BACKTRACE "Enable backtracing" OFF)
+print_option ( ENABLE_BACKTRACE )
+
+option ( ENABLE_PROFPARSER "Enable profile parser" OFF)
+print_option ( ENABLE_PROFPARSER )
+
+set ( TP_PROFILE "None" CACHE STRING "Third-party profiling options:<CRAYPAT,FORGE,VTUNE>")
+print_option ( TP_PROFILE )
+
+
+# Modify the profiling options if needed ( because of dependencies between
+# the options )
+if (ENABLE_PROFPARSER)
+   set (ENABLE_BASE_PROFILE ON)
+   set (ENABLE_TRACE_PROFILE ON)
+   set (ENABLE_AMRDATA ON)
+endif ()
+
+if (ENABLE_TRACE_PROFILE OR ENABLE_COMM_PROFILE)
+   set (ENABLE_BASE_PROFILE ON)
+endif ()
+
+if (ENABLE_BASE_PROFILE)
+   set (ENABLE_TINY_PROFILE OFF)
+endif()
+
+# Check profile options
+if ( NOT ( ${CMAKE_C_COMPILER_ID} MATCHES "Intel" ) AND
+      ( ${TP_PROFILE} MATCHES "VTUNE") )
+   message ( WARNING "VTUNE cannot be used with ${CMAKE_C_COMPILER_ID} compiler: ignoring TP_PROFILE" )
+   set ( TP_PROFILE "")
+endif ()
+
+if (  ( ( ${TP_PROFILE} MATCHES "CRAYPAT" ) OR
+        ( ${TP_PROFILE} MATCHES "FORGE"   ) OR
+        ( ${TP_PROFILE} MATCHES "VTUNE"   )   ) AND
+     (ENABLE_BASE_PROFILE OR ENABLE_TINY_PROFILE) )
+   message (WARNING "This configuration should only be used to profile BL_PROFILE!")
+endif()
 

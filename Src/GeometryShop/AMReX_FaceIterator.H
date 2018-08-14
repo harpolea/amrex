@@ -1,22 +1,9 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-
-#ifndef _FACEITERATOR_H_
-#define _FACEITERATOR_H_
+#ifndef AMREX_FACEITERATOR_H_
+#define AMREX_FACEITERATOR_H_
 
 #include "AMReX_IntVect.H"
 #include "AMReX_FaceIndex.H"
 #include "AMReX_IntVectSet.H"
-#include <vector>
 
 namespace amrex
 {
@@ -107,7 +94,7 @@ namespace amrex
     bool isDefined() const;
 
     ///
-    const std::vector<FaceIndex>& getVector() const;
+    const Vector<FaceIndex>& getVector() const;
 
   private:
     ///
@@ -118,7 +105,7 @@ namespace amrex
                   int a_direction, const FaceStop::WhichFaces& a_location);
 
     bool                   m_isDefined;
-    std::vector<FaceIndex> m_faces;
+    Vector<FaceIndex> m_faces;
     int                    m_iface;
     int                    m_direction;
 

@@ -1,14 +1,3 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -124,8 +113,8 @@ namespace amrex
       {
         retval = true;
         a_areaFracLo = (m_plateLocation - loclo)/a_dx;
-        a_areaFracLo = std::max(a_areaFracLo, 0.0);
-        a_areaFracLo = std::min(a_areaFracLo, 1.0);
+        a_areaFracLo = std::max(a_areaFracLo*1.0, 0.0);
+        a_areaFracLo = std::min(a_areaFracLo*1.0, 1.0);
         a_areaFracHi = 1.0 - a_areaFracLo;
       }
     }
@@ -182,7 +171,7 @@ namespace amrex
   ////////////
   void
   FlatPlateGeom::
-  addIrregularNodes(std::vector<IrregNode>   & a_nodes,
+  addIrregularNodes(Vector<IrregNode>        & a_nodes,
                     const BaseFab<int>       & a_numVolumes,
                     const IntVect            & a_iv,
                     const Box                & a_domain,
@@ -193,6 +182,8 @@ namespace amrex
     {
       IrregNode loNode, hiNode;
       Real areaFracLo, areaFracHi;
+      loNode.m_hasMoments = false;
+      hiNode.m_hasMoments = false;
       loNode.m_cell = a_iv;
       hiNode.m_cell = a_iv;
       loNode.m_cellIndex = 0;
@@ -242,12 +233,12 @@ namespace amrex
             loNode.m_volCentroid   = volCentroidLo;
             hiNode.m_volCentroid   = volCentroidHi;
 
-            loNode.m_arc         [arcInd] = std::vector<int>(1,otherVolLo);
-            hiNode.m_arc         [arcInd] = std::vector<int>(1,otherVolHi);
-            loNode.m_areaFrac    [arcInd] = std::vector<Real>(1,areaFracLo);
-            hiNode.m_areaFrac    [arcInd] = std::vector<Real>(1,areaFracHi);
-            loNode.m_faceCentroid[arcInd] = std::vector<RealVect>(1,faceCentroidLo);
-            hiNode.m_faceCentroid[arcInd] = std::vector<RealVect>(1,faceCentroidHi);
+            loNode.m_arc         [arcInd] = Vector<int>(1,otherVolLo);
+            hiNode.m_arc         [arcInd] = Vector<int>(1,otherVolHi);
+            loNode.m_areaFrac    [arcInd] = Vector<Real>(1,areaFracLo);
+            hiNode.m_areaFrac    [arcInd] = Vector<Real>(1,areaFracHi);
+            loNode.m_faceCentroid[arcInd] = Vector<RealVect>(1,faceCentroidLo);
+            hiNode.m_faceCentroid[arcInd] = Vector<RealVect>(1,faceCentroidHi);
           } // end loop over sides
         } //end if faceDir != normaldir
         else
@@ -261,12 +252,12 @@ namespace amrex
           hiNode.m_arc[     arcIndLo].resize(0);
           hiNode.m_areaFrac[arcIndLo].resize(0);
 
-          loNode.m_arc[         arcIndLo] = std::vector<int>(1,0);
-          hiNode.m_arc[         arcIndHi] = std::vector<int>(1,0);
-          loNode.m_areaFrac[    arcIndLo] = std::vector<Real>(1,1.0);
-          hiNode.m_areaFrac[    arcIndHi] = std::vector<Real>(1,1.0);
-          loNode.m_faceCentroid[arcIndLo] = std::vector<RealVect>(1,RealVect::Zero);
-          hiNode.m_faceCentroid[arcIndHi] = std::vector<RealVect>(1,RealVect::Zero);
+          loNode.m_arc[         arcIndLo] = Vector<int>(1,0);
+          hiNode.m_arc[         arcIndHi] = Vector<int>(1,0);
+          loNode.m_areaFrac[    arcIndLo] = Vector<Real>(1,1.0);
+          hiNode.m_areaFrac[    arcIndHi] = Vector<Real>(1,1.0);
+          loNode.m_faceCentroid[arcIndLo] = Vector<RealVect>(1,RealVect::Zero);
+          hiNode.m_faceCentroid[arcIndHi] = Vector<RealVect>(1,RealVect::Zero);
         }//end faceDir == normaldir
       } //end loop over directions
       a_nodes.push_back(loNode);
@@ -275,6 +266,7 @@ namespace amrex
     else //i am one volume but I point into two on at least one side
     {
       IrregNode edgeNode;
+      edgeNode.m_hasMoments = false;
       edgeNode.m_cell = a_iv;
       edgeNode.m_volFrac = 1.;
       edgeNode.m_cellIndex = 0;
@@ -290,10 +282,10 @@ namespace amrex
           bool isCut = isFaceCut(areaFracLo, areaFracHi, a_iv, faceDir, sit(), a_domain, a_origin, a_dx);
           if(!isCut)
           {
-            edgeNode.m_arc         [arcInd] = std::vector<int>(1,0);
-            edgeNode.m_areaFrac    [arcInd] = std::vector<Real>(1,0);
-            edgeNode.m_faceCentroid[arcInd] = std::vector<RealVect>(1,RealVect::Zero);
-            edgeNode.m_faceCentroid[arcInd] = std::vector<RealVect>(1,RealVect::Zero);
+            edgeNode.m_arc         [arcInd] = Vector<int>(1,0);
+            edgeNode.m_areaFrac    [arcInd] = Vector<Real>(1,0);
+            edgeNode.m_faceCentroid[arcInd] = Vector<RealVect>(1,RealVect::Zero);
+            edgeNode.m_faceCentroid[arcInd] = Vector<RealVect>(1,RealVect::Zero);
           }
           else
           {
@@ -348,7 +340,8 @@ namespace amrex
   void
   FlatPlateGeom::
   fillGraph(BaseFab<int>             & a_regIrregCovered,
-            std::vector<IrregNode>   & a_nodes,
+            Vector<IrregNode>        & a_nodes,
+            NodeMap                  & a_intersections,
             const Box                & a_validRegion,
             const Box                & a_ghostRegion,
             const Box                & a_domain,
@@ -357,12 +350,14 @@ namespace amrex
   {
     assert(a_domain.contains(a_ghostRegion));
     a_nodes.resize(0);
-    a_regIrregCovered.resize(a_ghostRegion, 1);
 
-    BaseFab<int> numVolumes(a_ghostRegion, 1);
+    Box bigGhost = grow(a_ghostRegion, 1);
+    bigGhost &= a_domain;
+    BaseFab<int> numVolumes( bigGhost, 1);
+    a_regIrregCovered.resize(bigGhost, 1);
     long int numReg=0, numIrreg=0;
 
-    for (BoxIterator bit(a_ghostRegion); bit.ok(); ++bit)
+    for (BoxIterator bit(bigGhost); bit.ok(); ++bit)
     {
       const IntVect iv =bit();
       bool isCut = isCellCut(iv, a_domain, a_origin, a_dx);
@@ -387,6 +382,9 @@ namespace amrex
         {
           a_regIrregCovered(iv, 0) = 0;
           numVolumes(iv, 0) =  numVol;
+          // TODO: Add intersections here
+          // ...this will break the node map data structure, since there is currently only one intersection
+          // allowed per edge.
           numIrreg++;
         }
 
@@ -398,7 +396,6 @@ namespace amrex
       const IntVect iv =bit();
       if(a_regIrregCovered(iv, 0) == 0)
       {
-        const IntVect iv =bit();
         addIrregularNodes(a_nodes, numVolumes, iv, a_domain, a_origin, a_dx);
       }
     }

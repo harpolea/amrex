@@ -6,10 +6,33 @@
 #include <AMReX_FabArrayBase.H>
 #include <AMReX_IntVect.H>
 #include <AMReX_FArrayBox.H>
+#include <AMReX_RealBox.H>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 namespace amrex {
 
 template<class T> class FabArray;
+
+struct MFItInfo
+{
+    bool do_tiling;
+    bool dynamic;
+    IntVect tilesize;
+    MFItInfo () 
+        : do_tiling(false), dynamic(false), tilesize(IntVect::TheZeroVector()) {}
+    MFItInfo& EnableTiling (const IntVect& ts = FabArrayBase::mfiter_tile_size) {
+        do_tiling = true;
+        tilesize = ts;
+        return *this;
+    }
+    MFItInfo& SetDynamic (bool f) {
+        dynamic = f;
+        return *this;
+    }
+};
 
 class MFIter
 {
@@ -54,6 +77,8 @@ public:
     MFIter (const BoxArray& ba, const DistributionMapping& dm,
 	    const IntVect& tilesize, unsigned char flags_=0);
 
+    MFIter (const FabArrayBase& fabarray, const MFItInfo& info);
+
     MFIter (MFIter&& rhs) = default;
 
     // dtor
@@ -65,14 +90,21 @@ public:
     //! Return the tilebox with provided nodal flag
     Box tilebox (const IntVect& nodal) const;
 
+    //! Return the tilebox with provided nodal flag and grown cells
+    Box tilebox (const IntVect& nodal, const IntVect& ngrow) const;
+
     //! Return the dir-nodal (or all nodal if dir<0) Box at the current index.
     Box nodaltilebox (int dir=-1) const;
 
     //! Return the tile box at the current index grown to include ghost cells.
     Box growntilebox (int ng=-1000000) const;
 
+    Box growntilebox (const IntVect& ng) const;
+
     //! Return the dir-nodal (or all nodal if dir<0) box grown to include ghost cells.
     Box grownnodaltilebox (int dir=-1, int ng=-1000000) const;
+
+    Box grownnodaltilebox (int dir, const IntVect& ng) const;
 
     //! Return the valid Box in which the current tile resides.
     Box validbox () const { return fabArray.box((*index_map)[currentIndex]); }
@@ -81,7 +113,18 @@ public:
     Box fabbox () const { return fabArray.fabbox((*index_map)[currentIndex]); }
 
     //! Increment iterator to the next tile we own.
+#ifdef _OPENMP
+    void operator++ () {
+        if (dynamic) {
+#pragma omp atomic capture
+            currentIndex = nextDynamicIndex++;
+        } else {
+            ++currentIndex;
+        }
+    }
+#else
     void operator++ () { ++currentIndex; }
+#endif
 
     //! Is the iterator valid i.e. is it associated with a FAB?
     bool isValid () const { return currentIndex < endIndex; }
@@ -94,6 +137,8 @@ public:
   
     //! The the number of tiles in the current grid;
     int numLocalTiles() const {return num_local_tiles ? (*num_local_tiles)[currentIndex] : 1;}
+
+    const RealBox& registerRealBox (const RealBox& rbox) const;
 
     /**
     * \brief Return local index into the vector of fab pointers, m_fabs_v
@@ -122,14 +167,25 @@ protected:
     int           endIndex;
     IndexType     typ;
 
-    const Array<int>* index_map;
-    const Array<int>* local_index_map;
-    const Array<Box>* tile_array;
-    const Array<int>* local_tile_index_map;
-    const Array<int>* num_local_tiles;
+    bool          dynamic;
+
+    const Vector<int>* index_map;
+    const Vector<int>* local_index_map;
+    const Vector<Box>* tile_array;
+    const Vector<int>* local_tile_index_map;
+    const Vector<int>* num_local_tiles;
+
+    static int nextDynamicIndex;
   
     void Initialize ();
 };
+
+inline
+const RealBox&
+MFIter::registerRealBox(const RealBox& rbox) const
+{
+    return rbox;
+}
 
 //! Iterate over ghost cells.  Lots of MFIter functions do not work.
 class MFGhostIter

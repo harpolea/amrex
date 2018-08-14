@@ -1,19 +1,11 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
+#ifndef AMREX_BASEIFFABI_H_
+#define AMREX_BASEIFFABI_H_
 
-#ifndef _BASEIFFABI_H_
-#define _BASEIFFABI_H_
 #include "AMReX_FaceIterator.H"
 #include "AMReX_SPMD.H"
 #include "AMReX_parstream.H"
+
+#include <cmath>
 
 namespace amrex
 {
@@ -74,6 +66,7 @@ namespace amrex
 
     FaceIterator faceit(m_ivs, a_ebgraph, m_direction, FaceStop::SurroundingWithBoundary);
     m_faces = faceit.getVector();
+    std::sort(m_faces.begin(), m_faces.end());
     m_nFaces = m_faces.size();
 
     m_data = new T[m_nComp*m_nFaces];
@@ -123,23 +116,35 @@ namespace amrex
 
 
     assert(a_fromBox == a_toBox);
-    Box intBox = a_toBox;
+    Box intBox = amrex::grow(a_toBox, m_direction, 1);
     IntVectSet ivsintersect = m_ivs;
-    ivsintersect &=  a_src.m_ivs;
-    ivsintersect &=  intBox;
+    ivsintersect &= a_src.m_ivs;
+    ivsintersect &= intBox;
 
     for (int iface = 0; iface < m_faces.size(); iface++)
     {
       const FaceIndex& face = m_faces[iface];
       const IntVect& ivHi = face.gridIndex(Side::Hi);
       const IntVect& ivLo = face.gridIndex(Side::Lo);
-      if (ivsintersect.contains(ivHi) || ivsintersect.contains(ivLo))
+      if ((intBox.contains(ivHi) || intBox.contains(ivLo)) &&
+	  (ivsintersect.contains(ivHi) || ivsintersect.contains(ivLo)))
       {
+	int src_ifaceindex = a_src.getFaceIndexIndex(face);
         for (int icomp = 0; icomp < a_numcomp; icomp++)
         {
           int isrccomp = a_srccomp  + icomp;
           int idstcomp = a_destcomp + icomp;
-          (*this)(face, idstcomp) = a_src(face, isrccomp);
+//this is weiqun's beautiful solution that cannot work for IndMomSpaceDim.
+//had to move it to a template specialization
+//          if (!std::isnan(a_src(src_ifaceindex, isrccomp))) {
+//              (*this)(iface, idstcomp) = a_src(src_ifaceindex, isrccomp);
+//          }
+
+          if (isValid(a_src(src_ifaceindex, isrccomp)))
+          {
+            (*this)(iface, idstcomp) = a_src(src_ifaceindex, isrccomp);
+          }
+
         }
       }
     }
@@ -167,37 +172,14 @@ namespace amrex
   {
     assert(m_isDefined);
     assert((a_comp >= 0) && (a_comp < this->m_nComp));
-
-    T* dataPtr =  this->m_data;
-    bool found = false;
-    T* retval=NULL;
-    for (int iface = 0; iface < m_faces.size(); ++iface)
-    {
-      if (a_face == m_faces[iface])
-      {
-        found = true;
-        retval=dataPtr;
-      }
-      if (found) break;
-      dataPtr++;
-    }
-    if (!found)
-    {
-      pout() << "BaseIFFAB::getIndex, index  = " << a_face << endl;
-      pout() << "my faces  = " << endl;
-      dumpFaces(m_faces);
-      
-      amrex::Error("BaseIFFAB:index not found");
-    }
-    retval += a_comp*this->m_nFaces;
-    return retval;
-
+    int ifaceindex = this->getFaceIndexIndex(a_face);
+    return this->getIndex(ifaceindex, a_comp);
   }
 /*********/
   template <class T> inline
   void
   BaseIFFAB<T>::
-  dumpFaces(const vector<FaceIndex>& a_faces) const
+  dumpFaces(const Vector<FaceIndex>& a_faces) const
   {
     for (int iface = 0; iface < a_faces.size(); ++iface)
     {
@@ -227,8 +209,7 @@ namespace amrex
     assert(isDefined());
     assert(a_ndin.direction() == m_direction);
 
-    T* dataPtr =   getIndex(a_ndin, a_comp);
-    return(*dataPtr);
+    return *(getIndex(a_ndin, a_comp));
   }
 /**************************/
   template <class T> inline
@@ -239,8 +220,7 @@ namespace amrex
     assert(isDefined());
     assert(a_ndin.direction() == m_direction);
 
-    T* dataPtr =   getIndex(a_ndin, a_comp);
-    return(*dataPtr);
+    return *(getIndex(a_ndin, a_comp));
   }
 /******************/
   template <class T> inline
@@ -276,7 +256,7 @@ namespace amrex
   template <class T> inline
   void
   BaseIFFAB<T>::
-  getFaceSubset(std::vector<FaceIndex>& a_subFaces, const Box& a_subBox) const
+  getFaceSubset(Vector<FaceIndex>& a_subFaces, const Box& a_subBox) const
   {
     a_subFaces.resize(0);
     for (int iface = 0; iface < m_faces.size(); iface++)
@@ -300,7 +280,7 @@ namespace amrex
   {
     assert(isDefined());
     //create set of cells in fab that are also in the input region
-    std::vector<FaceIndex> faces;
+    Vector<FaceIndex> faces;
     getFaceSubset(faces, a_region);
     
     //account for list of faces
@@ -333,7 +313,7 @@ namespace amrex
              void*      a_buf) const
   {
     assert(isDefined());
-    std::vector<FaceIndex> faces;
+    Vector<FaceIndex> faces;
     getFaceSubset(faces, a_region);
 
     //output the faces.
@@ -373,7 +353,7 @@ namespace amrex
     size_t retval  = 0;
     size_t incrval = 0; 
     unsigned char* buffer = (unsigned char *) a_buf;
-    std::vector<FaceIndex> faces;
+    Vector<FaceIndex> faces;
     linearListIn(faces, buffer);
     incrval =  linearListSize(faces);
     buffer += incrval;
@@ -387,10 +367,18 @@ namespace amrex
       for (int icomp = dstcomp; icomp <= endcomp; icomp++)
       {
         //input the data
-        T& dataPt = (*this)(face, icomp);
-        linearIn(dataPt, buffer) ;
+        T value;
+        linearIn(value, buffer) ;
+//this trick only works on real. has to move to a template specialization
+//        if (!std::isnan(value)) {
+//            (*this)(face, icomp) = value;
+//        }
+        if (isValid(value))
+        {
+          (*this)(face, icomp) = value;
+        }
         //increment the buffer offset
-        incrval = linearSize(dataPt);
+        incrval = linearSize(value);
         buffer += incrval;
         retval += incrval;
       }
@@ -526,8 +514,17 @@ namespace amrex
       const FaceIndex face = m_faces[iface];
       for(int icomp = 0; icomp < m_nComp; icomp++)
       {
-        T& value = (*this)(face, icomp);
+        T value;
         linearIn(value, buf);
+//this very nice weiqun trick only works if T is a real.
+//had to move it to a template specialization
+//        if (!std::isnan(value)) {
+//            (*this)(face, icomp) = value;
+//        }
+        if (isValid(value)) 
+        {
+            (*this)(face, icomp) = value;
+        }
         incval = linearSize(value);
         retval += incval;
         buf    += incval;

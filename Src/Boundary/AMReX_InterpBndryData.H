@@ -1,6 +1,6 @@
 
-#ifndef _INTERPBNDRYDATA_H_
-#define _INTERPBNDRYDATA_H_
+#ifndef AMREX_INTERPBNDRYDATA_H_
+#define AMREX_INTERPBNDRYDATA_H_
 
 #include <AMReX_BoxArray.H>
 #include <AMReX_FArrayBox.H>
@@ -78,7 +78,7 @@ public:
     //
     virtual void setBndryConds (const BCRec&   phys_bc,
                                 const IntVect& ratio,
-				int            comp = 0) = 0;
+				int            comp = 0) {}
     //
     // set bndry values at coarse level (non interpolation performed)
     //
@@ -86,6 +86,20 @@ public:
                                  int             mf_start,
                                  int             bnd_start,
                                  int             num_comp,
+                                 const BCRec&    phys_bc);
+
+    virtual void setBndryValues (const MultiFab& mf,
+                                 int             mf_start,
+                                 int             bnd_start,
+                                 int             num_comp,
+                                 int             ratio,
+                                 const BCRec&    phys_bc);
+
+    virtual void setBndryValues (const MultiFab& mf,
+                                 int             mf_start,
+                                 int             bnd_start,
+                                 int             num_comp,
+                                 const IntVect&  ratio,
                                  const BCRec&    phys_bc);
     //
     // set bndry values at fine level, performing necessary interpolations
@@ -111,10 +125,30 @@ public:
                                  const IntVect&  ratio, 
                                  const BCRec&    phys_bc,
                                  int             max_order = IBD_max_order_DEF);
+
+    void updateBndryValues (BndryRegister& crse, int c_start, int bnd_start, int num_comp,
+                            const IntVect& ratio, int max_order = IBD_max_order_DEF);
+
+    void updateBndryValues (BndryRegister& crse, int c_start, int bnd_start, int num_comp,
+                            int ratio, int max_order = IBD_max_order_DEF);
+
+    void setHomogValues ();
     
     static int IBD_max_order_DEF;
 
     static int maxOrderDEF() {return IBD_max_order_DEF;}
+
+private:
+
+    void BndryValuesDoIt (BndryRegister&  crse,
+                          int             c_start,
+                          const MultiFab* fine,
+                          int             f_start,
+                          int             bnd_start,
+                          int             num_comp,
+                          const IntVect&  ratio, 
+                          const BCRec*    phys_bc,
+                          int             max_order);
 };
 
 }

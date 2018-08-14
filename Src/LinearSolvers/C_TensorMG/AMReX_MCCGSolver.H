@@ -1,10 +1,11 @@
 
-#ifndef _MCCGSOLVER_H_
-#define _MCCGSOLVER_H_
+#ifndef AMREX_MCCGSOLVER_H_
+#define AMREX_MCCGSOLVER_H_
 
 #include <cmath>
 
 #include <AMReX_Array.H>
+#include <AMReX_Vector.H>
 #include <AMReX_MultiFab.H>
 #include <AMReX_MCLinOp.H>
 #include <AMReX_MCMultiGrid.H>

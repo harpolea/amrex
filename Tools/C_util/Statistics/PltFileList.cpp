@@ -12,7 +12,7 @@
 #include <AMReX_DataServices.H>
 #include <AMReX_Utility.H>
 
-#ifndef NDEBUG
+#ifdef AMREX_DEBUG
 #include <TV_TempWrite.H>
 #endif
 
@@ -112,8 +112,8 @@ main (int   argc,
 	AmrData& amrData = dataServices.AmrDataRef();
       
 	nComp = amrData.NComp();
-	Array<string> names = amrData.PlotVarNames();
-	Array<int> destcomp(names.size());
+	Vector<string> names = amrData.PlotVarNames();
+	Vector<int> destcomp(names.size());
 
 	for (int j=0; j<names.size();j++) 
 	  destcomp[j] = j;

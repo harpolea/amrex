@@ -1,30 +1,33 @@
-#ifndef _ErrorList_H_
-#define _ErrorList_H_
+#ifndef AMREX_ErrorList_H_
+#define AMREX_ErrorList_H_
 
 #include <string>
 #include <memory>
 
 #include <AMReX_Array.H>
+#include <AMReX_Vector.H>
 #include <AMReX_REAL.H>
 #include <AMReX_ArrayLim.H>
+
+namespace amrex {
 
 extern "C"
 {
     //
     // Type of extern "C" function called by ErrorRec to do tagging of cells for refinement.
     //
-    typedef void (*ErrorFuncDefault)(int* tag, ARLIM_P(tlo), ARLIM_P(thi),
+    typedef void (*ErrorFuncDefault)(int* tag, AMREX_ARLIM_P(tlo), AMREX_ARLIM_P(thi),
                                      const int* tagval, const int* clearval,
-                                     amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
+                                     amrex::Real* data, AMREX_ARLIM_P(data_lo), AMREX_ARLIM_P(data_hi),
                                      const int* lo, const int * hi, const int* nvar,
                                      const int* domain_lo, const int* domain_hi,
                                      const amrex::Real* dx, const amrex::Real* xlo,
                                      const amrex::Real* prob_lo, const amrex::Real* time,
                                      const int* level);
 
-    typedef void (*ErrorFunc2Default)(int* tag, ARLIM_P(tlo), ARLIM_P(thi),
+    typedef void (*ErrorFunc2Default)(int* tag, AMREX_ARLIM_P(tlo), AMREX_ARLIM_P(thi),
                                       const int* tagval, const int* clearval,
-                                      amrex::Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
+                                      amrex::Real* data, AMREX_ARLIM_P(data_lo), AMREX_ARLIM_P(data_hi),
                                       const int* lo, const int * hi, const int* nvar,
                                       const int* domain_lo, const int* domain_hi,
                                       const amrex::Real* dx, const int* level, const amrex::Real* avg);
@@ -42,8 +45,6 @@ extern "C"
                                        const int* level);  
   
 }
-
-namespace amrex {
 
 //
 // Error Record.
@@ -92,9 +93,9 @@ public:
         //
         // Tag cells using "regular" function.
         //
-        virtual void operator () (int* tag, ARLIM_P(tlo), ARLIM_P(thi),
+        virtual void operator () (int* tag, AMREX_ARLIM_P(tlo), AMREX_ARLIM_P(thi),
                                   const int* tagval, const int* clearval,
-                                  Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
+                                  Real* data, AMREX_ARLIM_P(data_lo), AMREX_ARLIM_P(data_hi),
                                   const int* lo, const int * hi, const int* nvar,
                                   const int* domain_lo, const int* domain_hi,
                                   const Real* dx, const Real* xlo,
@@ -139,9 +140,9 @@ public:
         //
         // Tag cells cells using "v2" interface
         //
-        virtual void operator () (int* tag, ARLIM_P(tlo), ARLIM_P(thi),
+        virtual void operator () (int* tag, AMREX_ARLIM_P(tlo), AMREX_ARLIM_P(thi),
                                   const int* tagval, const int* clearval,
-                                  Real* data, ARLIM_P(data_lo), ARLIM_P(data_hi),
+                                  Real* data, AMREX_ARLIM_P(data_lo), AMREX_ARLIM_P(data_hi),
                                   const int* lo, const int * hi, const int* nvar,
                                   const int* domain_lo, const int* domain_hi,
                                   const Real* dx, const int* level, const Real* avg) const;
@@ -233,7 +234,7 @@ public:
 
 private:
 
-    Array<std::unique_ptr<ErrorRec> > vec;
+    Vector<std::unique_ptr<ErrorRec> > vec;
 };
 
 std::ostream& operator << (std::ostream& os, const ErrorList& elst);

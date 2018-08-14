@@ -1,18 +1,5 @@
-
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
 #include "AMReX_PolyGeom.H"
 #include "AMReX_TransformIF.H"
-using std::vector;
 
 namespace amrex
 {
@@ -94,16 +81,16 @@ namespace amrex
     Real temp[SpaceDim+1][SpaceDim+1];
 
     // Set up a scaling vector
-    RealVect scale(D_DECL(a_scale,a_scale,a_scale));
+    RealVect rscale(AMREX_D_DECL(a_scale,a_scale,a_scale));
 
     // Create the forward transformation matrix
-    matrixScale(temp,scale);
+    matrixScale(temp,rscale);
 
     // Update the overall forward transform
     matrixMultiply(m_transform,temp,m_transform);
 
     // Set up an inverse scaling vector
-    RealVect invScale(D_DECL(1.0/a_scale,1.0/a_scale,1.0/a_scale));
+    RealVect invScale(AMREX_D_DECL(1.0/a_scale,1.0/a_scale,1.0/a_scale));
 
     // Create the inverse transformation matrix
     matrixScale(temp,invScale);
@@ -118,10 +105,10 @@ namespace amrex
     Real temp[SpaceDim+1][SpaceDim+1];
 
     // Set up a scaling vector
-    RealVect scale = a_scale;
+    RealVect rscale = a_scale;
 
     // Create the forward transformation matrix
-    matrixScale(temp,scale);
+    matrixScale(temp,rscale);
 
     // Update the overall forward transform
     matrixMultiply(m_transform,temp,m_transform);
@@ -129,11 +116,11 @@ namespace amrex
     // Inverse scaling
     for (int idir = 0; idir < SpaceDim; idir++)
     {
-      scale[idir] = 1.0 / scale[idir];
+      rscale[idir] = 1.0 / rscale[idir];
     }
 
     // Create the inverse transformation matrix
-    matrixScale(temp,scale);
+    matrixScale(temp,rscale);
 
     // Update the overall inverse transform
     matrixMultiply(m_invTransform,m_invTransform,temp);
@@ -160,7 +147,7 @@ namespace amrex
     matrixTranslate(forTrans,invTranslate);
     matrixTranslate(invTrans,invTranslate);
 
-#if BL_SPACEDIM == 3
+#if AMREX_SPACEDIM == 3
     // Rotate everything so a_axis aligns with the z-axis
     Real theta = 0.0;
     Real sinTheta = 0.0;
@@ -233,7 +220,7 @@ namespace amrex
     // Update the inverse transformation
     matrixMultiply(invTrans,temp,invTrans);
 
-#if BL_SPACEDIM == 3
+#if AMREX_SPACEDIM == 3
     // Set up the rotation matrix
     matrixIdentity(temp);
 
@@ -290,7 +277,7 @@ namespace amrex
 
     Real angle = acos(PolyGeom::dot(a_axis1,a_axis2)/(axis1Length*axis2Length));
 
-#if BL_SPACEDIM == 2
+#if AMREX_SPACEDIM == 2
     if (axis3[0] < 0.0)
     {
       angle *= -1.0;

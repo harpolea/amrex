@@ -1,22 +1,8 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-
-
-#ifndef _BASEEBCELLFAB_H_
-#define _BASEEBCELLFAB_H_
+#ifndef AMREX_BASEEBCELLFAB_H_
+#define AMREX_BASEEBCELLFAB_H_
 
 #include <cmath>
 #include <cstdlib>
-#include <vector>
 #include "AMReX_EBISBox.H"
 #include "AMReX_BaseIVFAB.H"
 #include "AMReX_IntVectSet.H"
@@ -154,8 +140,8 @@ namespace amrex
     ///
     const Box& box() const ;
 
-    /// has to be by value because sometimes the vector does not exist.
-    std::vector<VolIndex> getMultiCells() const ;
+    /// has to be by value because sometimes the Array does not exist.
+    Vector<VolIndex> getMultiCells() const ;
 
     ///
     const BaseIVFAB<T>& getMultiValuedFAB() const;
@@ -228,6 +214,7 @@ namespace amrex
 
     ///default false.   can make it true for T where you  they are fixed size
     static bool preAllocatable () { return false; }
+    static bool isCopyOMPSafe () { return true; }
 
     ///this includes all meta data
     std::size_t copyToMemFull(void*      dst) const;

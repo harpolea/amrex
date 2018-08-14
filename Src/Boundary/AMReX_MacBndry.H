@@ -1,6 +1,6 @@
 
-#ifndef _MACBNDRYDATA_H_
-#define _MACBNDRYDATA_H_
+#ifndef AMREX_MACBNDRYDATA_H_
+#define AMREX_MACBNDRYDATA_H_
 
 #include <AMReX_InterpBndryData.H>
 
@@ -37,6 +37,8 @@ public:
 
     int phys_bc_lo (int dir) const {return m_phys_bc.lo(dir);}
     int phys_bc_hi (int dir) const {return m_phys_bc.hi(dir);}
+
+    const BCRec& PhysBC () const { return m_phys_bc; }
 
 private:
 

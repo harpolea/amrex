@@ -65,12 +65,12 @@ PreBuildDirectorHierarchy (const std::string &dirName,
 void
 WriteGenericPlotfileHeader (std::ostream &HeaderFile,
                             int nlevels,
-                            const Array<BoxArray> &bArray,
-                            const Array<std::string> &varnames,
-                            const Array<Geometry> &geom,
+                            const Vector<BoxArray> &bArray,
+                            const Vector<std::string> &varnames,
+                            const Vector<Geometry> &geom,
                             Real time,
-                            const Array<int> &level_steps,
-                            const Array<IntVect> &ref_ratio,
+                            const Vector<int> &level_steps,
+                            const Vector<IntVect> &ref_ratio,
                             const std::string &versionName,
                             const std::string &levelPrefix,
                             const std::string &mfPrefix)
@@ -97,14 +97,14 @@ WriteGenericPlotfileHeader (std::ostream &HeaderFile,
         for (int ivar = 0; ivar < varnames.size(); ++ivar) {
 	    HeaderFile << varnames[ivar] << "\n";
         }
-        HeaderFile << BL_SPACEDIM << '\n';
+        HeaderFile << AMREX_SPACEDIM << '\n';
         HeaderFile << time << '\n';
         HeaderFile << finest_level << '\n';
-        for (int i = 0; i < BL_SPACEDIM; ++i) {
+        for (int i = 0; i < AMREX_SPACEDIM; ++i) {
             HeaderFile << Geometry::ProbLo(i) << ' ';
 	}
         HeaderFile << '\n';
-        for (int i = 0; i < BL_SPACEDIM; ++i) {
+        for (int i = 0; i < AMREX_SPACEDIM; ++i) {
             HeaderFile << Geometry::ProbHi(i) << ' ';
 	}
         HeaderFile << '\n';
@@ -121,7 +121,7 @@ WriteGenericPlotfileHeader (std::ostream &HeaderFile,
 	}
         HeaderFile << '\n';
         for (int i = 0; i <= finest_level; ++i) {
-            for (int k = 0; k < BL_SPACEDIM; ++k) {
+            for (int k = 0; k < AMREX_SPACEDIM; ++k) {
                 HeaderFile << geom[i].CellSize()[k] << ' ';
 	    }
             HeaderFile << '\n';
@@ -137,7 +137,7 @@ WriteGenericPlotfileHeader (std::ostream &HeaderFile,
 	    {
 		const Box &b(bArray[level][i]);
 		RealBox loc = RealBox(b, geom[level].CellSize(), geom[level].ProbLo());
-		for (int n = 0; n < BL_SPACEDIM; ++n) {
+		for (int n = 0; n < AMREX_SPACEDIM; ++n) {
 		    HeaderFile << loc.lo(n) << ' ' << loc.hi(n) << '\n';
 		}
 	    }
@@ -149,13 +149,14 @@ WriteGenericPlotfileHeader (std::ostream &HeaderFile,
 
 void
 WriteMultiLevelPlotfile (const std::string& plotfilename, int nlevels,
-                         const Array<const MultiFab*>& mf,
-                         const Array<std::string>& varnames,
-                         const Array<Geometry>& geom, Real time, const Array<int>& level_steps,
-                         const Array<IntVect>& ref_ratio,
+                         const Vector<const MultiFab*>& mf,
+                         const Vector<std::string>& varnames,
+                         const Vector<Geometry>& geom, Real time, const Vector<int>& level_steps,
+                         const Vector<IntVect>& ref_ratio,
                          const std::string &versionName,
                          const std::string &levelPrefix,
-                         const std::string &mfPrefix)
+                         const std::string &mfPrefix,
+                         const Vector<std::string>& extra_dirs)
 {
     BL_PROFILE("WriteMultiLevelPlotfile()");
 
@@ -167,14 +168,18 @@ WriteMultiLevelPlotfile (const std::string& plotfilename, int nlevels,
 
     int finest_level = nlevels-1;
 
-    //
-    // Only let 64 CPUs be writing at any one time.
-    //
-    int saveNFiles(VisMF::GetNOutFiles());
-    VisMF::SetNOutFiles(64);
+//    int saveNFiles(VisMF::GetNOutFiles());
+//    VisMF::SetNOutFiles(std::max(1024,saveNFiles));
 
-    bool callBarrier(true);
+    bool callBarrier(false);
     PreBuildDirectorHierarchy(plotfilename, levelPrefix, nlevels, callBarrier);
+    if (!extra_dirs.empty()) {
+        for (const auto& d : extra_dirs) {
+            const std::string ed = plotfilename+"/"+d;
+            amrex::PreBuildDirectorHierarchy(ed, levelPrefix, nlevels, callBarrier);
+        }
+    }
+    ParallelDescriptor::Barrier();
 
     if (ParallelDescriptor::IOProcessor()) {
       std::string HeaderFileName(plotfilename + "/Header");
@@ -185,7 +190,7 @@ WriteMultiLevelPlotfile (const std::string& plotfilename, int nlevels,
         FileOpenFailed(HeaderFileName);
       }
 
-      Array<BoxArray> boxArrays(nlevels);
+      Vector<BoxArray> boxArrays(nlevels);
       for(int level(0); level < boxArrays.size(); ++level) {
 	boxArrays[level] = mf[level]->boxArray();
       }
@@ -202,7 +207,8 @@ WriteMultiLevelPlotfile (const std::string& plotfilename, int nlevels,
         if (mf[level]->nGrow() > 0) {
             mf_tmp.reset(new MultiFab(mf[level]->boxArray(),
                                       mf[level]->DistributionMap(),
-                                      mf[level]->nComp(), 0));
+                                      mf[level]->nComp(), 0, MFInfo(),
+                                      mf[level]->Factory()));
             MultiFab::Copy(*mf_tmp, *mf[level], 0, 0, mf[level]->nComp(), 0);
             data = mf_tmp.get();
         } else {
@@ -211,24 +217,25 @@ WriteMultiLevelPlotfile (const std::string& plotfilename, int nlevels,
 	VisMF::Write(*data, MultiFabFileFullPrefix(level, plotfilename, levelPrefix, mfPrefix));
     }
 
-    VisMF::SetNOutFiles(saveNFiles);
+//    VisMF::SetNOutFiles(saveNFiles);
 }
 
 void
 WriteSingleLevelPlotfile (const std::string& plotfilename,
-                          const MultiFab& mf, const Array<std::string>& varnames,
+                          const MultiFab& mf, const Vector<std::string>& varnames,
                           const Geometry& geom, Real time, int level_step,
                           const std::string &versionName,
                           const std::string &levelPrefix,
-                          const std::string &mfPrefix)
+                          const std::string &mfPrefix,
+                          const Vector<std::string>& extra_dirs)
 {
-    Array<const MultiFab*> mfarr(1,&mf);
-    Array<Geometry> geomarr(1,geom);
-    Array<int> level_steps(1,level_step);
-    Array<IntVect> ref_ratio;
+    Vector<const MultiFab*> mfarr(1,&mf);
+    Vector<Geometry> geomarr(1,geom);
+    Vector<int> level_steps(1,level_step);
+    Vector<IntVect> ref_ratio;
 
     WriteMultiLevelPlotfile(plotfilename, 1, mfarr, varnames, geomarr, time,
-                            level_steps, ref_ratio, versionName, levelPrefix, mfPrefix);
+                            level_steps, ref_ratio, versionName, levelPrefix, mfPrefix, extra_dirs);
 }
 
 }

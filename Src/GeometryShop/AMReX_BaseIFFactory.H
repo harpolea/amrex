@@ -1,15 +1,3 @@
-
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
 #ifndef BL_BASEIFFABFACTORY_H_
 #define BL_BASEIFFABFACTORY_H_
 
@@ -40,6 +28,10 @@ namespace amrex
         IntVectSet ivs = graph.getIrregCells(box);
         return new  BaseIFFAB<T>(ivs, graph, m_direction, ncomps);
       }
+
+    virtual BaseIFFactory<T>* clone () const override {
+        return new BaseIFFactory<T>(*this);
+    }
 
     ///
     BaseIFFactory(shared_ptr<FabArray<EBGraph> > a_graphs, int a_direction)

@@ -5,7 +5,7 @@
 #include <AMReX_ParmParse.H>
 #include <AMReX_Print.H>
 
-#ifdef USE_PARTICLES
+#ifdef AMREX_PARTICLES
 #include <AMReX_AmrParGDB.H>
 #endif
 
@@ -40,7 +40,7 @@ AmrCore::AmrCore ()
     InitAmrCore();
 }
 
-AmrCore::AmrCore (const RealBox* rb, int max_level_in, const Array<int>& n_cell_in, int coord)
+AmrCore::AmrCore (const RealBox* rb, int max_level_in, const Vector<int>& n_cell_in, int coord)
     : AmrMesh(rb, max_level_in, n_cell_in, coord)
 {
     Initialize();
@@ -58,8 +58,8 @@ AmrCore::InitAmrCore ()
     verbose   = 0;
     ParmParse pp("amr");
     pp.query("v",verbose);
-    
-#ifdef USE_PARTICLES
+
+#ifdef AMREX_PARTICLES
     m_gdb.reset(new AmrParGDB(this));
 #endif
 }
@@ -74,7 +74,7 @@ void
 AmrCore::regrid (int lbase, Real time, bool)
 {
     int new_finest;
-    Array<BoxArray> new_grids(finest_level+2);
+    Vector<BoxArray> new_grids(finest_level+2);
     MakeNewGrids(lbase, time, new_finest, new_grids);
 
     BL_ASSERT(new_finest <= finest_level+1);

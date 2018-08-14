@@ -1,19 +1,7 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
 #include "AMReX_EBNormalizeByVolumeFraction.H"
 #include "AMReX_EBArith.H"
 #include "AMReX_EBISLayout.H"
 #include "AMReX_EBCellFactory.H"
-
 
 namespace amrex
 {
@@ -28,7 +16,7 @@ namespace amrex
                   const VolIndex  & a_vof, 
                   const MFIter    & a_dit)
   {
-    std::vector<VolIndex> neighbors;
+    Vector<VolIndex> neighbors;
     EBArith::getAllVoFsWithinRadius(neighbors, a_vof, m_eblg.getEBISL()[a_dit], m_radius);
     Real sumkap = 0;
     a_stencil.clear();
@@ -64,17 +52,17 @@ namespace amrex
     FabArray<EBCellFAB> dummy(m_eblg.getDBL(),m_eblg.getDM(), nvar, m_ghost, MFInfo(), fact);
     for(MFIter mfi(m_eblg.getDBL(), m_eblg.getDM()); mfi.isValid(); ++mfi)
     {
-      BL_PROFILE("vof stencil definition");
+//      BL_PROFILE("vof stencil definition");
       const     Box& grid = m_eblg.getDBL()  [mfi];
       const EBISBox& ebis = m_eblg.getEBISL()[mfi];
  
       IntVectSet ivs = ebis.getIrregIVS(grid);
       VoFIterator vofit(ivs, ebis.getEBGraph());
-      const std::vector<VolIndex>& vofvec = vofit.getVector();
+      const Vector<VolIndex>& vofvec = vofit.getVector();
       // cast from VolIndex to BaseIndex
-      std::vector<std::shared_ptr<BaseIndex> >    dstVoF(vofvec.size());
-      std::vector<std::shared_ptr<BaseStencil> > stencil(vofvec.size());
-      std::vector<VoFStencil> allsten(vofvec.size());
+      Vector<std::shared_ptr<BaseIndex> >    dstVoF(vofvec.size());
+      Vector<std::shared_ptr<BaseStencil> > stencil(vofvec.size());
+      Vector<VoFStencil> allsten(vofvec.size());
       // fill stencils for the vofs
       for(int ivec = 0; ivec < vofvec.size(); ivec++)
       {

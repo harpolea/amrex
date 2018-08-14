@@ -1,16 +1,5 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-#ifndef _PLANEIF_H_
-#define _PLANEIF_H_
+#ifndef AMREX_PLANEIF_H_
+#define AMREX_PLANEIF_H_
 
 #include "AMReX_RealVect.H"
 #include "AMReX_BaseIF.H"
@@ -39,6 +28,10 @@ namespace amrex
     {
     }
 
+    ///return the partial derivative at the point
+    virtual Real derivative(const  IntVect& a_deriv,
+                            const RealVect& a_point) const;
+
     ///
     /**
        Return the value of the function at a_point.  When delineating a domain,
@@ -59,10 +52,6 @@ namespace amrex
     RealVect m_normal;
     RealVect m_point;
     bool     m_inside;
-
-  private:
-    PlaneIF();
-
   };
 }
 

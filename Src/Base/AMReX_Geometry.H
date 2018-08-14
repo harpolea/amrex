@@ -1,5 +1,5 @@
-#ifndef _GEOMETRY_H_
-#define _GEOMETRY_H_
+#ifndef AMREX_GEOMETRY_H_
+#define AMREX_GEOMETRY_H_
 
 #include <iosfwd>
 #include <map>
@@ -57,7 +57,11 @@ public:
     //! Returns the problem domain.
     static const RealBox& ProbDomain () { return prob_domain; }
     //! Sets the problem domain.
-    static void ProbDomain (const RealBox& rb) { prob_domain = rb; }
+    static void ProbDomain (const RealBox& rb) 
+    { 
+        prob_domain = rb; 
+        SetOffset(rb.lo());
+    }
     //! Returns the lo end of the problem domain in each dimension.
     static const Real* ProbLo ()  { return prob_domain.lo(); }
     //! Returns the hi end of the problem domain in each dimension.
@@ -137,6 +141,13 @@ public:
 					  domain.length(2) * is_periodic[2])));
     }
 
+    static Periodicity periodicity (const Box& b) {
+        AMREX_ASSERT(b.cellCentered());
+	return Periodicity(IntVect(AMREX_D_DECL(b.length(0) * is_periodic[0],
+                                                b.length(1) * is_periodic[1],
+                                                b.length(2) * is_periodic[2])));
+    }
+
     /**
     * \brief Compute Array of shifts which will translate src so that it will
     * intersect target with non-zero intersection.  the array will be
@@ -147,15 +158,7 @@ public:
     */
     void periodicShift (const Box&      target,
                         const Box&      src, 
-                        Array<IntVect>& out) const;
-
-#ifdef BL_USE_MPI
-    //! Send Geometry to sidecar procs.
-    static void SendGeometryToSidecar (Geometry *geom, int whichSidecar);
-    //
-    static void BroadcastGeometry (Geometry &geom, int fromProc, MPI_Comm comm);
-    static void BroadcastGeometry (Geometry &geom, int fromProc, MPI_Comm comm, bool bcastSource);
-#endif
+                        Vector<IntVect>& out) const;
 
 private:
     //! Helper functions.
@@ -164,7 +167,7 @@ private:
     // Static data.
     //
     static int     spherical_origin_fix;
-    static bool    is_periodic[BL_SPACEDIM]; // 0 means not periodic
+    static bool    is_periodic[AMREX_SPACEDIM]; // 0 means not periodic
     static RealBox prob_domain;
     // Non-static data.
     //

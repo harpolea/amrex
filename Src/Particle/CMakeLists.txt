@@ -1,37 +1,10 @@
-set (CXXSRC "")
-set (F90SRC "")
-set (F77SRC "")
-set (ALLHEADERS "")
-set (ALLSRC "")
+add_sources ( AMReX_TracerParticles.cpp AMReX_LoadBalanceKD.cpp AMReX_ParticleMPIUtil.cpp)
 
-set ( CXXSRC AMReX_TracerParticles.cpp )
-   
-set ( F90SRC AMReX_Particle_mod_${BL_SPACEDIM}d.F90 )
+add_sources ( AMReX_Particles.H AMReX_ParGDB.H AMReX_TracerParticles.H )
+add_sources ( AMReX_NeighborParticles.H AMReX_NeighborParticlesI.H )
+add_sources ( AMReX_ParticleI.H AMReX_ParticleInit.H AMReX_ParticleContainerI.H )
+add_sources ( AMReX_LoadBalanceKD.H AMReX_KDTree_F.H )
+add_sources ( AMReX_ParIterI.H AMReX_Particles_F.H AMReX_ParticleMPIUtil.H)
 
-if ( ENABLE_OMP )
-   list ( APPEND F90SRC AMReX_OMPDepositionHelper_nd.F90 )
-endif ()
-
-set ( F77SRC AMReX_Particles_${BL_SPACEDIM}D.F )
-
-set ( ALLHEADERS 
-   AMReX_NeighborParticles.H   AMReX_ParGDB.H    AMReX_ParticleContainerI.H
-   AMReX_ParticleInit.H  AMReX_Particles.H   AMReX_NeighborParticlesI.H
-   AMReX_ParIterI.H  AMReX_ParticleI.H    AMReX_Particles_F.H
-   AMReX_TracerParticles.H )
-
-# Accumulate sources
-set ( ALLSRC ${CXXSRC} ${F90SRC} ${F77SRC} )
-
-#
-# Add absolute path (needed by target_sources)
-# 
-prepend ( ALLSRC     ${CMAKE_CURRENT_LIST_DIR} )
-prepend ( ALLHEADERS ${CMAKE_CURRENT_LIST_DIR} )
-
-target_sources ( amrex PRIVATE ${ALLSRC} ${ALLHEADERS} )
-
-# 
-# Accumulate headers 
-#
-accumulate_headers (ALLHEADERS)   
+add_sources ( AMReX_Particle_mod_${DIM}d.F90 AMReX_KDTree_${DIM}d.F90)
+add_sources ( AMReX_OMPDepositionHelper_nd.F90 )

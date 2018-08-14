@@ -1,5 +1,5 @@
-#ifndef _MtltiFabUtil_F_H_
-#define _MtltiFabUtil_F_H_
+#ifndef AMREX_MultiFabUtil_F_H_
+#define AMREX_MultiFabUtil_F_H_
 
 #include <AMReX_BLFort.H>
 
@@ -9,6 +9,23 @@ extern "C"
 #endif
     void amrex_fort_avg_nd_to_cc(const int* lo, const int* hi, const int* ncomp,
                                  BL_FORT_FAB_ARG(cc), const BL_FORT_FAB_ARG(nd));
+
+    void amrex_fort_int_to_real (const int* lo, const int* hi, const int* ncomp,
+                                 amrex_real* rdata, const int* rlo, const int* rhi,
+                                 const int* idata, const int* ilo, const int* ihi);
+
+    void amrex_fill_slice(const int* lo, const int* hi,
+                          const amrex_real* full_data, const int* flo, const int* fhi,
+                          amrex_real* slice_data, const int* slo, const int* shi,
+                          const int* fstart, const int* nfull, const int* ncomp);
+
+    void amrex_fill_slice_interp(const int* lo, const int* hi,
+                                 const amrex_real* full_data, const int* flo, const int* fhi,
+                                 amrex_real* slice_data, const int* slo, const int* shi,
+                                 const int* fstart, const int* nfull, const int* ncomp,
+                                 const int* dir, const amrex_real* coord, const amrex_real* plo,
+                                 const amrex_real* dx);
+    
 #ifdef __cplusplus
 }
 #endif
@@ -30,10 +47,10 @@ BL_FORT_PROC_DECL(BL_AVG_FC_TO_CC, bl_avg_fc_to_cc)
 
 BL_FORT_PROC_DECL(BL_AVG_CC_TO_FC, bl_avg_cc_to_fc)
   (const int* xlo, const int* xhi,
-#if (BL_SPACEDIM > 1)
+#if (AMREX_SPACEDIM > 1)
    const int* ylo, const int* yhi,
 #endif
-#if (BL_SPACEDIM == 3)
+#if (AMREX_SPACEDIM == 3)
    const int* zlo, const int* zhi,
 #endif
    AMREX_D_DECL(BL_FORT_FAB_ARG(fx),

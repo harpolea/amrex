@@ -1,21 +1,8 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-
-#ifndef _IRREGFAB_H___
-#define _IRREGFAB_H___
+#ifndef AMREX_IRREGFAB_H_
+#define AMREX_IRREGFAB_H_
 
 #include <cmath>
 #include <cstdlib>
-#include <vector>
 #include "AMReX_IntVectSet.H"
 #include "AMReX_VolIndex.H"
 #include "AMReX_BaseIndex.H"
@@ -65,7 +52,7 @@ namespace amrex
 
 
     ///
-    virtual ~IrregFAB();
+    ~IrregFAB();
 
     ///
     /**
@@ -76,9 +63,9 @@ namespace amrex
        are uninitialized.  If it has previously been defined, the old definition
        data is overwritten and lost.
     */
-    virtual void define(const Box&        a_region,
-                        const EBGraph&    a_ebgraph,
-                        const int&        a_nvarin);
+      void define(const Box&        a_region,
+                  const EBGraph&    a_ebgraph,
+                  const int&        a_nvarin);
 
 
     ///invalid but necessary for leveldata to compile

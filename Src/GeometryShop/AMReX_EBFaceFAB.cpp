@@ -1,15 +1,3 @@
-
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
 #include "AMReX_EBFaceFAB.H"
 #include "AMReX_BoxIterator.H"
 
@@ -104,7 +92,7 @@ namespace amrex
         }
       }
                
-      const std::vector<FaceIndex>& faces = m_irrFAB.getFaces();
+      const Vector<FaceIndex>& faces = m_irrFAB.getFaces();
       for (int iface = 0; iface < faces.size(); iface++)
       {
         const FaceIndex& face = faces[iface];
@@ -169,7 +157,7 @@ namespace amrex
         }
       }
                
-      const std::vector<FaceIndex>& faces = m_irrFAB.getFaces();
+      const Vector<FaceIndex>& faces = m_irrFAB.getFaces();
       for (int iface = 0; iface < faces.size(); iface++)
       {
         const FaceIndex& face = faces[iface];
@@ -231,7 +219,7 @@ namespace amrex
         }
       }
                
-      const std::vector<FaceIndex>& faces = m_irrFAB.getFaces();
+      const Vector<FaceIndex>& faces = m_irrFAB.getFaces();
       for (int iface = 0; iface < faces.size(); iface++)
       {
         const FaceIndex& face = faces[iface];
@@ -290,7 +278,7 @@ namespace amrex
         }
       }
 
-      const std::vector<FaceIndex>& faces = m_irrFAB.getFaces();
+      const Vector<FaceIndex>& faces = m_irrFAB.getFaces();
       for (int iface = 0; iface < faces.size(); iface++)
       {
         const FaceIndex& face = faces[iface];
@@ -319,7 +307,7 @@ namespace amrex
       }
     }
                
-    const std::vector<FaceIndex>& faces = m_irrFAB.getFaces();
+    const Vector<FaceIndex>& faces = m_irrFAB.getFaces();
     for (int iface = 0; iface < faces.size(); iface++)
     {
       const FaceIndex& face = faces[iface];
@@ -345,7 +333,7 @@ namespace amrex
       }
     }
                
-    const std::vector<FaceIndex>& faces = m_irrFAB.getFaces();
+    const Vector<FaceIndex>& faces = m_irrFAB.getFaces();
     for (int iface = 0; iface < faces.size(); iface++)
     {
       const FaceIndex& face = faces[iface];
@@ -369,7 +357,7 @@ namespace amrex
     }
                
     // Find the max on irregular faces.
-    const std::vector<FaceIndex>& faces = m_irrFAB.getFaces();
+    const Vector<FaceIndex>& faces = m_irrFAB.getFaces();
     for (int iface = 0; iface < faces.size(); iface++)
     {
       const FaceIndex& face = faces[iface];
@@ -393,7 +381,7 @@ namespace amrex
     }
                
     // Find the max on irregular faces.
-    const std::vector<FaceIndex>& faces = m_irrFAB.getFaces();
+    const Vector<FaceIndex>& faces = m_irrFAB.getFaces();
     for (int iface = 0; iface < faces.size(); iface++)
     {
       const FaceIndex& face = faces[iface];

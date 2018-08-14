@@ -1,213 +1,219 @@
-###############################################
-
-# Here we configure the build                 #
-
-###############################################
-
 #
-#  Check if AMReX_Options.cmake has been already processed
 #
-if ( NOT AMREX_OPTIONS_SET )
-   message ( FATAL_ERROR "AMReX_Options.cmake must be\
-included before AMReX_Configure.cmake" )
-endif ()
-
+# FUNCTION: configure_amrex
 #
-# Find AMReX Git version
+# Set all the properties (except sources and installation-related)
+# required to build target "amrex".
+# Target "amrex" must exist before this function is called.
 #
-find_git_version ( AMREX_GIT_VERSION )
-print (AMREX_GIT_VERSION)
-
+# Author: Michele Rosso
+# Date  : June 26, 2018
 #
-# Decide whether or not to use PIC 
 #
-if (ENABLE_PIC)
-   set (CMAKE_POSITION_INDEPENDENT_CODE TRUE)
-endif ()
+function (configure_amrex)
 
+   # 
+   # Check if target "amrex" has been defined before
+   # calling this macro
+   #
+   if (NOT TARGET amrex)
+      message (FATAL_ERROR "Target 'amrex' must be defined before calling function 'configure_amrex'" )     
+   endif ()
 
-#
-# Detect Fortran name mangling scheme for C/Fortran interface 
-#
-include(FortranCInterface)
-include(${FortranCInterface_BINARY_DIR}/Output.cmake)
+   #
+   # Check that needed options have already been defined
+   # 
+   if ( ( NOT ( DEFINED ENABLE_MPI ) ) OR ( NOT (DEFINED ENABLE_OMP) ) 
+	 OR ( NOT (DEFINED ENABLE_PIC ) ) )
+      message ( AUTHOR_WARNING "Required options are not defined" )
+   endif ()
 
-if ( ( FortranCInterface_GLOBAL_SUFFIX STREQUAL "" )  AND
-      ( FortranCInterface_GLOBAL_CASE STREQUAL "UPPER") )
-   message(STATUS "Fortran name mangling scheme to UPPERCASE \
-(upper case, no append underscore)")
-   add_define ( BL_FORT_USE_UPPERCASE AMREX_DEFINES )
-elseif ( ( FortranCInterface_GLOBAL_SUFFIX STREQUAL "") AND
-      ( FortranCInterface_GLOBAL_CASE STREQUAL "LOWER") )
-   message(STATUS "Fortran name mangling scheme to LOWERCASE \
-(lower case, no append underscore)")
-   add_define ( BL_FORT_USE_LOWERCASE AMREX_DEFINES )
-elseif ( ( FortranCInterface_GLOBAL_SUFFIX STREQUAL "_" ) AND
-      ( FortranCInterface_GLOBAL_CASE STREQUAL "LOWER") )
-   message(STATUS "Fortran name mangling scheme to UNDERSCORE \
-(lower case, append underscore)")
-   add_define ( BL_FORT_USE_UNDERSCORE AMREX_DEFINES )
-else ()
-   message(AUTHOR_WARNING "Fortran to C mangling not backward\
- compatible with older style BoxLib code") 
-endif ()
+   #
+   # Include the required modules
+   # 
+   include ( AMReX_ThirdPartyProfilers )
+   include ( AMReX_Defines )
+   include ( AMReX_Compilers )
+   include ( AMReX_Utils )
+   
+   # 
+   # Set properties for target "amrex"
+   # 
+   set_amrex_defines ()
+   set_amrex_compilers ()
 
+   if ( ENABLE_PIC OR BUILD_SHARED_LIBS )
+      set_target_properties ( amrex PROPERTIES POSITION_INDEPENDENT_CODE True )
+   endif ()
+   
+   # 
+   # Location for Fortran modules
+   # 
+   set ( AMREX_Fortran_MODULE_DIR ${PROJECT_BINARY_DIR}/mod_files )
 
-# ------------------------------------------------------------- #
-#    Set preprocessor flags 
-# ------------------------------------------------------------- #
+   set_target_properties ( amrex
+      PROPERTIES
+      Fortran_MODULE_DIRECTORY ${AMREX_Fortran_MODULE_DIR} )
+   
+   target_include_directories ( amrex
+      PUBLIC "$<BUILD_INTERFACE:${AMREX_Fortran_MODULE_DIR}>" )
+   
+   #
+   # Setup MPI (CMake 3.11 allows to import MPI as an imported TARGET)
+   #  
+   if (ENABLE_MPI)
+      find_package (MPI REQUIRED)
 
-#
-# This defines were always on in older version
-# of AMReX/CMake. Need more details on these???
-#
-add_define (BL_NOLINEVALUES AMREX_DEFINES)
-add_define (AMREX_NOLINEVALUES AMREX_DEFINES)
-add_define (BL_PARALLEL_IO AMREX_DEFINES)
-add_define (AMREX_PARALLEL_IO AMREX_DEFINES)
-add_define (BL_SPACEDIM=${BL_SPACEDIM} AMREX_DEFINES)
-add_define (AMREX_SPACEDIM=${BL_SPACEDIM} AMREX_DEFINES)
-add_define (BL_${CMAKE_SYSTEM_NAME} AMREX_DEFINES)
-add_define (AMREX_${CMAKE_SYSTEM_NAME} AMREX_DEFINES)
+      # Includes
+      target_include_directories ( amrex PUBLIC
+	 ${MPI_Fortran_INCLUDE_PATH} ${MPI_C_INCLUDE_PATH}
+	 ${MPI_CXX_INCLUDE_PATH} )
 
-if ( ENABLE_DP )
-   add_define (BL_USE_DOUBLE AMREX_DEFINES)
-   add_define (AMREX_USE_DOUBLE AMREX_DEFINES)
-else ()
-   add_define (BL_USE_FLOAT AMREX_DEFINES)
-   add_define (AMREX_USE_FLOAT AMREX_DEFINES)
-endif ()
+      # Genex $<COMPILE_LANGUAGE:...> is broken for export. A fix
+      # is present in CMake 3.12
+      # target_include_directories ( amrex PUBLIC
+      # 	 $<$<COMPILE_LANGUAGE:Fortran>:${MPI_Fortran_INCLUDE_PATH}>
+      # 	 $<$<COMPILE_LANGUAGE:C>:${MPI_C_INCLUDE_PATH}>
+      # 	 $<$<COMPILE_LANGUAGE:CXX>:${MPI_CXX_INCLUDE_PATH}>
+      # 	 )
 
-add_define (USE_PARTICLES AMREX_DEFINES ENABLE_PARTICLES)
-add_define (BL_PROFILING AMREX_DEFINES ENABLE_PROFILING)
-add_define (AMREX_PROFILING AMREX_DEFINES ENABLE_PROFILING) 
-add_define (BL_TINY_PROFILING AMREX_DEFINES ENABLE_TINY_PROFILING)
-add_define (AMREX_TINY_PROFILING AMREX_DEFINES ENABLE_TINY_PROFILING)
-add_define (BL_COMM_PROFILING AMREX_DEFINES ENABLE_COMM_PROFILING)
-add_define (AMREX_COMM_PROFILING AMREX_DEFINES ENABLE_COMM_PROFILING)
+      
+      # Additional compiler flags
+      strip (MPI_C_COMPILE_FLAGS)
+      strip (MPI_CXX_COMPILE_FLAGS)
+      strip (MPI_Fortran_COMPILE_FLAGS)
+      target_compile_options ( amrex PUBLIC
+	 $<$<COMPILE_LANGUAGE:Fortran>:${MPI_Fortran_COMPILE_FLAGS}>
+	 $<$<COMPILE_LANGUAGE:C>:${MPI_C_COMPILE_FLAGS}>
+	 $<$<COMPILE_LANGUAGE:CXX>:${MPI_CXX_COMPILE_FLAGS}>
+	 )
+      
+      # Libraries to link to + linker flags
+      # CMake doc suggests not to use absolute paths for portability reasons
+      # (and we ignore it for now)
+      strip ( MPI_CXX_LINK_FLAGS )
+      target_link_libraries ( amrex PUBLIC ${MPI_CXX_LINK_FLAGS}
+	 ${MPI_Fortran_LIBRARIES} ${MPI_C_LIBRARIES} ${MPI_CXX_LIBRARIES})
+      
+   endif ()
 
-if ( ENABLE_PARTICLES AND ( NOT ENABLE_DP_PARTICLES ) ) 
-   add_define ( BL_SINGLE_PRECISION_PARTICLES AMREX_DEFINES )
-   add_define ( AMREX_SINGLE_PRECISION_PARTICLES AMREX_DEFINES )
-endif ()
+   #
+   # Setup OpenMP
+   #
+   if (ENABLE_OMP)
+      find_package (OpenMP REQUIRED)
 
-if (ENABLE_FORTRAN_MPI AND ENABLE_MPI)
-   add_define ( BL_USE_FORTRAN_MPI=1 AMREX_DEFINES )
-   add_define ( AMREX_USE_FORTRAN_MPI=1 AMREX_DEFINES )
-endif ()
+      # Additional compiler flags
+      strip (OpenMP_C_FLAGS)
+      strip (OpenMP_CXX_FLAGS)
+      strip (OpenMP_Fortran_FLAGS)
+      target_compile_options ( amrex PUBLIC
+	 $<$<COMPILE_LANGUAGE:Fortran>:${OpenMP_Fortran_FLAGS}>
+	 $<$<COMPILE_LANGUAGE:C>:${OpenMP_C_FLAGS}>
+	 $<$<COMPILE_LANGUAGE:CXX>:${OpenMP_CXX_FLAGS}>
+	 )
 
-add_define (MG_USE_FBOXIB=1 AMREX_DEFINES ENABLE_MG_FBOXLIB)
-add_define (BL_USE_F_BASELIB=1  AMREX_DEFINES ENABLE_FBASELIB)
-add_define (BL_USE_MPI AMREX_DEFINES ENABLE_MPI)
-add_define (BL_USE_OMP AMREX_DEFINES ENABLE_OMP)
+      # The openMP flags are required also during linking phase
+      # The NON-clean way of achiving this is by adding a flag to the linker
+      # as follows. Notice that in more recent version of CMake, openMP becomes
+      # an imported target, thus provinding a clean way to do this
+      strip (OpenMP_CXX_FLAGS)
+      target_link_libraries ( amrex PUBLIC ${OpenMP_CXX_FLAGS} )
+   else ()
+      	 # Cray compiler has OMP turned on by default
+	 target_compile_options ( amrex PUBLIC $<$<CXX_COMPILER_ID:Cray>:-h;noomp> $<$<C_COMPILER_ID:Cray>:-h;noomp> )
+   endif()
 
-add_define (AMREX_USE_F_BASELIB=1  AMREX_DEFINES ENABLE_FBASELIB)
-add_define (AMREX_USE_MPI AMREX_DEFINES ENABLE_MPI)
-add_define (AMREX_USE_OMP AMREX_DEFINES ENABLE_OMP)
+   #
+   # Setup third-party profilers
+   # 
+   set_amrex_profilers ()
+   
+   #
+   # Print out summary
+   # 
+   print_amrex_configuration_summary ()
 
-add_define (BL_USE_F_INTERFACES AMREX_DEFINES) # Always build F interfaces
-add_define (BL_USE_ASSERTION AMREX_DEFINES) # No idea :-P
+endfunction ()
 
-add_define (AMREX_GIT_VERSION=\\"${AMREX_GIT_VERSION}\\" AMREX_DEFINES)
-
-
-#
-# Add all preprocessor definitions to compile string
 # 
-add_definitions ( ${AMREX_DEFINES} )
-
-# ------------------------------------------------------------- #
-#    Setup third party packages 
-# ------------------------------------------------------------- #
-
-if (ENABLE_MPI)
-   find_package (MPI REQUIRED)
-   # Includes
-   list (APPEND AMREX_EXTRA_Fortran_INCLUDE_PATH "${MPI_Fortran_INCLUDE_PATH}")
-   list (APPEND AMREX_EXTRA_C_INCLUDE_PATH "${MPI_C_INCLUDE_PATH}")
-   list (APPEND AMREX_EXTRA_CXX_INCLUDE_PATH "${MPI_CXX_INCLUDE_PATH}")
-   # Compile flags
-   append ( MPI_Fortran_COMPILE_FLAGS AMREX_EXTRA_Fortran_FLAGS ) 
-   append ( MPI_C_COMPILE_FLAGS AMREX_EXTRA_C_FLAGS )
-   append ( MPI_CXX_COMPILE_FLAGS AMREX_EXTRA_CXX_FLAGS )
-   # Libraries
-   list (APPEND AMREX_EXTRA_Fortran_LIBRARIES "${MPI_Fortran_LIBRARIES}")
-   list (APPEND AMREX_EXTRA_C_LIBRARIES "${MPI_C_LIBRARIES}")
-   list (APPEND AMREX_EXTRA_CXX_LIBRARIES "${MPI_CXX_LIBRARIES}")
-   # Link flags
-   list (APPEND AMREX_EXTRA_Fortran_LINK_FLAGS "${MPI_Fortran_LINK_FLAGS}")
-   list (APPEND AMREX_EXTRA_C_LINK_FLAGS "${MPI_C_LINK_FLAGS}")
-   list (APPEND AMREX_EXTRA_CXX_LINK_FLAGS "${MPI_CXX_LINK_FLAGS}")
-   # Link Line
-   append_to_link_line ( AMREX_EXTRA_Fortran_LIBRARIES
-      AMREX_EXTRA_Fortran_LINK_LINE AMREX_EXTRA_Fortran_LINK_FLAGS )
-   append_to_link_line ( AMREX_EXTRA_C_LIBRARIES
-      AMREX_EXTRA_C_LINK_LINE AMREX_EXTRA_C_LINK_FLAGS )
-   append_to_link_line ( AMREX_EXTRA_CXX_LIBRARIES
-      AMREX_EXTRA_CXX_LINK_LINE AMREX_EXTRA_CXX_LINK_FLAGS )
-endif ()
-
-if (ENABLE_OMP)
-   find_package (OpenMP REQUIRED)
-   # Compile flags
-   append ( OpenMP_Fortran_FLAGS AMREX_EXTRA_Fortran_FLAGS ) 
-   append ( OpenMP_C_FLAGS AMREX_EXTRA_C_FLAGS )
-   append ( OpenMP_CXX_FLAGS AMREX_EXTRA_CXX_FLAGS )
-endif()
-
-
-# ------------------------------------------------------------- #
-#    Setup compiler flags 
-# ------------------------------------------------------------- #
-if ( AMREX_FFLAGS_OVERRIDES )
-   set ( AMREX_Fortran_FLAGS ${AMREX_FFLAGS_OVERRIDES} )
-else ()
-   append ( AMREX_${FC_ID}_FFLAGS_${AMREX_BUILD_TYPE}
-      AMREX_Fortran_FLAGS )
-endif ()
-
-if ( AMREX_CXXFLAGS_OVERRIDES )
-   set ( AMREX_CXX_FLAGS ${AMREX_CXXFLAGS_OVERRIDES} )
-else ()
-   append ( AMREX_${CXX_ID}_CXXFLAGS_${AMREX_BUILD_TYPE}
-      AMREX_CXX_FLAGS )
-endif ()
-
-append ( AMREX_EXTRA_Fortran_FLAGS AMREX_Fortran_FLAGS )
-append ( AMREX_EXTRA_CXX_FLAGS AMREX_CXX_FLAGS )
-
-# Add required flags
-append ( AMREX_${FC_ID}_FFLAGS_REQUIRED AMREX_Fortran_FLAGS )
-append ( AMREX_${CXX_ID}_CXXFLAGS_REQUIRED AMREX_CXX_FLAGS )
-
-# Add FPE flags if required 
-if (ENABLE_FPE)
-   append ( AMREX_${FC_ID}_FFLAGS_FPE AMREX_Fortran_FLAGS )
-   append ( AMREX_${CXX_ID}_CXXFLAGS_FPE AMREX_CXX_FLAGS )
-endif ()
-
-# Set CMake compiler flags
-set ( CMAKE_Fortran_FLAGS_${AMREX_BUILD_TYPE}
-   "${AMREX_Fortran_FLAGS}  ${AMREX_Fortran_DEFINITIONS}" ) 
-set ( CMAKE_CXX_FLAGS_${AMREX_BUILD_TYPE} "${AMREX_CXX_FLAGS}" )
-
-
 #
-# Config summary
-#
-message( STATUS "AMReX configuration summary: ")
-message( STATUS "   Build type               = ${CMAKE_BUILD_TYPE}")
-message( STATUS "   Install directory        = ${CMAKE_INSTALL_PREFIX}")
-message( STATUS "   Preprocessor flags       = ${AMREX_DEFINES}")
-message( STATUS "   C++ compiler             = ${CMAKE_CXX_COMPILER}")
-message( STATUS "   Fortran compiler         = ${CMAKE_Fortran_COMPILER}")
-message( STATUS "   C++ flags                = ${CMAKE_CXX_FLAGS_${AMREX_BUILD_TYPE}}")
-message( STATUS "   Fortran flags            = ${CMAKE_Fortran_FLAGS_${AMREX_BUILD_TYPE}}")
-message( STATUS "   C++ include paths        = ${AMREX_EXTRA_CXX_INCLUDE_PATH}") 
-message( STATUS "   Fortran include paths    = ${AMREX_EXTRA_Fortran_INCLUDE_PATH}")
-message( STATUS "   C++ external libs        = ${AMREX_EXTRA_CXX_LIBRARIES}") 
-message( STATUS "   Fortran external libs    = ${AMREX_EXTRA_Fortran_LIBRARIES}")
-message( STATUS "   C++ link flags           = ${AMREX_EXTRA_CXX_LINK_FLAGS}") 
-message( STATUS "   Fortran link flags       = ${AMREX_EXTRA_LINK_FLAGS}")
-message( STATUS "   C++ extra link line      = ${AMREX_EXTRA_CXX_LINK_LINE}") 
-message( STATUS "   Fortran extra link line  = ${AMREX_EXTRA_Fortran_LINK_LINE}")
+# Prints out configuration details
+# 
+# 
+function (print_amrex_configuration_summary)
+
+   # 
+   # Check if target "amrex" has been defined before
+   # calling this macro
+   #
+   if (NOT TARGET amrex)
+      message (FATAL_ERROR "Target 'amrex' must be defined before calling function 'set_amrex_defines'" )
+   endif ()
+   
+   #
+   # Retrieve defines
+   #
+   get_target_property ( AMREX_DEFINES amrex COMPILE_DEFINITIONS )
+   replace_genex ( AMREX_DEFINES AMREX_CXX_DEFINES     LANGUAGE CXX )
+   replace_genex ( AMREX_DEFINES AMREX_Fortran_DEFINES LANGUAGE Fortran )
+
+
+   # extract_by_language ( AMREX_DEFINES AMREX_CXX_DEFINES AMREX_Fortran_DEFINES )
+   string (REPLACE " " " -D" AMREX_CXX_DEFINES "-D${AMREX_CXX_DEFINES}" )
+   string (REPLACE ";" " -D" AMREX_CXX_DEFINES "${AMREX_CXX_DEFINES}" )
+   string (REPLACE " " " -D" AMREX_Fortran_DEFINES "-D${AMREX_Fortran_DEFINES}" )
+   string (REPLACE ";" " -D" AMREX_Fortran_DEFINES "${AMREX_Fortran_DEFINES}" )
+   
+   #
+   # Retrieve compile flags
+   #
+   get_target_property ( AMREX_FLAGS   amrex COMPILE_OPTIONS)
+   replace_genex ( AMREX_FLAGS AMREX_CXX_FLAGS     LANGUAGE CXX )
+   replace_genex ( AMREX_FLAGS AMREX_Fortran_FLAGS LANGUAGE Fortran )
+   string ( REPLACE ";" " " AMREX_CXX_FLAGS "${AMREX_CXX_FLAGS}" )
+   string ( REPLACE ";" " " AMREX_Fortran_FLAGS "${AMREX_Fortran_FLAGS}" )
+
+   # Add base flags
+   string ( TOUPPER "${CMAKE_BUILD_TYPE}"  AMREX_BUILD_TYPE )
+   set (AMREX_CXX_FLAGS  "${CMAKE_CXX_FLAGS_${AMREX_BUILD_TYPE}} ${CMAKE_CXX_FLAGS} ${AMREX_CXX_FLAGS}")
+   set (AMREX_Fortran_FLAGS "${CMAKE_Fortran_FLAGS_${AMREX_BUILD_TYPE}} ${CMAKE_Fortran_FLAGS} ${AMREX_Fortran_FLAGS}")
+   string (STRIP "${AMREX_CXX_FLAGS}" AMREX_CXX_FLAGS)
+   string (STRIP "${AMREX_Fortran_FLAGS}" AMREX_Fortran_FLAGS)
+
+   #
+   # Include paths
+   #
+   get_target_property ( AMREX_INCLUDE_PATHS amrex INTERFACE_INCLUDE_DIRECTORIES )
+   replace_genex ( AMREX_INCLUDE_PATHS AMREX_CXX_INCLUDE_PATHS LANGUAGE CXX )
+   replace_genex ( AMREX_INCLUDE_PATHS AMREX_Fortran_INCLUDE_PATHS LANGUAGE Fortran )
+
+
+   #
+   # Link libraries
+   # 
+   get_target_property ( TMP amrex LINK_LIBRARIES )
+   replace_genex (TMP AMREX_LINK_LINE)
+   if (NOT AMREX_LINK_LINE) # LINK_LIBRARIES property can return "NOT_FOUND"
+      set (AMREX_LINK_LINE "")
+   endif ()   
+   string ( REPLACE ";" " " AMREX_LINK_LINE "${AMREX_LINK_LINE}" )
+   
+   
+   #
+   # Config summary
+   #
+   message( STATUS "AMReX configuration summary: ")
+   message( STATUS "   Build type               = ${CMAKE_BUILD_TYPE}")
+   message( STATUS "   Install directory        = ${CMAKE_INSTALL_PREFIX}")
+   message( STATUS "   C++ defines              = ${AMREX_CXX_DEFINES}")
+   message( STATUS "   Fortran defines          = ${AMREX_Fortran_DEFINES}")
+   message( STATUS "   C++ compiler             = ${CMAKE_CXX_COMPILER}")
+   message( STATUS "   Fortran compiler         = ${CMAKE_Fortran_COMPILER}")
+   message( STATUS "   C++ flags                = ${AMREX_CXX_FLAGS}")
+   message( STATUS "   Fortran flags            = ${AMREX_Fortran_FLAGS}")
+   message( STATUS "   C++ include paths        = ${AMREX_CXX_INCLUDE_PATHS}")  
+   message( STATUS "   Fortran include paths    = ${AMREX_Fortran_INCLUDE_PATHS}")
+   message( STATUS "   Link line                = ${AMREX_LINK_LINE}") 
+
+endfunction ()

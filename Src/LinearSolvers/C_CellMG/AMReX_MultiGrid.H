@@ -1,8 +1,9 @@
 
-#ifndef _MULTIGRID_H_
-#define _MULTIGRID_H_
+#ifndef AMREX_MULTIGRID_H_
+#define AMREX_MULTIGRID_H_
 
 #include <AMReX_Array.H>
+#include <AMReX_Vector.H>
 #include <AMReX_MultiFab.H>
 #include <AMReX_BndryData.H>
 #include <AMReX_LinOp.H>
@@ -102,8 +103,6 @@ public:
     // return the linear operator
     //
     LinOp& linOp () { return Lp; }
-    //
-    ParallelDescriptor::Color color() const { return Lp.color(); }
     //
     // set the maximum permitted multigrid iterations
     //
@@ -357,15 +356,15 @@ private:
     //
     // internal temp data
     //
-    Array< MultiFab* > res;
+    Vector< MultiFab* > res;
     //
     // internal temp data
     //
-    Array< MultiFab* > rhs;
+    Vector< MultiFab* > rhs;
     //
     // internal temp data
     //
-    Array< MultiFab* > cor;
+    Vector< MultiFab* > cor;
     //
     // internal reference to linear operator
     //

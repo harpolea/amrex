@@ -64,8 +64,8 @@ StateDescriptor::bf_thread_safety (const int* lo,const int* hi,
     bool thread_safe = true;
     if (!bf_ext_dir_threadsafe) {
 	bool has_ext_dir = false;
-	for (int i=0; i<2*BL_SPACEDIM*ng && !has_ext_dir; ++i) {
-	    has_ext_dir = bc[i]==EXT_DIR;
+	for (int i=0; i<2*AMREX_SPACEDIM*ng && !has_ext_dir; ++i) {
+	    has_ext_dir = bc[i]==BCType::ext_dir;
 	}
 	if (has_ext_dir) thread_safe = false;
     }
@@ -83,17 +83,19 @@ StateDescriptor::BndryFunc::operator () (Real* data,const int* lo,const int* hi,
     bool thread_safe = bf_thread_safety(lo, hi, dom_lo, dom_hi, bc, 1);
     if (thread_safe) {
       if (m_func != 0)
-	m_func(data,ARLIM(lo),ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc);
+	m_func(data,AMREX_ARLIM(lo),AMREX_ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc);
       else
-	m_func3D(data,ARLIM_3D(lo),ARLIM_3D(hi),ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),ZFILL(dx),ZFILL(grd_lo),time,bc);
+	m_func3D(data,AMREX_ARLIM_3D(lo),AMREX_ARLIM_3D(hi),AMREX_ARLIM_3D(dom_lo),AMREX_ARLIM_3D(dom_hi),
+                 AMREX_ZFILL(dx),AMREX_ZFILL(grd_lo),time,bc);
     } else {
 #ifdef _OPENMP
 #pragma omp critical (bndryfunc)
 #endif
       if (m_func != 0)
-	m_func(data,ARLIM(lo),ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc);
+	m_func(data,AMREX_ARLIM(lo),AMREX_ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc);
       else
-	m_func3D(data,ARLIM_3D(lo),ARLIM_3D(hi),ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),ZFILL(dx),ZFILL(grd_lo),time,bc);
+	m_func3D(data,AMREX_ARLIM_3D(lo),AMREX_ARLIM_3D(hi),AMREX_ARLIM_3D(dom_lo),AMREX_ARLIM_3D(dom_hi),
+                 AMREX_ZFILL(dx),AMREX_ZFILL(grd_lo),time,bc);
     }
 }
 
@@ -108,27 +110,29 @@ StateDescriptor::BndryFunc::operator () (Real* data,const int* lo,const int* hi,
     bool thread_safe = bf_thread_safety(lo, hi, dom_lo, dom_hi, bc, ng);
     if (thread_safe) {
         if (m_gfunc != 0)
-	  m_gfunc(data,ARLIM(lo),ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc);
+	  m_gfunc(data,AMREX_ARLIM(lo),AMREX_ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc);
 	else
-	  m_gfunc3D(data,ARLIM_3D(lo),ARLIM_3D(hi),ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),ZFILL(dx),ZFILL(grd_lo),time,bc);
+	  m_gfunc3D(data,AMREX_ARLIM_3D(lo),AMREX_ARLIM_3D(hi),AMREX_ARLIM_3D(dom_lo),AMREX_ARLIM_3D(dom_hi),
+                    AMREX_ZFILL(dx),AMREX_ZFILL(grd_lo),time,bc);
     } else {
 #ifdef _OPENMP
 #pragma omp critical (bndryfunc)
 #endif
         if (m_gfunc != 0)
-	  m_gfunc(data,ARLIM(lo),ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc);
+	  m_gfunc(data,AMREX_ARLIM(lo),AMREX_ARLIM(hi),dom_lo,dom_hi,dx,grd_lo,time,bc);
 	else
-	  m_gfunc3D(data,ARLIM_3D(lo),ARLIM_3D(hi),ARLIM_3D(dom_lo),ARLIM_3D(dom_hi),ZFILL(dx),ZFILL(grd_lo),time,bc);
+	  m_gfunc3D(data,AMREX_ARLIM_3D(lo),AMREX_ARLIM_3D(hi),AMREX_ARLIM_3D(dom_lo),AMREX_ARLIM_3D(dom_hi),
+                    AMREX_ZFILL(dx),AMREX_ZFILL(grd_lo),time,bc);
     }
 }
 
 void
 StateDescriptor::BndryFunc::Print () const
 {
-  std::cout << "==== BndryFunc:  m_func    = " << &m_func << std::endl;
-  std::cout << "==== BndryFunc:  m_gfunc   = " << &m_gfunc << std::endl;
-  std::cout << "==== BndryFunc:  m_func3D  = " << m_func3D << std::endl;
-  std::cout << "==== BndryFunc:  m_gfunc3D = " << m_gfunc3D << std::endl;
+  amrex::AllPrint() << "==== BndryFunc:  m_func    = " << &m_func << "\n"
+                    << "==== BndryFunc:  m_gfunc   = " << &m_gfunc << "\n"
+                    << "==== BndryFunc:  m_func3D  = " << m_func3D << "\n"
+                    << "==== BndryFunc:  m_gfunc3D = " << m_gfunc3D << std::endl;
 }
 
 
@@ -172,8 +176,8 @@ DescriptorList::setComponent (int                               indx,
 void
 DescriptorList::setComponent (int                               indx,
                               int                               comp,
-                              const Array<std::string>&         nm,
-                              const Array<BCRec>&               bc,
+                              const Vector<std::string>&         nm,
+                              const Vector<BCRec>&               bc,
                               const StateDescriptor::BndryFunc& func,
                               Interpolater*                     interp)
 {
@@ -199,18 +203,18 @@ DescriptorList::addDescriptor (int                         indx,
                                int                         num_comp, 
                                Interpolater*               interp,
                                bool                        extrap,
-                               bool                        store_in_checkpoint)
+                               bool                        a_store_in_checkpoint)
 {
     if (indx >= desc.size())
         desc.resize(indx+1);
-    desc[indx].reset(new StateDescriptor(typ,ttyp,indx,nextra,num_comp,interp,extrap,store_in_checkpoint));
+    desc[indx].reset(new StateDescriptor(typ,ttyp,indx,nextra,num_comp,interp,extrap,a_store_in_checkpoint));
 }  
 
 
 void
 DescriptorList::Print () const
 {
-  std::cout << "==== DescriptorList:  size  = " << desc.size() << std::endl;
+  amrex::AllPrint() << "==== DescriptorList:  size  = " << desc.size() << std::endl;
   for(const auto& d : desc) {
       d->Print();
   }
@@ -233,18 +237,18 @@ StateDescriptor::StateDescriptor (IndexType                   btyp,
                                   int                         ident,
                                   int                         nextra, 
                                   int                         num_comp,
-                                  Interpolater*               interp,
-                                  bool                        extrap,
-                                  bool                        store_in_checkpoint)
+                                  Interpolater*               a_interp,
+                                  bool                        a_extrap,
+                                  bool                        a_store_in_checkpoint)
     :
     type(btyp),
     t_type(ttyp),
     id(ident),
     ncomp(num_comp),
     ngrow(nextra),
-    mapper(interp),
-    m_extrap(extrap),
-    m_store_in_checkpoint(store_in_checkpoint)
+    mapper(a_interp),
+    m_extrap(a_extrap),
+    m_store_in_checkpoint(a_store_in_checkpoint)
 {
     BL_ASSERT (num_comp > 0);
    
@@ -322,7 +326,7 @@ StateDescriptor::getBC (int i) const
     return bc[i];
 }
 
-const Array<BCRec>&
+const Vector<BCRec>&
 StateDescriptor::getBCs () const
 {
     return bc;
@@ -359,18 +363,18 @@ StateDescriptor::define (IndexType                   btyp,
                          int                         ident,
                          int                         nextra,
                          int                         num_comp,
-                         Interpolater*               interp,
-                         bool                        extrap,
-                         bool                        store_in_checkpoint) 
+                         Interpolater*               a_interp,
+                         bool                        a_extrap,
+                         bool                        a_store_in_checkpoint) 
 {
     type     = btyp;
     t_type   = ttyp;
     id       = ident;
     ngrow    = nextra;
     ncomp    = num_comp;
-    mapper   = interp;
-    m_extrap = extrap;
-    m_store_in_checkpoint = store_in_checkpoint;
+    mapper   = a_interp;
+    m_extrap = a_extrap;
+    m_store_in_checkpoint = a_store_in_checkpoint;
 
     BL_ASSERT (num_comp > 0);
    
@@ -389,7 +393,7 @@ StateDescriptor::setComponent (int                               comp,
                                const std::string&                nm,
                                const BCRec&                      bcr,
                                const StateDescriptor::BndryFunc& func,
-                               Interpolater*                     interp, 
+                               Interpolater*                     a_interp, 
                                int                               max_map_start_comp_,
                                int                               min_map_end_comp_)
 {
@@ -397,7 +401,7 @@ StateDescriptor::setComponent (int                               comp,
 
     names[comp]       = nm;
     bc[comp]          = bcr;
-    mapper_comp[comp] = interp;
+    mapper_comp[comp] = a_interp;
     m_master[comp]    = false;
     m_groupsize[comp] = 0;
 
@@ -422,14 +426,14 @@ StateDescriptor::setComponent (int                               comp,
                                const std::string&                nm,
                                const BCRec&                      bcr,
                                const StateDescriptor::BndryFunc& func,
-                               Interpolater*                     interp,
-                               bool                              master,
-                               int                               groupsize)
+                               Interpolater*                     a_interp,
+                               bool                              a_master,
+                               int                               a_groupsize)
 {
-    setComponent(comp,nm,bcr,func,interp,-1,-1);
+    setComponent(comp,nm,bcr,func,a_interp,-1,-1);
 
-    m_master[comp]    = master;
-    m_groupsize[comp] = groupsize;
+    m_master[comp]    = a_master;
+    m_groupsize[comp] = a_groupsize;
 }
 
 void
@@ -564,15 +568,15 @@ StateDescriptor::cleanUpMaps (Interpolater**& maps,
 }
 
 bool
-StateDescriptor::identicalInterps (int scomp,
-                                   int ncomp) const
+StateDescriptor::identicalInterps (int a_scomp,
+                                   int a_ncomp) const
 {
-    BL_ASSERT(scomp >= 0);
-    BL_ASSERT(ncomp >= 1);
+    BL_ASSERT(a_scomp >= 0);
+    BL_ASSERT(a_ncomp >= 1);
 
-    Interpolater* map = interp(scomp);
+    Interpolater* map = interp(a_scomp);
 
-    for (int i = scomp+1; i < scomp+ncomp; i++)
+    for (int i = a_scomp+1; i < a_scomp+a_ncomp; i++)
         if (!(map == interp(i)))
             return false;
 
@@ -580,19 +584,19 @@ StateDescriptor::identicalInterps (int scomp,
 }
 
 std::vector< std::pair<int,int> >
-StateDescriptor::sameInterps (int scomp,
-                              int ncomp) const
+StateDescriptor::sameInterps (int a_scomp,
+                              int a_ncomp) const
 {
-    BL_ASSERT(scomp >= 0);
-    BL_ASSERT(ncomp >= 1);
+    BL_ASSERT(a_scomp >= 0);
+    BL_ASSERT(a_ncomp >= 1);
 
     std::vector< std::pair<int,int> > range;
 
-    Interpolater* map = interp(scomp);
+    Interpolater* map = interp(a_scomp);
 
-    int SComp = scomp, NComp = 1;
+    int SComp = a_scomp, NComp = 1;
 
-    for (int i = scomp+1; i < scomp+ncomp; i++)
+    for (int i = a_scomp+1; i < a_scomp+a_ncomp; i++)
     {
         if (map == interp(i))
         {
@@ -610,11 +614,11 @@ StateDescriptor::sameInterps (int scomp,
 
     range.push_back(std::pair<int,int>(SComp,NComp));
 
-#ifndef NDEBUG
+#ifdef AMREX_DEBUG
     int sum = 0;
-    for (int i = 0; i < range.size(); i++)
+    for (int i = 0; i < static_cast<int>(range.size()); i++)
         sum += range[i].second;
-    BL_ASSERT(sum == ncomp);
+    BL_ASSERT(sum == a_ncomp);
 #endif
 
     return range;
@@ -625,43 +629,43 @@ StateDescriptor::sameInterps (int scomp,
 void
 StateDescriptor::Print () const
 {
-  std::cout << "==== StateDescriptor:  type  = " << type << std::endl;
-  std::cout << "==== StateDescriptor:  t_type  = " << t_type << std::endl;
-  std::cout << "==== StateDescriptor:  id  = " << id << std::endl;
-  std::cout << "==== StateDescriptor:  ncomp  = " << ncomp << std::endl;
-  std::cout << "==== StateDescriptor:  ngrow  = " << ngrow << std::endl;
-  std::cout << "==== StateDescriptor:  mapper  = " << mapper << std::endl;
-  std::cout << "==== StateDescriptor:  m_extrap  = " << m_extrap << std::endl;
-  std::cout << "==== StateDescriptor:  m_store_in_checkpoint  = " << m_store_in_checkpoint << std::endl;
+  amrex::AllPrint() << "==== StateDescriptor:  type  = " << type << "\n"
+                    << "==== StateDescriptor:  t_type  = " << t_type << "\n"
+                    << "==== StateDescriptor:  id  = " << id << "\n"
+                    << "==== StateDescriptor:  ncomp  = " << ncomp << "\n"
+                    << "==== StateDescriptor:  ngrow  = " << ngrow << "\n"
+                    << "==== StateDescriptor:  mapper  = " << mapper << "\n"
+                    << "==== StateDescriptor:  m_extrap  = " << m_extrap << "\n"
+                    << "==== StateDescriptor:  m_store_in_checkpoint  = " << m_store_in_checkpoint << std::endl;
   for(int i(0); i < names.size(); ++i) {
-    std::cout << "==== StateDescriptor:  names[" << i << "]  = " << names[i] << std::endl;
+    amrex::AllPrint() << "==== StateDescriptor:  names[" << i << "]  = " << names[i] << std::endl;
   }
   for(int i(0); i < bc.size(); ++i) {
     for(int j(0); j < bc[i].vectSize(); ++j) {
-      std::cout << "==== StateDescriptor:  bc[" << i << "][" << j << "] = " << bc[i].vect()[j] << std::endl;
+      amrex::AllPrint() << "==== StateDescriptor:  bc[" << i << "][" << j << "] = " << bc[i].vect()[j] << std::endl;
     }
   }
   for(int i(0); i < bc_func.size(); ++i) {
-    std::cout << "==== StateDescriptor:  bc_func[" << i << "]  = " << std::endl;
+    amrex::AllPrint() << "==== StateDescriptor:  bc_func[" << i << "]  = " << std::endl;
     bc_func[i]->Print();
-    std::cout << std::endl;
+    amrex::AllPrint() << std::endl;
   }
   for(int i(0); i < m_master.size(); ++i) {
-    std::cout << "==== StateDescriptor:  m_master[" << i << "]  = " << m_master[i] << std::endl;
+    amrex::AllPrint() << "==== StateDescriptor:  m_master[" << i << "]  = " << m_master[i] << std::endl;
   }
   for(int i(0); i < m_groupsize.size(); ++i) {
-    std::cout << "==== StateDescriptor:  m_groupsize[" << i << "]  = " << m_groupsize[i] << std::endl;
+    amrex::AllPrint() << "==== StateDescriptor:  m_groupsize[" << i << "]  = " << m_groupsize[i] << std::endl;
   }
   for(int i(0); i < mapper_comp.size(); ++i) {
-    std::cout << "==== StateDescriptor:  mapper_comp[" << i << "]  = " << mapper_comp[i] << std::endl;
+    amrex::AllPrint() << "==== StateDescriptor:  mapper_comp[" << i << "]  = " << mapper_comp[i] << std::endl;
   }
   for(int i(0); i < max_map_start_comp.size(); ++i) {
-    std::cout << "==== StateDescriptor:  max_map_start_comp[" << i << "]  = " << max_map_start_comp[i] << std::endl;
+    amrex::AllPrint() << "==== StateDescriptor:  max_map_start_comp[" << i << "]  = " << max_map_start_comp[i] << std::endl;
   }
   for(int i(0); i < min_map_end_comp.size(); ++i) {
-    std::cout << "==== StateDescriptor:  min_map_end_comp[" << i << "]  = " << min_map_end_comp[i] << std::endl;
+    amrex::AllPrint() << "==== StateDescriptor:  min_map_end_comp[" << i << "]  = " << min_map_end_comp[i] << std::endl;
   }
-  std::cout << "==== StateDescriptor:  bf_ext_dir_threadsafe  = " << bf_ext_dir_threadsafe << std::endl;
+  amrex::AllPrint() << "==== StateDescriptor:  bf_ext_dir_threadsafe  = " << bf_ext_dir_threadsafe << std::endl;
 }
 
 }

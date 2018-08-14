@@ -1,14 +1,3 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
 #include "AMReX_EBISLayout.H"
 #include "AMReX_EBIndexSpace.H"
 #include "AMReX_VoFIterator.H"
@@ -17,6 +6,64 @@
 
 namespace amrex
 {
+  static const IntVect   ebisl_debiv(AMREX_D_DECL(994,213,7));
+  static const IntVect   ebisl_debivlo(AMREX_D_DECL(29,12, 0));
+  static const IntVect   ebisl_debivhi(AMREX_D_DECL(29,13, 0));
+  static const VolIndex  ebisl_debvoflo(ebisl_debivlo, 0);
+  static const VolIndex  ebisl_debvofhi(ebisl_debivhi, 0);
+  static const FaceIndex ebisl_debface( ebisl_debvoflo, ebisl_debvofhi);
+
+  void EBISL_checkGraph(const BoxArray          & a_grids,
+                        const DistributionMapping & a_dm,
+                        const FabArray<EBGraph> & a_graph,
+                        const string & a_identifier)
+  {
+    for(MFIter mfi(a_grids, a_dm); mfi.isValid(); ++mfi)
+    {
+      const EBGraph & graph = a_graph[mfi];
+      Box region     = graph.getRegion();
+      Box fullRegion = graph.getFullRegion();
+      if(!fullRegion.contains(region))
+      {
+        amrex::AllPrint() << "ebislayout:" << a_identifier;
+        amrex::AllPrint() << ", region = " << region << ", fullRegion = " << fullRegion  << endl;
+      }
+//      const Box& region = a_grids[mfi];
+//      const EBGraph & graph = a_graph[mfi];
+//      if(region.contains(ebisl_debiv))
+//      {
+//        amrex::AllPrint() << "ebislayout:" << a_identifier;
+//        int ireg = 0; int icov = 0;
+//        if(graph.isRegular(ebisl_debiv))
+//        {
+//          ireg = 1;
+//        }
+//        if(graph.isCovered(ebisl_debiv))
+//        {
+//          icov = 1;
+//        }
+//        amrex::AllPrint() << ", ireg = " << ireg << ", icov = " << icov << endl;
+//      }
+    }
+  }
+  void EBISL_checkData(const BoxArray          & a_grids,
+                        const DistributionMapping & a_dm,
+                        const FabArray<EBData> & a_data,
+                        const string & a_identifier)
+  {
+    for(MFIter mfi(a_grids, a_dm); mfi.isValid(); ++mfi)
+    {
+      const Box& region   = a_grids[mfi];
+      const EBData & data = a_data[mfi];
+      const BaseIFFAB<Real>& fab = data.getFaceData(1);
+      if(fab.hasFace(ebisl_debface))
+      {
+        Real value = fab(ebisl_debface, 0);
+        pout() << "ebislayout:" << a_identifier;
+        pout() << ", region = " << region << ", facedat(" << ebisl_debface << ", 0)=" << value << endl;
+      }
+    }
+  }
   /****************/
   void
   EBISLayoutImplem::define(const Box               & a_domain,
@@ -24,7 +71,8 @@ namespace amrex
                            const DistributionMapping & a_dm,
                            const int               & a_nghost,
                            const FabArray<EBGraph> & a_graph,
-                           const FabArray<EBData>  & a_data)
+                           const FabArray<EBData>  & a_data,
+                           bool a_hasMoments, Real a_dx)
   {
     BL_PROFILE("EBISLayoutImplem::define");
     //pout() << "in ebislayoutimplem::define with nghost = " << a_nghost << endl;
@@ -37,24 +85,38 @@ namespace amrex
     m_maxCoarseningRatio = 2;
     m_maxRefinementRatio = 1;//ug--face refinement means you have to have to do this once.
     int dstGhostData = a_nghost;
-    int dstGhostGraph = a_nghost+1; //because of irregular faces at box boundaries
+    int dstGhostGraph = a_nghost+2; //because of irregular faces at box boundaries
     int srcGhost = 0;
-      
-      
-    m_ebGraph = shared_ptr<FabArray<EBGraph> >(new FabArray<EBGraph>(a_grids, a_dm, 1, dstGhostGraph));
-    //pout() << "doing ebgraph copy" << endl;
+
+//begin debug
+//    BoxArray inpgrids = a_graph.boxArray();
+//    DistributionMapping inpdm = a_graph.DistributionMap();
+//    EBISL_checkGraph(inpgrids, inpdm, a_graph, string(" input graph"));
+//    BoxArray inpgrids = a_data.boxArray();
+//    DistributionMapping inpdm = a_data.DistributionMap();
+//    EBISL_checkData(inpgrids, inpdm, a_data, string(" input to ebisl::define"));
+// end debug
+
+    m_ebGraph = shared_ptr<FabArray<EBGraph> >(new FabArray<EBGraph>(a_grids, a_dm, 1, dstGhostGraph,
+                                                                     MFInfo(),DefaultFabFactory<EBGraph>()));
+    
     m_ebGraph->copy(a_graph, 0, 0, 1, srcGhost, dstGhostGraph);
 
-
-    EBDataFactory ebdatafact(m_ebGraph);
+    EBDataFactory ebdatafact(m_ebGraph, a_hasMoments, a_dx);
     m_ebData  = shared_ptr<FabArray<EBData > >(new FabArray<EBData>(a_grids, a_dm, 1, m_nghost, MFInfo(), ebdatafact));
-      
-      
-//    pout() << "doing data copy" << endl;
+
+//    pout() << "before ebdata copyine ebisl::define"  << endl;
+    BL_PROFILE_VAR("EBISLayout_copy_ebdata",copy_data);
     m_ebData ->copy(a_data , 0, 0, 1, srcGhost, dstGhostData);
+    BL_PROFILE_VAR_STOP(copy_data);
+//    pout() << "after ebdata copyine ebisl::define"  << endl;
+
+//begin debug
+//    EBISL_checkGraph(a_grids, a_dm, *m_ebGraph, string(" my graph after copy"));
+//    EBISL_checkData(a_grids, a_dm, *m_ebData, string(" output from ebisl::define"));
+// end debug
       
     m_defined = true;
-//    pout() << "leaving ebislayoutimplem::define" << endl;
   }
       
   /****************/
@@ -134,7 +196,7 @@ namespace amrex
     return coarFace;
   }
   /****************/
-  std::vector<VolIndex>
+  Vector<VolIndex>
   EBISLayoutImplem::refine(const VolIndex  & a_vof,
                            const int       & a_ratio,
                            const MFIter    & a_mfi) const
@@ -145,19 +207,19 @@ namespace amrex
       
     //for ratio of 2, just use ebisbox
     EBISBox ebisBoxCoar = (*this)[a_mfi];
-    std::vector<VolIndex> fineVoFs = ebisBoxCoar.refine(a_vof);
+    Vector<VolIndex> fineVoFs = ebisBoxCoar.refine(a_vof);
     //for ratio > 2, chase its tail
     int ifinelev = 0;
     for (int irat = 4; irat <= a_ratio; irat *= 2)
     {
-      std::vector<VolIndex> coarVoFs = fineVoFs;
+      Vector<VolIndex> coarVoFs = fineVoFs;
       
       const EBISLayout& ebisl = m_fineLevels[ifinelev];
       EBISBox ebisBox = ebisl[a_mfi];
       fineVoFs.resize(0);
       for (int ivof = 0; ivof < coarVoFs.size(); ivof++)
       {
-        std::vector<VolIndex> newvofs = ebisBox.refine(coarVoFs[ivof]);
+        Vector<VolIndex> newvofs = ebisBox.refine(coarVoFs[ivof]);
         fineVoFs.insert(fineVoFs.end(), newvofs.begin(), newvofs.end());
       }
       ifinelev++;
@@ -166,7 +228,7 @@ namespace amrex
       
   }
   /****************/
-  std::vector<FaceIndex>
+  Vector<FaceIndex>
   EBISLayoutImplem::refine(const FaceIndex & a_face,
                            const int       & a_ratio,
                            const MFIter    & a_mfi) const
@@ -178,19 +240,19 @@ namespace amrex
     //for ratio of 2, just use ebisbox
     EBISBox ebisBoxCoar2 =         (*this)[a_mfi];
     EBISBox ebisBoxFine2 = m_fineLevels[0][a_mfi];
-    std::vector<FaceIndex> fineFaces = ebisBoxCoar2.refine(a_face,ebisBoxFine2);
+    Vector<FaceIndex> fineFaces = ebisBoxCoar2.refine(a_face,ebisBoxFine2);
     //for ratio > 2, chase its tail
     int ifinelev = 0;
     for (int irat = 4; irat <= a_ratio; irat *= 2)
     {
-      std::vector<FaceIndex> coarFaces = fineFaces;
+      Vector<FaceIndex> coarFaces = fineFaces;
       
       EBISBox ebisBoxCoar = m_fineLevels[ifinelev    ][a_mfi];
       EBISBox ebisBoxFine = m_fineLevels[ifinelev + 1][a_mfi];
       fineFaces.resize(0);
       for (int iface = 0; iface < coarFaces.size(); iface++)
       {
-        std::vector<FaceIndex> newfaces = ebisBoxCoar.refine(coarFaces[iface],ebisBoxFine);
+        Vector<FaceIndex> newfaces = ebisBoxCoar.refine(coarFaces[iface],ebisBoxFine);
         fineFaces.insert(fineFaces.end(), newfaces.begin(), newfaces.end());
       }
       ifinelev++;

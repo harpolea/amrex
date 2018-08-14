@@ -1,23 +1,11 @@
-
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-
 #include "AMReX_UnionIF.H"
-#include <vector>
-using std::vector;
+#include <AMReX_Array.H>
+#include <AMReX_Vector.H>
+
 namespace amrex
 {
 
-  UnionIF::UnionIF(const vector<BaseIF *>& a_impFuncs)
+  UnionIF::UnionIF(const Vector<BaseIF *>& a_impFuncs)
   {
     // Number of implicit function in union
     m_numFuncs = a_impFuncs.size();
@@ -79,6 +67,37 @@ namespace amrex
     return retval;
   }
 
+  Real 
+  UnionIF::
+  derivative(const  IntVect& a_deriv,
+             const RealVect& a_point) const
+  {
+    // Maximum of the implicit functions values
+    Real retval;
+
+    retval = -1.0;
+
+    // Find the maximum value and return it
+    if (m_numFuncs > 0)
+    {
+
+      int whichfunc = 0;
+      Real funcval = m_impFuncs[0]->value(a_point);
+
+      for (int ifunc = 1; ifunc < m_numFuncs; ifunc++)
+      {
+        Real cur = m_impFuncs[ifunc]->value(a_point);
+        if (cur < funcval)
+        {
+          funcval = cur;
+          whichfunc = ifunc;
+        }
+      }
+      retval = m_impFuncs[whichfunc]->derivative(a_deriv, a_point);
+    }
+
+    return retval;
+  }
   BaseIF* UnionIF::newImplicitFunction() const
   {
     UnionIF* unionPtr = new UnionIF(m_impFuncs);

@@ -16,6 +16,11 @@ extern "C" {
 	dm = &(mf->DistributionMap());
     }
 
+    void amrex_fi_new_multifab_alias (MultiFab*& mf, const MultiFab* srcmf, int comp, int ncomp)
+    {
+        mf = new MultiFab(*srcmf, amrex::make_alias, comp, ncomp);
+    }
+
     void amrex_fi_delete_multifab (MultiFab* mf)
     {
 	delete mf;
@@ -77,6 +82,11 @@ extern "C" {
 	return mf->max(comp,nghost);
     }
 
+    Real amrex_fi_multifab_sum (const MultiFab* mf, int comp)
+    {
+	return mf->sum(comp);
+    }
+
     Real amrex_fi_multifab_norm0 (const MultiFab* mf, int comp)
     {
 	return mf->norm0(comp);
@@ -95,6 +105,54 @@ extern "C" {
     void amrex_fi_multifab_setval (MultiFab* mf, Real val, int ic, int nc, int ng)
     {
         mf->setVal(val, ic, nc, ng);
+    }
+
+    void amrex_fi_multifab_plus (MultiFab* mf, Real val, int ic, int nc, int ng)
+    {
+        mf->plus(val, ic, nc, ng);
+    }
+
+    void amrex_fi_multifab_mult (MultiFab* mf, Real val, int ic, int nc, int ng)
+    {
+        mf->mult(val, ic, nc, ng);
+    }
+
+    void amrex_fi_multifab_add (MultiFab* dstmf, const MultiFab* srcmf,
+                                int srccomp, int dstcomp, int nc, int ng)
+    {
+        MultiFab::Add(*dstmf, *srcmf, srccomp, dstcomp, nc, ng);
+    }
+
+    void amrex_fi_multifab_subtract (MultiFab* dstmf, const MultiFab* srcmf,
+                                     int srccomp, int dstcomp, int nc, int ng)
+    {
+        MultiFab::Subtract(*dstmf, *srcmf, srccomp, dstcomp, nc, ng);
+    }
+
+    void amrex_fi_multifab_multiply (MultiFab* dstmf, const MultiFab* srcmf,
+                                     int srccomp, int dstcomp, int nc, int ng)
+    {
+        MultiFab::Multiply(*dstmf, *srcmf, srccomp, dstcomp, nc, ng);
+    }
+
+    void amrex_fi_multifab_divide (MultiFab* dstmf, const MultiFab* srcmf,
+                                   int srccomp, int dstcomp, int nc, int ng)
+    {
+        MultiFab::Divide(*dstmf, *srcmf, srccomp, dstcomp, nc, ng);
+    }
+
+    void amrex_fi_multifab_saxpy (MultiFab* dstmf, Real a, const MultiFab* srcmf,
+                                  int srccomp, int dstcomp, int nc, int ng)
+    {
+        MultiFab::Saxpy(*dstmf, a, *srcmf, srccomp, dstcomp, nc, ng);
+    }
+
+    void amrex_fi_multifab_lincomb (MultiFab* dstmf,
+                                    Real a, const MultiFab* srcmf1, int srccomp1,
+                                    Real b, const MultiFab* srcmf2, int srccomp2,
+                                    int dstcomp, int nc, int ng)
+    {
+        MultiFab::LinComb(*dstmf, a, *srcmf1, srccomp1, b, *srcmf2, srccomp2, dstcomp, nc, ng);
     }
 
     void amrex_fi_multifab_copy (MultiFab* dstmf, const MultiFab* srcmf,
@@ -150,11 +208,16 @@ extern "C" {
 
     void amrex_fi_new_imultifab (iMultiFab*& imf, const BoxArray*& ba, 
 				 const DistributionMapping*& dm,
-				 int nc, int ng)
+				 int nc, int ng, const int* nodal)
     {
-	imf = new iMultiFab(*ba, *dm, nc, ng);
+	imf = new iMultiFab(amrex::convert(*ba, IntVect(nodal)), *dm, nc, ng);
 	ba = &(imf->boxArray());
 	dm = &(imf->DistributionMap());
+    }
+
+    void amrex_fi_new_imultifab_alias (iMultiFab*& mf, const iMultiFab* srcmf, int comp, int ncomp)
+    {
+        mf = new iMultiFab(*srcmf, amrex::make_alias, comp, ncomp);
     }
 
     void amrex_fi_delete_imultifab (iMultiFab* imf)
@@ -175,16 +238,39 @@ extern "C" {
 	}
     }
 
-    // MFIter routines
-
-    void amrex_fi_new_mfiter_r (MFIter*& mfi, MultiFab* mf, int tiling)
+    void amrex_fi_imultifab_setval (iMultiFab* imf, int val, int ic, int nc, int ng)
     {
-	mfi = new MFIter(*mf, (bool)tiling);
+        imf->setVal(val, ic, nc, ng);
     }
 
-    void amrex_fi_new_mfiter_i (MFIter*& mfi, iMultiFab* imf, int tiling)
+    // MFIter routines
+
+    void amrex_fi_new_mfiter_r (MFIter*& mfi, MultiFab* mf, int tiling, int dynamic)
     {
-	mfi = new MFIter(*imf, (bool)tiling);
+        if (tiling) {
+            mfi = new MFIter(*mf, MFItInfo().EnableTiling().SetDynamic(dynamic));
+        } else {
+            mfi = new MFIter(*mf, MFItInfo().SetDynamic(dynamic));
+        }
+    }
+
+    void amrex_fi_new_mfiter_i (MFIter*& mfi, iMultiFab* imf, int tiling, int dynamic)
+    {
+        if (tiling) {
+            mfi = new MFIter(*imf, MFItInfo().EnableTiling().SetDynamic(dynamic));
+        } else {
+            mfi = new MFIter(*imf, MFItInfo().SetDynamic(dynamic));
+        }
+    }
+
+    void amrex_fi_new_mfiter_rs (MFIter*& mfi, MultiFab* mf, const int* tilesize, int dynamic)
+    {
+        mfi = new MFIter(*mf, MFItInfo().EnableTiling(IntVect(tilesize)).SetDynamic(dynamic));
+    }
+
+    void amrex_fi_new_mfiter_is (MFIter*& mfi, iMultiFab* imf, const int* tilesize, int dynamic)
+    {
+        mfi = new MFIter(*imf, MFItInfo().EnableTiling(IntVect(tilesize)).SetDynamic(dynamic));
     }
 
     void amrex_fi_delete_mfiter (MFIter* mfi)
@@ -203,6 +289,11 @@ extern "C" {
 	*isvalid = mfi->isValid();
     }
 
+    int amrex_fi_mfiter_grid_index (MFIter* mfi)
+    {
+	return mfi->index();
+    }
+
     void amrex_fi_mfiter_tilebox (MFIter* mfi, int lo[3], int hi[3], int nodal[3])
     {
 	const Box& bx = mfi->tilebox();
@@ -216,9 +307,72 @@ extern "C" {
 	}
     }
 
+    void amrex_fi_mfiter_tilebox_iv (MFIter* mfi, int lo[3], int hi[3], const int nodal[3])
+    {
+        const Box& bx = mfi->tilebox(IntVect(nodal));
+	const int* lov = bx.loVect();
+	const int* hiv = bx.hiVect();
+	for (int i = 0; i < BL_SPACEDIM; ++i) {
+	    lo[i] = lov[i];
+	    hi[i] = hiv[i];
+	}
+    }
+
     void amrex_fi_mfiter_nodaltilebox (MFIter* mfi, int dir, int lo[3], int hi[3], int nodal[3])
     {
 	const Box& bx = mfi->nodaltilebox(dir);
+	const int* lov = bx.loVect();
+	const int* hiv = bx.hiVect();
+	const IntVect& t = bx.type();
+	for (int i = 0; i < BL_SPACEDIM; ++i) {
+	    lo[i] = lov[i];
+	    hi[i] = hiv[i];
+	    nodal[i] = t[i];
+	}
+    }
+
+    void amrex_fi_mfiter_growntilebox (MFIter* mfi, int lo[3], int hi[3], int ng, int nodal[3])
+    {
+	const Box& bx = mfi->growntilebox(ng);
+	const int* lov = bx.loVect();
+	const int* hiv = bx.hiVect();
+	const IntVect& t = bx.type();
+	for (int i = 0; i < BL_SPACEDIM; ++i) {
+	    lo[i] = lov[i];
+	    hi[i] = hiv[i];
+	    nodal[i] = t[i];
+	}
+    }
+
+    void amrex_fi_mfiter_grownnodaltilebox (MFIter* mfi, int lo[3], int hi[3], int dir, int ng, int nodal[3])
+    {
+	const Box& bx = mfi->grownnodaltilebox(dir, ng);
+	const int* lov = bx.loVect();
+	const int* hiv = bx.hiVect();
+	const IntVect& t = bx.type();
+	for (int i = 0; i < BL_SPACEDIM; ++i) {
+	    lo[i] = lov[i];
+	    hi[i] = hiv[i];
+	    nodal[i] = t[i];
+	}
+    }
+
+    void amrex_fi_mfiter_validbox (MFIter* mfi, int lo[3], int hi[3], int nodal[3])
+    {
+	const Box& bx = mfi->validbox();
+	const int* lov = bx.loVect();
+	const int* hiv = bx.hiVect();
+	const IntVect& t = bx.type();
+	for (int i = 0; i < BL_SPACEDIM; ++i) {
+	    lo[i] = lov[i];
+	    hi[i] = hiv[i];
+	    nodal[i] = t[i];
+	}
+    }
+
+    void amrex_fi_mfiter_fabbox (MFIter* mfi, int lo[3], int hi[3], int nodal[3])
+    {
+	const Box& bx = mfi->fabbox();
 	const int* lov = bx.loVect();
 	const int* hiv = bx.hiVect();
 	const IntVect& t = bx.type();

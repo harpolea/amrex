@@ -1,9 +1,10 @@
 
-#ifndef _COORDSYS_H_
-#define _COORDSYS_H_ 
+#ifndef AMREX_COORDSYS_H_
+#define AMREX_COORDSYS_H_
 
 #include <AMReX_REAL.H>
 #include <AMReX_Array.H>
+#include <AMReX_Vector.H>
 #include <AMReX_Box.H>
 
 namespace amrex {
@@ -88,7 +89,7 @@ public:
     }
 
     //! Return location of cell center.
-    void CellCenter (const IntVect& point, Array<Real>& loc) const;
+    void CellCenter (const IntVect& point, Vector<Real>& loc) const;
 
     //! Return location of cell center.
     void CellCenter (const IntVect& point, Real* loc) const;
@@ -118,25 +119,25 @@ public:
     }
 
     //! Sets location of lo face into loc.
-    void LoFace (const IntVect& point, int dir, Array<Real>& loc) const;
+    void LoFace (const IntVect& point, int dir, Vector<Real>& loc) const;
 
     //! Sets location of lo face into loc.
     void LoFace (const IntVect& point, int dir, Real* loc) const;
 
     //! Sets location of hi face into loc.
-    void HiFace (const IntVect& point, int dir, Array<Real>& loc) const;
+    void HiFace (const IntVect& point, int dir, Vector<Real>& loc) const;
 
     //! Sets location of hi face into loc.
     void HiFace (const IntVect& point, int dir, Real* loc) const;
 
     //! Return location of lower left hand corner.
-    void LoNode (const IntVect& point, Array<Real>& loc) const;
+    void LoNode (const IntVect& point, Vector<Real>& loc) const;
 
     //! Return location of lower left hand corner.
     void LoNode (const IntVect& point, Real* loc) const;
 
     //! Return location of upper right hand corner.
-    void HiNode (const IntVect& point, Array<Real>& loc) const;
+    void HiNode (const IntVect& point, Vector<Real>& loc) const;
 
     //! Return location of upper right hand corner.
     void HiNode (const IntVect& point, Real* loc) const;
@@ -194,8 +195,8 @@ public:
     Real Volume (const IntVect& point) const;
 
     //! Return the volume of the specified cell.
-    Real Volume (const Real xlo[BL_SPACEDIM],
-                 const Real xhi[BL_SPACEDIM]) const;
+    Real Volume (const Real xlo[AMREX_SPACEDIM],
+                 const Real xhi[AMREX_SPACEDIM]) const;
 
     /**
     * \brief Compute area of cell faces in given region and given
@@ -226,25 +227,25 @@ public:
     * \brief Return array of physical locations of cell edges
     * in the resize()d input array.
     */
-    void GetEdgeLoc (Array<Real>& loc, const Box& region, int dir) const;
+    void GetEdgeLoc (Vector<Real>& loc, const Box& region, int dir) const;
 
     /**
     * \brief Return array of physical locations of cell centers
     * in the resize()d input array.
     */
-    void GetCellLoc (Array<Real>& loc, const Box& region, int dir) const;
+    void GetCellLoc (Vector<Real>& loc, const Box& region, int dir) const;
 
     /**
     * \brief Return array of volume coordinates at cell edges
     * for region in given direction.
     */
-    void GetEdgeVolCoord (Array<Real>& loc, const Box& region, int dir) const;
+    void GetEdgeVolCoord (Vector<Real>& loc, const Box& region, int dir) const;
 
     /**
     * \brief Return array of volume coordinates at cell centers
     * for region in given direction.
     */
-    void GetCellVolCoord (Array<Real>& loc, const Box& region, int dir) const;
+    void GetCellVolCoord (Vector<Real>& loc, const Box& region, int dir) const;
 
 #ifdef BL_USE_MPI
     static void BroadcastCoordSys (CoordSys &geom, int fromProc, MPI_Comm comm);
@@ -254,11 +255,11 @@ public:
 protected:
     //! Static data.
     static CoordType c_sys;
-    static Real      offset[BL_SPACEDIM];
+    static Real      offset[AMREX_SPACEDIM];
 
     //! Non-static data.
-    Real dx[BL_SPACEDIM];
-    Real inv_dx[BL_SPACEDIM];
+    Real dx[AMREX_SPACEDIM];
+    Real inv_dx[AMREX_SPACEDIM];
     bool ok;
 };
 
@@ -267,10 +268,10 @@ bool
 CoordSys::IsSPHERICAL ()
 {
     BL_ASSERT(c_sys != undef);
-#if (BL_SPACEDIM <= 2)
+#if (AMREX_SPACEDIM <= 2)
     return (c_sys == SPHERICAL);
 #endif    
-#if (BL_SPACEDIM == 3)
+#if (AMREX_SPACEDIM == 3)
     return false;
 #endif    
 }
@@ -280,10 +281,10 @@ bool
 CoordSys::IsRZ ()
 {
     BL_ASSERT(c_sys != undef);
-#if (BL_SPACEDIM <= 2)
+#if (AMREX_SPACEDIM <= 2)
     return (c_sys == RZ);
 #endif    
-#if (BL_SPACEDIM == 3)
+#if (AMREX_SPACEDIM == 3)
     return false;
 #endif    
 }

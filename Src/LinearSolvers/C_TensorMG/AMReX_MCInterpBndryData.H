@@ -1,6 +1,6 @@
 
-#ifndef _MCINTERPBNDRYDATA_H_
-#define _MCINTERPBNDRYDATA_H_
+#ifndef AMREX_MCINTERPBNDRYDATA_H_
+#define AMREX_MCINTERPBNDRYDATA_H_
 
 #include <AMReX_BLassert.H>
 #include <AMReX_BoxArray.H>
@@ -75,7 +75,7 @@ public:
 			 int                 mf_start,
 			 int                 bnd_start,
 			 int                 num_comp,
-			 const Array<BCRec>& phys_bc);
+			 const Vector<BCRec>& phys_bc);
     //
     // Set bndry values at fine level, performing necessary interpolations.
     //
@@ -86,7 +86,7 @@ public:
 			 int                  bnd_start,
 			 int                  num_comp,
 			 int                  ratio,
-			 const Array<BCRec>&  phys_bc);
+			 const Vector<BCRec>&  phys_bc);
 };
 
 }

@@ -1,5 +1,5 @@
-#ifndef PLOTFILEUTIL_H_
-#define PLOTFILEUTIL_H_
+#ifndef AMREX_PLOTFILEUTIL_H_
+#define AMREX_PLOTFILEUTIL_H_
 
 #include <string>
 
@@ -42,38 +42,39 @@ namespace amrex
     // ---- the plotfilename directory must already exist
     void WriteGenericPlotfileHeader (std::ostream &HeaderFile,
                                      int nlevels,
-				     const Array<BoxArray> &bArray,
-				     const Array<std::string> &varnames,
-				     const Array<Geometry> &geom,
+				     const Vector<BoxArray> &bArray,
+				     const Vector<std::string> &varnames,
+				     const Vector<Geometry> &geom,
 				     Real time,
-				     const Array<int> &level_steps,
-				     const Array<IntVect> &ref_ratio,
+				     const Vector<int> &level_steps,
+				     const Vector<IntVect> &ref_ratio,
 				     const std::string &versionName = "HyperCLaw-V1.1",
 				     const std::string &levelPrefix = "Level_",
 				     const std::string &mfPrefix = "Cell");
 
     void WriteSingleLevelPlotfile (const std::string &plotfilename,
 				   const MultiFab &mf,
-				   const Array<std::string> &varnames,
+				   const Vector<std::string> &varnames,
 				   const Geometry &geom,
 				   Real t,
 				   int level_step,
                                    const std::string &versionName = "HyperCLaw-V1.1",
                                    const std::string &levelPrefix = "Level_",
-                                   const std::string &mfPrefix = "Cell");
-
+                                   const std::string &mfPrefix = "Cell",
+                                   const Vector<std::string>& extra_dirs = Vector<std::string>());
 
     void WriteMultiLevelPlotfile (const std::string &plotfilename,
                                   int nlevels,
-				  const Array<const MultiFab*> &mf,
-				  const Array<std::string> &varnames,
-				  const Array<Geometry> &geom,
+				  const Vector<const MultiFab*> &mf,
+				  const Vector<std::string> &varnames,
+				  const Vector<Geometry> &geom,
 				  Real time,
-				  const Array<int> &level_steps,
-				  const Array<IntVect> &ref_ratio,
+				  const Vector<int> &level_steps,
+				  const Vector<IntVect> &ref_ratio,
                                   const std::string &versionName = "HyperCLaw-V1.1",
                                   const std::string &levelPrefix = "Level_",
-                                  const std::string &mfPrefix = "Cell");
+                                  const std::string &mfPrefix = "Cell",
+                                  const Vector<std::string>& extra_dirs = Vector<std::string>());
 }
 
 #endif

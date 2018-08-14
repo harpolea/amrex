@@ -46,12 +46,18 @@ _progs  += dataArith
 _progs  += fabio
 _progs  += ebio
 _progs  += serialization
+_progs  += fabfromif
+_progs  += multicelllev
+_progs  += simpleMomentExample
+_progs  += momentConvTest
+
 
 include $(AMREX_HOME)/Src/Base/Make.package
-include $(AMREX_HOME)/Src/Boundary/Make.package
-include $(AMREX_HOME)/Src/AmrCore/Make.package
 include $(AMREX_HOME)/Src/GeometryShop/Make.package
 include $(AMREX_HOME)/Src/EBAMRTools/Make.package
+include $(AMREX_HOME)/Src/EB/Make.package
+include $(AMREX_HOME)/Src/Boundary/Make.package
+include $(AMREX_HOME)/Src/AmrCore/Make.package
 
 all: $(addsuffix $(optionsSuffix).ex, $(_progs))
 

@@ -5,12 +5,15 @@
 
 namespace amrex {
 
+int MFIter::nextDynamicIndex = std::numeric_limits<int>::min();
+
 MFIter::MFIter (const FabArrayBase& fabarray_, 
 		unsigned char       flags_)
     :
     fabArray(fabarray_),
     tile_size((flags_ & Tiling) ? FabArrayBase::mfiter_tile_size : IntVect::TheZeroVector()),
     flags(flags_),
+    dynamic(false),
     index_map(nullptr),
     local_index_map(nullptr),
     tile_array(nullptr),
@@ -26,6 +29,7 @@ MFIter::MFIter (const FabArrayBase& fabarray_,
     fabArray(fabarray_),
     tile_size((do_tiling_) ? FabArrayBase::mfiter_tile_size : IntVect::TheZeroVector()),
     flags(do_tiling_ ? Tiling : 0),
+    dynamic(false),
     index_map(nullptr),
     local_index_map(nullptr),
     tile_array(nullptr),
@@ -42,6 +46,7 @@ MFIter::MFIter (const FabArrayBase& fabarray_,
     fabArray(fabarray_),
     tile_size(tilesize_),
     flags(flags_ | Tiling),
+    dynamic(false),
     index_map(nullptr),
     local_index_map(nullptr),
     tile_array(nullptr),
@@ -53,10 +58,13 @@ MFIter::MFIter (const FabArrayBase& fabarray_,
 
 MFIter::MFIter (const BoxArray& ba, const DistributionMapping& dm, unsigned char flags_)
     :
-    m_fa(new FabArray<FArrayBox>(ba, dm, 1, 0, MFInfo().SetAlloc(false))),
+    m_fa(new FabArray<FArrayBox>(ba, dm, 1, 0,
+                                 MFInfo().SetAlloc(false),
+                                 FArrayBoxFactory())),
     fabArray(*m_fa),
     tile_size((flags_ & Tiling) ? FabArrayBase::mfiter_tile_size : IntVect::TheZeroVector()),
     flags(flags_),
+    dynamic(false),
     index_map(nullptr),
     local_index_map(nullptr),
     tile_array(nullptr),
@@ -68,10 +76,13 @@ MFIter::MFIter (const BoxArray& ba, const DistributionMapping& dm, unsigned char
 
 MFIter::MFIter (const BoxArray& ba, const DistributionMapping& dm, bool do_tiling_)
     :
-    m_fa(new FabArray<FArrayBox>(ba, dm, 1, 0, MFInfo().SetAlloc(false))),
+    m_fa(new FabArray<FArrayBox>(ba, dm, 1, 0,
+                                 MFInfo().SetAlloc(false),
+                                 FArrayBoxFactory())),
     fabArray(*m_fa),
     tile_size((do_tiling_) ? FabArrayBase::mfiter_tile_size : IntVect::TheZeroVector()),
     flags(do_tiling_ ? Tiling : 0),
+    dynamic(false),
     index_map(nullptr),
     local_index_map(nullptr),
     tile_array(nullptr),
@@ -85,16 +96,46 @@ MFIter::MFIter (const BoxArray& ba, const DistributionMapping& dm, bool do_tilin
 MFIter::MFIter (const BoxArray& ba, const DistributionMapping& dm,
                 const IntVect& tilesize_, unsigned char flags_)
     :
-    m_fa(new FabArray<FArrayBox>(ba, dm, 1, 0, MFInfo().SetAlloc(false))),
+    m_fa(new FabArray<FArrayBox>(ba, dm, 1, 0,
+                                 MFInfo().SetAlloc(false),
+                                 FArrayBoxFactory())),
     fabArray(*m_fa),
     tile_size(tilesize_),
     flags(flags_ | Tiling),
+    dynamic(false),
     index_map(nullptr),
     local_index_map(nullptr),
     tile_array(nullptr),
     local_tile_index_map(nullptr),
     num_local_tiles(nullptr)
 {
+    Initialize();
+}
+
+
+MFIter::MFIter (const FabArrayBase& fabarray_, const MFItInfo& info)
+    :
+    fabArray(fabarray_),
+    tile_size(info.tilesize),
+    flags(info.do_tiling ? Tiling : 0),
+    dynamic(info.dynamic),
+    index_map(nullptr),
+    local_index_map(nullptr),
+    tile_array(nullptr),
+    local_tile_index_map(nullptr),
+    num_local_tiles(nullptr)
+{
+    if (dynamic) {
+#ifdef _OPENMP
+#pragma omp barrier
+#pragma omp single
+        nextDynamicIndex = omp_get_num_threads();
+        // yes omp single has an implicit barrier and we need it because nextDynamicIndex is static.
+#else
+        dynamic = false;  // dynamic doesn't make sense if OMP is not used.
+#endif
+    }
+
     Initialize();
 }
 
@@ -172,17 +213,24 @@ MFIter::Initialize ()
 	int nthreads = omp_get_num_threads();
 	if (nthreads > 1)
 	{
-	    int tid = omp_get_thread_num();
-	    int ntot = endIndex - beginIndex;
-	    int nr   = ntot / nthreads;
-	    int nlft = ntot - nr * nthreads;
-	    if (tid < nlft) {  // get nr+1 items
-		beginIndex += tid * (nr + 1);
-		endIndex = beginIndex + nr + 1;
-	    } else {           // get nr items
-		beginIndex += tid * nr + nlft;
-		endIndex = beginIndex + nr;
-	    }	    
+            if (dynamic)
+            {
+                beginIndex = omp_get_thread_num();
+            }
+            else
+            {
+                int tid = omp_get_thread_num();
+                int ntot = endIndex - beginIndex;
+                int nr   = ntot / nthreads;
+                int nlft = ntot - nr * nthreads;
+                if (tid < nlft) {  // get nr+1 items
+                    beginIndex += tid * (nr + 1);
+                    endIndex = beginIndex + nr + 1;
+                } else {           // get nr items
+                    beginIndex += tid * nr + nlft;
+                    endIndex = beginIndex + nr;
+                }
+            }
 	}
 #endif
 
@@ -202,7 +250,7 @@ MFIter::tilebox () const
 	bx.convert(typ);
 	const Box& vbx = validbox();
 	const IntVect& Big = vbx.bigEnd();
-	for (int d=0; d<BL_SPACEDIM; ++d) {
+	for (int d=0; d<AMREX_SPACEDIM; ++d) {
 	    if (typ.nodeCentered(d)) { // validbox should also be nodal in d-direction.
 		if (bx.bigEnd(d) < Big[d]) {
 		    bx.growHi(d,-1);
@@ -224,7 +272,7 @@ MFIter::tilebox (const IntVect& nodal) const
 	bx.setType(new_typ);
 	const Box& valid_cc_box = amrex::enclosedCells(validbox());
 	const IntVect& Big = valid_cc_box.bigEnd();
-	for (int d=0; d<BL_SPACEDIM; ++d) {
+	for (int d=0; d<AMREX_SPACEDIM; ++d) {
 	    if (new_typ.nodeCentered(d)) { // validbox should also be nodal in d-direction.
 		if (bx.bigEnd(d) == Big[d]) {
 		    bx.growHi(d,1);
@@ -236,9 +284,25 @@ MFIter::tilebox (const IntVect& nodal) const
 }
 
 Box
+MFIter::tilebox (const IntVect& nodal, const IntVect& ngrow) const
+{
+    Box bx = tilebox(nodal);
+    const Box& vbx = validbox();
+    for (int d=0; d<AMREX_SPACEDIM; ++d) {
+	if (bx.smallEnd(d) == vbx.smallEnd(d)) {
+	    bx.growLo(d, ngrow[d]);
+	}
+	if (bx.bigEnd(d) >= vbx.bigEnd(d)) {
+	    bx.growHi(d, ngrow[d]);
+	}
+    }
+    return bx;
+}
+
+Box
 MFIter::nodaltilebox (int dir) const 
 { 
-    BL_ASSERT(dir < BL_SPACEDIM);
+    BL_ASSERT(dir < AMREX_SPACEDIM);
     BL_ASSERT(tile_array != 0);
     Box bx((*tile_array)[currentIndex]);
     bx.convert(typ);
@@ -247,7 +311,7 @@ MFIter::nodaltilebox (int dir) const
     int d0, d1;
     if (dir < 0) {
 	d0 = 0;
-	d1 = BL_SPACEDIM-1;
+	d1 = AMREX_SPACEDIM-1;
     } else {
 	d0 = d1 = dir;
     }
@@ -269,7 +333,7 @@ MFIter::growntilebox (int ng) const
     Box bx = tilebox();
     if (ng < -100) ng = fabArray.nGrow();
     const Box& vbx = validbox();
-    for (int d=0; d<BL_SPACEDIM; ++d) {
+    for (int d=0; d<AMREX_SPACEDIM; ++d) {
 	if (bx.smallEnd(d) == vbx.smallEnd(d)) {
 	    bx.growLo(d, ng);
 	}
@@ -281,18 +345,51 @@ MFIter::growntilebox (int ng) const
 }
 
 Box
+MFIter::growntilebox (const IntVect& ng) const
+{
+    Box bx = tilebox();
+    const Box& vbx = validbox();
+    for (int d=0; d<AMREX_SPACEDIM; ++d) {
+	if (bx.smallEnd(d) == vbx.smallEnd(d)) {
+	    bx.growLo(d, ng[d]);
+	}
+	if (bx.bigEnd(d) == vbx.bigEnd(d)) {
+	    bx.growHi(d, ng[d]);
+	}
+    }
+    return bx;
+}
+
+Box
 MFIter::grownnodaltilebox (int dir, int ng) const
 {
-    BL_ASSERT(dir < BL_SPACEDIM);
+    BL_ASSERT(dir < AMREX_SPACEDIM);
     Box bx = nodaltilebox(dir);
     if (ng < -100) ng = fabArray.nGrow();
     const Box& vbx = validbox();
-    for (int d=0; d<BL_SPACEDIM; ++d) {
+    for (int d=0; d<AMREX_SPACEDIM; ++d) {
 	if (bx.smallEnd(d) == vbx.smallEnd(d)) {
 	    bx.growLo(d, ng);
 	}
 	if (bx.bigEnd(d) >= vbx.bigEnd(d)) {
 	    bx.growHi(d, ng);
+	}
+    }
+    return bx;
+}
+
+Box
+MFIter::grownnodaltilebox (int dir, const IntVect& ng) const
+{
+    BL_ASSERT(dir < AMREX_SPACEDIM);
+    Box bx = nodaltilebox(dir);
+    const Box& vbx = validbox();
+    for (int d=0; d<AMREX_SPACEDIM; ++d) {
+	if (bx.smallEnd(d) == vbx.smallEnd(d)) {
+	    bx.growLo(d, ng[d]);
+	}
+	if (bx.bigEnd(d) >= vbx.bigEnd(d)) {
+	    bx.growHi(d, ng[d]);
 	}
     }
     return bx;
@@ -329,8 +426,8 @@ MFGhostIter::Initialize ()
     int pid = rit*nthreads+tid;
 
     BoxList alltiles;
-    Array<int> allindex;
-    Array<int> alllocalindex;
+    Vector<int> allindex;
+    Vector<int> alllocalindex;
 
     for (int i=0; i < fabArray.IndexArray().size(); ++i) {
 	int K = fabArray.IndexArray()[i];

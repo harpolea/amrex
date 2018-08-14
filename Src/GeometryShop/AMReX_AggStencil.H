@@ -1,15 +1,5 @@
-/*
- *      .o.       ooo        ooooo ooooooooo.             ooooooo  ooooo 
- *     .888.      `88.       .888' `888   `Y88.            `8888    d8'  
- *    .8"888.      888b     d'888   888   .d88'  .ooooo.     Y888..8P    
- *   .8' `888.     8 Y88. .P  888   888ooo88P'  d88' `88b     `8888'     
- *  .88ooo8888.    8  `888'   888   888`88b.    888ooo888    .8PY888.    
- * .8'     `888.   8    Y     888   888  `88b.  888    .o   d8'  `888b   
- *o88o     o8888o o8o        o888o o888o  o888o `Y8bod8P' o888o  o88888o 
- *
- */
-#ifndef _AGGSTENCIL_H_
-#define _AGGSTENCIL_H_
+#ifndef AMREX_AGGSTENCIL_H_
+#define AMREX_AGGSTENCIL_H_
 
 #include "AMReX_Stencils.H"
 #include "AMReX_BaseIndex.H"
@@ -44,8 +34,8 @@ public:
      a_srcData is to provide offsets for source data (can be a dummy but must be the right size)
      a_dstData is to provide offsets for destin data (can be a dummy but must be the right size)
    */
-  AggStencil(const std::vector<std::shared_ptr<BaseIndex  > >& a_dstVoFs,
-             const std::vector<std::shared_ptr<BaseStencil> >& a_stencil,
+  AggStencil(const Vector<std::shared_ptr<BaseIndex  > >& a_dstVoFs,
+             const Vector<std::shared_ptr<BaseStencil> >& a_stencil,
              const srcData_t                                 & a_srcData,
              const dstData_t                                 & a_dstData);
 
@@ -86,14 +76,14 @@ public:
     int  dataID;
   } typedef access_t;
 
-  typedef std::vector<std::pair<access_t, Real> > stencil_t;
+  typedef Vector<std::pair<access_t, Real> > stencil_t;
 
 protected:
 
   int m_destVar;
-  std::vector<stencil_t>   m_ebstencil;
-  std::vector<access_t>    m_dstAccess;
-  mutable std::vector< std::vector<Real> > m_cacheDst;
+  Vector<stencil_t>   m_ebstencil;
+  Vector<access_t>    m_dstAccess;
+  mutable Vector< Vector<Real> > m_cacheDst;
 
 private:
   /// disallowed operators.   Without code because Jeff says that is better.

@@ -12,8 +12,8 @@ def compiletesting(arg_string):
 
     parser = argparse.ArgumentParser(description="compile tests")
     parser.add_argument("--redo_failed", action="store_true")
+    parser.add_argument("--typecheck", action="store_true")
     parser.add_argument("--full", action="store_true")
-    parser.add_argument("--test_pgas", action="store_true")
     parser.add_argument("--make_flags", type=str, default="")
     if not arg_string is None:
         args = parser.parse_args(arg_string)
@@ -27,57 +27,46 @@ def compiletesting(arg_string):
             test_list.append(line[:-1])
         f.close()
     elif args.full:
-        test_list = ['Tutorials/AMR_Adv_C/Exec/SingleVortex',
-                     'Tutorials/AMR_Adv_C/Exec/UniformVelocity',
-                     'Tutorials/AMR_Adv_C_v2/Exec/SingleVortex',
-                     'Tutorials/AMR_Adv_F/Exec/SingleVortex',
-                     'Tutorials/AMR_Adv_F/Exec/UniformVelocity',
-                     'Tutorials/DataServicesTest0',
-                     'Tutorials/Exp_CNS_NoSpec_F',
-                     'Tutorials/GettingStarted_C',
-                     'Tutorials/GettingStarted_F',
-                     'Tutorials/HeatEquation_EX1_C',
-                     'Tutorials/HeatEquation_EX1_F',
-                     'Tutorials/HeatEquation_EX2_C',
-                     'Tutorials/HeatEquation_EX2_F',
-                     'Tutorials/HeatEquation_EX3_F',
-                     'Tutorials/HeatEquation_EX4_F',
-                     'Tutorials/HeatEquation_EX5_F',
-                     'Tutorials/HelloWorld_C',
-                     'Tutorials/HelloWorld_CF',
-                     'Tutorials/MultiColor_C',
-                     'Tutorials/MultiFabTests_C',
-                     'Tutorials/MultiGrid_C',
-                     'Tutorials/MultiGrid_F',
-                     'Tutorials/PIC_C',
-                     'Tutorials/Random_F',
-                     'Tutorials/Sidecar_EX1',
-                     'Tutorials/Tiling_C',
-                     'Tutorials/Tiling_Heat_C',
-                     'Tutorials/Tiling_Heat_F',
-                     'Tutorials/TwoGrid_PIC_C',
-                     'Tutorials/WaveEquation_C',
-                     'Tutorials/WaveEquation_F',
+        test_list = ['Tutorials/Basic/HelloWorld_C',
+                     'Tutorials/Basic/HelloWorld_F',
+                     'Tutorials/Basic/HeatEquation_EX1_C/Exec',
+                     'Tutorials/Basic/HeatEquation_EX1_F',
+                     'Tutorials/Amr/Advection_AmrCore/Exec/SingleVortex',
+                     'Tutorials/Amr/Advection_F/Exec/SingleVortex',
+                     'Tutorials/Amr/Advection_octree_F/Exec/SingleVortex',
+                     'Tutorials/Amr/Advection_AmrLevel/Exec/SingleVortex',
+                     'Tutorials/Amr/Advection_AmrLevel/Exec/UniformVelocity',
+                     'Tutorials/EB/CNS/Exec/Combustor',
+                     'Tutorials/EB/CNS/Exec/Pulse',
+                     'Tutorials/EB/LevelSet/Exec',
+                     'Tutorials/LinearSolvers/ABecLaplacian_C',
+                     'Tutorials/LinearSolvers/ABecLaplacian_F',
+                     'Tutorials/Particles/LoadBalance',
+                     'Tutorials/Particles/NeighborList',
+                     'OldTutorials/DataServicesTest0',
+                     'OldTutorials/MultiColor_C',
+                     'OldTutorials/MultiFabTests_C',
+                     'OldTutorials/MultiGrid_C',
+                     'OldTutorials/Tiling_C',
+                     'OldTutorials/Tiling_Heat_C',
+                     'OldTutorials/WaveEquation_C',
                      'Tests/BBIOBenchmark',
                      'Tests/C_BaseLib',
-                     'Tests/FillBoundaryComparison',
                      'Tests/IOBenchmark',
                      'Tests/LinearSolvers/C_CellMG',
                      'Tests/LinearSolvers/ComparisonTest',
                      'Tests/LinearSolvers/C_TensorMG',
-                     'Tests/LinearSolvers/F_MG',
                      'Tests/MKDir',
-                     'MiniApps/AMR_Adv_Diff_F90',
-                     'MiniApps/FillBoundary',
-                     'MiniApps/MultiGrid_C',
-                     'MiniApps/SMC']
-        if (args.test_pgas):
-            test_list += ['Tutorials/PGAS_HEAT', 'MiniApps/PGAS_SMC']
+                     'OldMiniApps/FillBoundary',
+                     'OldMiniApps/MultiGrid_C']
+
     else:
-        test_list = ['Tutorials/AMR_Adv_C/Exec/SingleVortex',
-                     'Tutorials/AMR_Adv_C_v2/Exec/SingleVortex',
-                     'Tutorials/AMR_Adv_F/Exec/SingleVortex',
-                     'Tutorials/PIC_C',
+        test_list = ['Tutorials/Amr/Advection_AmrCore/Exec/SingleVortex',
+                     'Tutorials/Amr/Advection_F/Exec/SingleVortex',
+                     'Tutorials/EB/CNS/Exec/Pulse',
+                     'Tutorials/LinearSolvers/ABecLaplacian_C',
+                     'Tutorials/LinearSolvers/ABecLaplacian_F',
+                     'Tutorials/Particles/NeighborList',
                      'Tests/LinearSolvers/ComparisonTest']
 
     print "Test List: ", test_list
@@ -86,6 +75,7 @@ def compiletesting(arg_string):
 
     start_time = calendar.timegm(time.gmtime())
 
+    failed_tests = []
     for test in test_list:
         print "Compile", test
         os.chdir(os.path.join(TOP,test))
@@ -95,23 +85,32 @@ def compiletesting(arg_string):
         run(command, outfile)
         
         command = "make -j4 " + args.make_flags
+        if args.typecheck:
+            command += " typecheck"
         outfile = "make.ou"
         run(command, outfile)        
 
-        os.chdir(TOP)
+        test_success = False
+        if args.typecheck:
+            f = open(outfile, 'r')
+            for line in f.readlines():
+                if "functions checked, 0 error" in line:
+                    test_success = True
+                    break
+        else:
+            os.chdir(os.path.join(TOP,test))
+            for file in os.listdir('./'):
+                if file.endswith(".ex") or file.endswith(".exe"):
+                    t = os.path.getmtime(file)
+                    test_success = t > start_time
+
+        if test_success:
+            print ("    success")
+        else:
+            print ("    failed")
+            failed_tests.append(test)
 
     print ""
-
-    failed_tests = []
-    for test in test_list:
-        test_success = False
-        os.chdir(os.path.join(TOP,test))
-        for file in os.listdir('./'):
-            if file.endswith(".ex") or file.endswith(".exe"):
-                t = os.path.getmtime(file)
-                test_success = t > start_time
-        if not test_success:
-            failed_tests.append(test)
 
     os.chdir(TOP)
     if failed_tests:

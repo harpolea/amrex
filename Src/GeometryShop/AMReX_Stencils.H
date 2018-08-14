@@ -1,17 +1,5 @@
-/*
- *      .o.       ooo        ooooo ooooooooo.             ooooooo  ooooo 
- *     .888.      `88.       .888' `888   `Y88.            `8888    d8'  
- *    .8"888.      888b     d'888   888   .d88'  .ooooo.     Y888..8P    
- *   .8' `888.     8 Y88. .P  888   888ooo88P'  d88' `88b     `8888'     
- *  .88ooo8888.    8  `888'   888   888`88b.    888ooo888    .8PY888.    
- * .8'     `888.   8    Y     888   888  `88b.  888    .o   d8'  `888b   
- *o88o     o8888o o8o        o888o o888o  o888o `Y8bod8P' o888o  o88888o 
- *
- */
-
-
-#ifndef _STENCILS_H_
-#define _STENCILS_H_
+#ifndef AMREX_STENCILS_H_
+#define AMREX_STENCILS_H_
 
 #include "AMReX_VolIndex.H"
 #include "AMReX_BaseIndex.H"
@@ -157,18 +145,20 @@ namespace amrex
     {
       if (vofs.size() > 0)
         {
-          variables = std::vector<int>(vofs.size(), a_var);
+          variables = Vector<int>(vofs.size(), a_var);
         }
     }
+
+  void outputToPout() const;
 
   protected:
 
     /// the VoFs
-    std::vector<VolIndex> vofs;
+    Vector<VolIndex> vofs;
     /// the weights
-    std::vector<Real> weights;
+    Vector<Real> weights;
 
-    std::vector<int> variables;
+    Vector<int> variables;
   };
 
   ///
@@ -212,7 +202,7 @@ namespace amrex
     {
       if (faces.size() > 0)
         {
-          variables = std::vector<int>(faces.size(), a_var);
+          variables = Vector<int>(faces.size(), a_var);
         }
     }
 
@@ -261,14 +251,15 @@ namespace amrex
      */
     void operator*=(const Real& scaling);
 
+    void outputToPout() const;
   private:
 
     /// the Faces
-    std::vector<FaceIndex> faces;
+    Vector<FaceIndex> faces;
     /// the weights
-    std::vector<Real> weights;
+    Vector<Real> weights;
     /// the variable numbers
-    std::vector<int> variables;
+    Vector<int> variables;
 
   };
 

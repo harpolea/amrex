@@ -50,10 +50,10 @@ TagBox::coarsen (const IntVect& ratio, bool owner)
     const int* lo       = b1.loVect();
     int        longlen  = b1.longside();
 
-    Array<TagType> cfab(numpts);
+    Vector<TagType> cfab(numpts);
     TagType* cdat = cfab.dataPtr();
 
-    Array<TagType> t(longlen,TagBox::CLEAR);
+    Vector<TagType> t(longlen,TagBox::CLEAR);
 
     int klo = 0, khi = 0, jlo = 0, jhi = 0, ilo, ihi;
     AMREX_D_TERM(ilo=flo[0]; ihi=fhi[0]; ,
@@ -136,13 +136,13 @@ TagBox::buffer (int nbuff,
                 TagType* d_check = d + OFF(i,j,k,lo,len);
                 if (*d_check == TagBox::SET)
                 {
-                    for (int k = -nk; k <= nk; k++)
+                    for (int kk = -nk; kk <= nk; kk++)
                     {
-                        for (int j = -nj; j <= nj; j++)
+                        for (int jj = -nj; jj <= nj; jj++)
                         {
-                            for (int i = -ni; i <= ni; i++)
+                            for (int ii = -ni; ii <= ni; ii++)
                             {
-                                TagType* dn = d_check+ AMREX_D_TERM(i, +j*len[0], +k*len[0]*len[1]);
+                                TagType* dn = d_check+ AMREX_D_TERM(ii, +jj*len[0], +kk*len[0]*len[1]);
                                 if (*dn !=TagBox::SET)
                                     *dn = TagBox::BUF;
                             }
@@ -167,10 +167,10 @@ TagBox::merge (const TagBox& src)
     {
         const int*     dlo        = domain.loVect();
         IntVect        d_length   = domain.size();
-        const int*     dlen       = d_length.getVect();
+        const int*     dleng      = d_length.getVect();
         const int*     slo        = src.domain.loVect();
         IntVect        src_length = src.domain.size();
-        const int*     slen       = src_length.getVect();
+        const int*     sleng      = src_length.getVect();
         const int*     lo         = bx.loVect();
         const int*     hi         = bx.hiVect();
         const TagType* ds0        = src.dataPtr();
@@ -189,10 +189,10 @@ TagBox::merge (const TagBox& src)
             {
                 for (int i = ilo; i <= ihi; i++)
                 {
-                    const TagType* ds = ds0 + OFF(i,j,k,slo,slen);
+                    const TagType* ds = ds0 + OFF(i,j,k,slo,sleng);
                     if (*ds != TagBox::CLEAR)
                     {
-                        TagType* dd = dd0 + OFF(i,j,k,dlo,dlen);
+                        TagType* dd = dd0 + OFF(i,j,k,dlo,dleng);
                         *dd = TagBox::SET;
                     }            
                 }
@@ -225,7 +225,7 @@ TagBox::numTags (const Box& b) const
 }
 
 long
-TagBox::collate (std::vector<IntVect>& ar, int start) const
+TagBox::collate (Vector<IntVect>& ar, int start) const
 {
     BL_ASSERT(start >= 0);
     //
@@ -258,10 +258,10 @@ TagBox::collate (std::vector<IntVect>& ar, int start) const
     return count;
 }
 
-Array<int>
+Vector<int>
 TagBox::tags () const
 {
-    Array<int> ar(domain.numPts(), TagBox::CLEAR);
+    Vector<int> ar(domain.numPts(), TagBox::CLEAR);
 
     const TagType* cptr = dataPtr();
     int*           iptr = ar.dataPtr();
@@ -279,7 +279,7 @@ TagBox::tags () const
 // Set values as specified by the array -- this only tags.
 // It's an error if ar.length() != domain.numPts().
 void
-TagBox::tags (const Array<int>& ar)
+TagBox::tags (const Vector<int>& ar)
 {
     BL_ASSERT(ar.size() == domain.numPts());
 
@@ -296,7 +296,7 @@ TagBox::tags (const Array<int>& ar)
 // Set values as specified by the array -- this tags and untags.
 // It's an error if ar.length() != domain.numPts().
 void
-TagBox::tags_and_untags (const Array<int>& ar)
+TagBox::tags_and_untags (const Vector<int>& ar)
 {
     BL_ASSERT(ar.size() == domain.numPts());
 
@@ -314,10 +314,10 @@ TagBox::tags_and_untags (const Array<int>& ar)
 // function to allocate an integer array to have the same number 
 // of elements as cells in tilebx
 void 
-TagBox::get_itags(Array<int>& ar, const Box& tilebx) const
+TagBox::get_itags(Vector<int>& ar, const Box& tilebx) const
 {
     int Lbx[] = {1,1,1};
-    for (int idim=0; idim<BL_SPACEDIM; idim++) {
+    for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
 	Lbx[idim] = dlen[idim];
     }
     
@@ -325,7 +325,7 @@ TagBox::get_itags(Array<int>& ar, const Box& tilebx) const
 
     long Ntb = 1, stb=0;
     int Ltb[] = {1,1,1};
-    for (int idim=0; idim<BL_SPACEDIM; idim++) {
+    for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
 	Ltb[idim] = tilebx.length(idim);
 	Ntb *= Ltb[idim];
 	stb += stride[idim] * (tilebx.smallEnd(idim) - domain.smallEnd(idim));
@@ -354,10 +354,10 @@ TagBox::get_itags(Array<int>& ar, const Box& tilebx) const
 // Set values as specified by the array -- this only tags.
 // only changes values in the tilebx region
 void 
-TagBox::tags (const Array<int>& ar, const Box& tilebx)
+TagBox::tags (const Vector<int>& ar, const Box& tilebx)
 {
     int Lbx[] = {1,1,1};
-    for (int idim=0; idim<BL_SPACEDIM; idim++) {
+    for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
 	Lbx[idim] = dlen[idim];
     }
     
@@ -365,7 +365,7 @@ TagBox::tags (const Array<int>& ar, const Box& tilebx)
 
     long stb=0;
     int Ltb[] = {1,1,1};
-    for (int idim=0; idim<BL_SPACEDIM; idim++) {
+    for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
 	Ltb[idim] = tilebx.length(idim);
 	stb += stride[idim] * (tilebx.smallEnd(idim) - domain.smallEnd(idim));
     }
@@ -387,10 +387,10 @@ TagBox::tags (const Array<int>& ar, const Box& tilebx)
 // Set values as specified by the array -- this tags and untags.
 // only changes values in the tilebx region
 void 
-TagBox::tags_and_untags (const Array<int>& ar, const Box& tilebx)
+TagBox::tags_and_untags (const Vector<int>& ar, const Box& tilebx)
 {
     int Lbx[] = {1,1,1};
-    for (int idim=0; idim<BL_SPACEDIM; idim++) {
+    for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
 	Lbx[idim] = dlen[idim];
     }
     
@@ -398,7 +398,7 @@ TagBox::tags_and_untags (const Array<int>& ar, const Box& tilebx)
 
     long stb=0;
     int Ltb[] = {1,1,1};
-    for (int idim=0; idim<BL_SPACEDIM; idim++) {
+    for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
 	Ltb[idim] = tilebx.length(idim);
 	stb += stride[idim] * (tilebx.smallEnd(idim) - domain.smallEnd(idim));
     }
@@ -420,7 +420,7 @@ TagBoxArray::TagBoxArray (const BoxArray& ba,
 			  const DistributionMapping& dm,
                           int             _ngrow)
     :
-    FabArray<TagBox>(ba,dm,1,_ngrow)
+    FabArray<TagBox>(ba,dm,1,_ngrow,MFInfo(),DefaultFabFactory<TagBox>())
 {
     if (SharedMemory()) setVal(TagBox::CLEAR);
 }
@@ -428,7 +428,7 @@ TagBoxArray::TagBoxArray (const BoxArray& ba,
 int
 TagBoxArray::borderSize () const
 {
-    return n_grow;
+    return n_grow[0];
 }
 
 void 
@@ -436,14 +436,14 @@ TagBoxArray::buffer (int nbuf)
 {
     if (nbuf != 0)
     {
-        BL_ASSERT(nbuf <= n_grow);
+        BL_ASSERT(nbuf <= n_grow[0]);
 
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
 	for (MFIter mfi(*this); mfi.isValid(); ++mfi)
 	{
-	    get(mfi).buffer(nbuf, n_grow);
+	    get(mfi).buffer(nbuf, n_grow[0]);
         } 
     }
 }
@@ -457,7 +457,7 @@ TagBoxArray::mapPeriodic (const Geometry& geom)
 
     // This function is called after coarsening.
     // So we can assume that n_grow is 0.
-    BL_ASSERT(n_grow == 0);
+    BL_ASSERT(n_grow[0] == 0);
 
     TagBoxArray tmp(boxArray(),DistributionMap()); // note that tmp is filled w/ CLEAR.
 
@@ -491,7 +491,7 @@ TagBoxArray::numTags () const
 }
 
 void
-TagBoxArray::collate (std::vector<IntVect>& TheGlobalCollateSpace) const
+TagBoxArray::collate (Vector<IntVect>& TheGlobalCollateSpace) const
 {
     BL_PROFILE("TagBoxArray::collate()");
 
@@ -508,7 +508,7 @@ TagBoxArray::collate (std::vector<IntVect>& TheGlobalCollateSpace) const
     //
     // Local space for holding just those tags we want to gather to the root cpu.
     //
-    std::vector<IntVect> TheLocalCollateSpace(count);
+    Vector<IntVect> TheLocalCollateSpace(count);
 
     count = 0;
 
@@ -520,12 +520,7 @@ TagBoxArray::collate (std::vector<IntVect>& TheGlobalCollateSpace) const
 
     if (count > 0)
     {
-        //
-        // Remove duplicate IntVects.
-        //
-	std::set<IntVect> tmp (TheLocalCollateSpace.begin(),
-			       TheLocalCollateSpace.end());
-	TheLocalCollateSpace.assign( tmp.begin(), tmp.end() );
+        amrex::RemoveDuplicates(TheLocalCollateSpace);
 	count = TheLocalCollateSpace.size();
     }
     //
@@ -554,7 +549,7 @@ TagBoxArray::collate (std::vector<IntVect>& TheGlobalCollateSpace) const
     // Tell root CPU how many tags each CPU will be sending.
     //
     const int IOProcNumber = ParallelDescriptor::IOProcessorNumber();
-    count *= BL_SPACEDIM;  // Convert from count of tags to count of integers to expect.
+    count *= AMREX_SPACEDIM;  // Convert from count of tags to count of integers to expect.
     const std::vector<long>& countvec = ParallelDescriptor::Gather(count, IOProcNumber);
     
     std::vector<long> offset(countvec.size(),0L);
@@ -567,7 +562,7 @@ TagBoxArray::collate (std::vector<IntVect>& TheGlobalCollateSpace) const
     //
     // Gather all the tags to IOProcNumber into TheGlobalCollateSpace.
     //
-    BL_ASSERT(sizeof(IntVect) == BL_SPACEDIM * sizeof(int));
+    BL_ASSERT(sizeof(IntVect) == AMREX_SPACEDIM * sizeof(int));
     const int* psend = (count > 0) ? TheLocalCollateSpace[0].getVect() : 0;
     int* precv = TheGlobalCollateSpace[0].getVect();
     ParallelDescriptor::Gatherv(psend, count,
@@ -575,12 +570,7 @@ TagBoxArray::collate (std::vector<IntVect>& TheGlobalCollateSpace) const
 
     if (ParallelDescriptor::IOProcessor())
     {
-        //
-        // Remove yet more possible duplicate IntVects.
-        //
-	std::set<IntVect> tmp (TheGlobalCollateSpace.begin(),
-			       TheGlobalCollateSpace.end());
-	TheGlobalCollateSpace.assign( tmp.begin(), tmp.end() );
+        amrex::RemoveDuplicates(TheGlobalCollateSpace);
 	numtags = TheGlobalCollateSpace.size();
     }
 
@@ -588,7 +578,7 @@ TagBoxArray::collate (std::vector<IntVect>& TheGlobalCollateSpace) const
     // Now broadcast them back to the other processors.
     //
     ParallelDescriptor::Bcast(&numtags, 1, IOProcNumber);
-    ParallelDescriptor::Bcast(TheGlobalCollateSpace[0].getVect(), numtags*BL_SPACEDIM, IOProcNumber);
+    ParallelDescriptor::Bcast(TheGlobalCollateSpace[0].getVect(), numtags*AMREX_SPACEDIM, IOProcNumber);
     TheGlobalCollateSpace.resize(numtags);
 
 #else
@@ -651,18 +641,10 @@ TagBoxArray::coarsen (const IntVect & ratio)
 	(*this)[mfi].coarsen(ratio,isOwner(mfi.LocalIndex()));
     }
 
-    boxarray.growcoarsen(n_grow,ratio);
+    boxarray.growcoarsen(n_grow[0],ratio);
     updateBDKey();  // because we just modify boxarray in-place.
 
-    n_grow = 0;
-}
-
-void
-TagBoxArray::AddProcsToComp (int ioProcNumSCS, int ioProcNumAll,
-                             int scsMyId, MPI_Comm scsComm)
-{
-    FabArray<TagBox>::AddProcsToComp(ioProcNumSCS, ioProcNumAll,
-				     scsMyId, scsComm);
+    n_grow = IntVect::TheZeroVector();
 }
 
 }

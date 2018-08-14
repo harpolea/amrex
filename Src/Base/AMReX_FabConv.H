@@ -5,6 +5,7 @@
 #include <iosfwd>
 
 #include <AMReX_Array.H>
+#include <AMReX_Vector.H>
 #include <AMReX_BLassert.H>
 #include <AMReX_REAL.H>
 
@@ -15,13 +16,13 @@ namespace amrex {
 
 /**
 * This class is meant to hold all information needed to completely
-* describe the "long" type on a machine.  To describe a "long" both
-* the number of bytes in the long and their ordering, relative to canonical
+* describe the "int" or "long" type on a machine.  To describe an integer both
+* the number of bytes and their ordering, relative to canonical
 * ordering 1 .. sizeof(long), needs to be specified.
-* This allows us to write out "long"s in the native format on a machine,
+* This allows us to write out integers in the native format on a machine,
 * and then by also saving the IntDescriptor, we can read them back in on
 * another machine and have enough information to construct the exact same
-* "long" values.
+* values.
 */
 
 class IntDescriptor
@@ -29,10 +30,10 @@ class IntDescriptor
 
 public:
     /**
-    * \brief An enumeration describing the two ordering of a "long"
+    * \brief An enumeration describing the two orderings
     * that we currently support: NormalOrder and ReverseOrder.
-    * Other ordering may be added as BoxLib is ported to run on
-    * machines with non-standard "long" orderings.
+    * Other orderings may be added as AMReX is ported to run on
+    * machines with non-standard orderings.
     */
     enum Ordering { NormalOrder = 1, ReverseOrder = 2 };
     /**
@@ -45,9 +46,9 @@ public:
     //! Construct a specific IntDescriptor.
     IntDescriptor (long     nb,
                    Ordering ordering = NormalOrder);
-    //! Returns the ordering of the "long".
+    //! Returns the ordering.
     Ordering order () const;
-    //! Returns the number of bytes in a "long".
+    //! Returns the number of bytes.
     int numBytes () const;
     //! The equality operator.
     bool operator== (const IntDescriptor& id) const;
@@ -55,7 +56,7 @@ public:
     bool operator!= (const IntDescriptor& id) const;
 
 private:
-
+    friend std::istream& operator>> (std::istream& is, IntDescriptor& id);
     long     numbytes;
     Ordering ord;
 };
@@ -75,7 +76,7 @@ std::istream& operator>> (std::istream& is, IntDescriptor& id);
 /**
 * \brief  This class is meant to hold all information needed to completely
 *  describe the "Real" floating-point type on a machine.  By "Real" here we
-*  mean either the "float" or "double" type that this version of BoxLib
+*  mean either the "float" or "double" type that this version of AMReX
 *  was built with, which corresponds to whether BL_USE_FLOAT or
 *  BL_USE_DOUBLE was used to build the version of the library.
 *  
@@ -124,19 +125,19 @@ public:
     const long* format () const&;
 
     const long* format () && = delete;
-    //! Returns const Array<long> reference to the format array.
+    //! Returns const Vector<long> reference to the format array.
 
-    const Array<long>& formatarray () const&;
-    const Array<long>& formatarray () && = delete;
+    const Vector<long>& formatarray () const&;
+    const Vector<long>& formatarray () && = delete;
 
     //! Returns the order array as a const int*
     const int* order () const&;
     const int* order () && = delete;
 
-    //! Returns const Array<int> reference to the order array.
-    const Array<int>& orderarray () const&;
+    //! Returns const Vector<int> reference to the order array.
+    const Vector<int>& orderarray () const&;
 
-    const Array<int>& orderarray () && = delete;
+    const Vector<int>& orderarray () && = delete;
     //! Returns the number of bytes in the Real.
     int numBytes () const;
 
@@ -180,7 +181,7 @@ public:
                                        const RealDescriptor& id);
 
     /**
-    * \brief Read nitems from istream in ReadDescriptor format and
+    * \brief Read nitems from istream in RealDescriptor format and
     * convert them to the native Real format.  The out array is
     * assumed to be large enough to hold the resulting output.
     */
@@ -206,10 +207,49 @@ public:
                                          long                  nitems,
                                          const Real*           in,
                                          const RealDescriptor& od);
+
+    /**
+    * \brief Convert nitems floats in native format to RealDescriptor format
+    * and write them to the ostream.
+    */
+    static void convertFromNativeFloatFormat (std::ostream&         os,
+                                              long                  nitems,
+                                              const float*          in,
+                                              const RealDescriptor& od);
+
+    /**
+    * \brief Convert nitems doubles in native format to RealDescriptor format
+    * and write them to the ostream.
+    */
+    static void convertFromNativeDoubleFormat (std::ostream&         os,
+                                               long                  nitems,
+                                               const double*         in,
+                                               const RealDescriptor& od);
+
+    /**
+    * \brief Read nitems from istream in RealDescriptor format and
+    * convert them to the native float format.  The out array is
+    * assumed to be large enough to hold the resulting output.
+    */
+    static void convertToNativeFloatFormat (float*                out,
+                                            long                  nitems,
+                                            std::istream&         is,
+                                            const RealDescriptor& id);
+
+    /**
+    * \brief Read nitems from istream in RealDescriptor format and
+    * convert them to the native double format.  The out array is
+    * assumed to be large enough to hold the resulting output.
+    */
+    static void convertToNativeDoubleFormat (double*               out,
+                                             long                  nitems,
+                                             std::istream&         is,
+                                             const RealDescriptor& id);
+
 private:
 
-    Array<long> fr;
-    Array<int>  ord;
+    Vector<long> fr;
+    Vector<int>  ord;
     static bool bAlwaysFixDenormals;
     static int writeBufferSize;
     static int readBufferSize;

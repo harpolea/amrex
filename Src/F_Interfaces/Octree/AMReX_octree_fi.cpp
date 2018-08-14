@@ -1,6 +1,7 @@
 
 #include <AMReX.H>
 #include <AMReX_Array.H>
+#include <AMReX_Vector.H>
 #include <AMReX_ParmParse.H>
 #include <AMReX_AmrCore.H>
 
@@ -36,18 +37,33 @@ extern "C" {
         int blocking_factor = 2*max_grid_size;
         pp.add("blocking_factor", blocking_factor);
 
+        int max_grid_size_x = max_grid_size;
+        pp.query("max_grid_size_x", max_grid_size_x);
+        int blocking_factor_x = 2*max_grid_size_x;
+        pp.add("blocking_factor_x", blocking_factor_x);
+
+        int max_grid_size_y = max_grid_size;
+        pp.query("max_grid_size_y", max_grid_size_y);
+        int blocking_factor_y = 2*max_grid_size_y;
+        pp.add("blocking_factor_y", blocking_factor_y);
+
+        int max_grid_size_z = max_grid_size;
+        pp.query("max_grid_size_z", max_grid_size_z);
+        int blocking_factor_z = 2*max_grid_size_z;
+        pp.add("blocking_factor_z", blocking_factor_z);
+
         pp.add("grid_eff", 1.0);
 
         int max_level;
         pp.get("max_level", max_level);
 
-        Array<int> ref_ratio(max_level, 2);
+        Vector<int> ref_ratio(max_level, 2);
         pp.addarr("ref_ratio", ref_ratio);
     }
 
-    void amrex_fi_build_octree_leaves (AmrCore* const amrcore, int* n, Array<treenode>*& leaves)
+    void amrex_fi_build_octree_leaves (AmrCore* const amrcore, int* n, Vector<treenode>*& leaves)
     {
-        leaves = new Array<treenode>;
+        leaves = new Vector<treenode>;
         const int finest_level = amrcore->finestLevel();
         const int myproc = ParallelDescriptor::MyProc();
         for (int lev = 0; lev <= finest_level; ++lev)
@@ -83,7 +99,7 @@ extern "C" {
         *n = leaves->size();
     }
 
-    void amrex_fi_copy_octree_leaves (Array<treenode>* leaves, treenode a_copy[])
+    void amrex_fi_copy_octree_leaves (Vector<treenode>* leaves, treenode a_copy[])
     {
         const int n = leaves->size();
 

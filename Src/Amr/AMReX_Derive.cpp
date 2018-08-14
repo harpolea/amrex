@@ -19,20 +19,20 @@ DeriveRec::GrowBoxByOne (const Box& box)
 }
 
 
-DeriveRec::DeriveRec (const std::string& name,
+DeriveRec::DeriveRec (const std::string& a_name,
                       IndexType      result_type,
                       int            nvar_derive,
                       DeriveFunc     der_func,
                       DeriveBoxMap   box_map,
-                      Interpolater*  interp)
+                      Interpolater*  a_interp)
     :
-    derive_name(name),
+    derive_name(a_name),
     variable_names(),
     der_type(result_type),
     n_derive(nvar_derive),
     func(der_func),
     func_3d(0),
-    mapper(interp),
+    mapper(a_interp),
     bx_map(box_map),
     n_state(0),
     nsr(0),
@@ -40,20 +40,20 @@ DeriveRec::DeriveRec (const std::string& name,
     bcr(0)
 {}
 
-DeriveRec::DeriveRec (const std::string& name,
+DeriveRec::DeriveRec (const std::string& a_name,
                       IndexType      result_type,
                       int            nvar_derive,
                       DeriveFunc3D   der_func_3d,
                       DeriveBoxMap   box_map,
-                      Interpolater*  interp)
+                      Interpolater*  a_interp)
     :
-    derive_name(name),
+    derive_name(a_name),
     variable_names(),
     der_type(result_type),
     n_derive(nvar_derive),
     func(0),
     func_3d(der_func_3d),
-    mapper(interp),
+    mapper(a_interp),
     bx_map(box_map),
     n_state(0),
     nsr(0),
@@ -62,12 +62,12 @@ DeriveRec::DeriveRec (const std::string& name,
 {}
 
 // This version doesn't take a Fortran function name, it is entirely defined by the C++
-DeriveRec::DeriveRec (const std::string&      name,
+DeriveRec::DeriveRec (const std::string&      a_name,
                       IndexType               result_type,
                       int                     nvar_derive,
                       DeriveRec::DeriveBoxMap box_map)
     :
-    derive_name(name),
+    derive_name(a_name),
     variable_names(),
     der_type(result_type),
     n_derive(nvar_derive),
@@ -81,21 +81,21 @@ DeriveRec::DeriveRec (const std::string&      name,
     bcr(0)
 {}
 
-DeriveRec::DeriveRec (const std::string& name,
+DeriveRec::DeriveRec (const std::string& a_name,
                       IndexType      result_type,
                       int            nvar_derive,
-		      Array<std::string>& var_names,
+		      Vector<std::string>& var_names,
                       DeriveFunc     der_func,
                       DeriveBoxMap   box_map,
-                      Interpolater*  interp)
+                      Interpolater*  a_interp)
     :
-    derive_name(name),
+    derive_name(a_name),
     variable_names(var_names),
     der_type(result_type),
     n_derive(nvar_derive),
     func(der_func),
     func_3d(0),
-    mapper(interp),
+    mapper(a_interp),
     bx_map(box_map),
     n_state(0),
     nsr(0),
@@ -103,21 +103,21 @@ DeriveRec::DeriveRec (const std::string& name,
     bcr(0)
 {}
 
-DeriveRec::DeriveRec (const std::string& name,
+DeriveRec::DeriveRec (const std::string& a_name,
                       IndexType      result_type,
                       int            nvar_derive,
-		      Array<std::string>& var_names,
+		      Vector<std::string>& var_names,
                       DeriveFunc3D     der_func_3d,
                       DeriveBoxMap   box_map,
-                      Interpolater*  interp)
+                      Interpolater*  a_interp)
     :
-    derive_name(name),
+    derive_name(a_name),
     variable_names(var_names),
     der_type(result_type),
     n_derive(nvar_derive),
     func(0),
     func_3d(der_func_3d),
-    mapper(interp),
+    mapper(a_interp),
     bx_map(box_map),
     n_state(0),
     nsr(0),
@@ -253,7 +253,7 @@ DeriveRec::buildBC (const DescriptorList& d_list)
 {
     BL_ASSERT(nsr > 0);
     delete [] bcr;
-    bcr = new int[2*BL_SPACEDIM*n_state];
+    bcr = new int[2*AMREX_SPACEDIM*n_state];
     int* bci = bcr;
     for (DeriveRec::StateRange* r = rng; r != 0; r = r->next)
     {
@@ -263,11 +263,11 @@ DeriveRec::buildBC (const DescriptorList& d_list)
         {
             const int* bc = d.getBC(r->sc + k).vect();
 
-            for (int j = 0; j < 2*BL_SPACEDIM; j++)
+            for (int j = 0; j < 2*AMREX_SPACEDIM; j++)
             {
                 bci[j] = bc[j];
             }
-            bci += 2*BL_SPACEDIM;
+            bci += 2*AMREX_SPACEDIM;
         }
     }
 }
@@ -320,7 +320,7 @@ void
 DeriveList::add (const std::string&      name,
                  IndexType               res_typ,
                  int                     nvar_der,
-                 Array<std::string>&     vars,
+                 Vector<std::string>&     vars,
                  DeriveFunc              der_func,
                  DeriveRec::DeriveBoxMap bx_map,
                  Interpolater*           interp)
@@ -332,7 +332,7 @@ void
 DeriveList::add (const std::string&      name,
                  IndexType               res_typ,
                  int                     nvar_der,
-                 Array<std::string>&     vars,
+                 Vector<std::string>&     vars,
                  DeriveFunc3D            der_func_3d,
                  DeriveRec::DeriveBoxMap bx_map,
                  Interpolater*           interp)

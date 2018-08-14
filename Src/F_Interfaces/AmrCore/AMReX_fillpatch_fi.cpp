@@ -6,7 +6,7 @@ using namespace amrex;
 namespace
 {
     // THIS MUST BE CONSISTENT WITH amrex_interpolater_module in AMReX_interpolater_mod.F90!!!
-    static Array<Interpolater*> interp = {
+    static Vector<Interpolater*> interp = {
         &amrex::pc_interp,               // 0 
         &amrex::node_bilinear_interp,    // 1
         &amrex::cell_bilinear_interp,    // 2
@@ -18,6 +18,31 @@ namespace
     };
 }
 
+namespace {
+    
+    typedef void (*INTERP_HOOK) (const int* lo, const int*hi,
+                                 Real* d, const int* dlo, const int* dhi, const int nd,
+                                 const int icomp, const int ncomp);
+
+    class FIInterpHook final
+        : public InterpHook
+    {
+    public:
+        FIInterpHook (INTERP_HOOK a_f) : m_f(a_f) {}
+        virtual void operator() (FArrayBox& fab, const Box& bx, int icomp, int ncomp) const final
+        {
+            if (m_f) {
+                m_f(BL_TO_FORTRAN_BOX(bx),
+                    BL_TO_FORTRAN_ANYD(fab), fab.nComp(),
+                    icomp+1, ncomp);
+                // m_f is a fortran function expecting 1-based index
+            }
+        }
+    private:
+        INTERP_HOOK m_f;
+    };
+}
+
 extern "C"
 {
     void amrex_fi_fillpatch_single (MultiFab* mf, Real time, MultiFab* smf[], Real stime[], int ns,
@@ -25,8 +50,8 @@ extern "C"
                                     FPhysBC::fill_physbc_funptr_t fill)
     {
         FPhysBC pbc(fill, geom);
-	amrex::FillPatchSingleLevel(*mf, time, Array<MultiFab*>{smf, smf+ns}, 
-				    Array<Real>{stime, stime+ns},
+	amrex::FillPatchSingleLevel(*mf, time, Vector<MultiFab*>{smf, smf+ns}, 
+				    Vector<Real>{stime, stime+ns},
 				    scomp, dcomp, ncomp, *geom, pbc);
     }
 
@@ -38,9 +63,10 @@ extern "C"
 				 FPhysBC::fill_physbc_funptr_t cfill,
                                  FPhysBC::fill_physbc_funptr_t ffill,
 				 int rr, int interp_id,
-				 int* lo_bc[], int* hi_bc[])
+				 int* lo_bc[], int* hi_bc[],
+                                 INTERP_HOOK pre_interp, INTERP_HOOK post_interp)
     {
-	Array<BCRec> bcs;
+	Vector<BCRec> bcs;
 	// skip first scomp components
 	for (int i = scomp; i < scomp+ncomp; ++i) {
 	    bcs.emplace_back(lo_bc[i], hi_bc[i]);
@@ -49,13 +75,15 @@ extern "C"
         FPhysBC cbc(cfill, cgeom);
         FPhysBC fbc(ffill, fgeom);
 	amrex::FillPatchTwoLevels(*mf, time,
-				  Array<MultiFab*>{cmf, cmf+nc}, Array<Real>{ct, ct+nc},
-				  Array<MultiFab*>{fmf, fmf+nf}, Array<Real>{ft, ft+nf},
+				  Vector<MultiFab*>{cmf, cmf+nc}, Vector<Real>{ct, ct+nc},
+				  Vector<MultiFab*>{fmf, fmf+nf}, Vector<Real>{ft, ft+nf},
 				  scomp, dcomp, ncomp,
 				  *cgeom, *fgeom,
 				  cbc, fbc,
 				  IntVect{AMREX_D_DECL(rr,rr,rr)},
-				  interp[interp_id], bcs);
+				  interp[interp_id], bcs,
+                                  FIInterpHook(pre_interp),
+                                  FIInterpHook(post_interp));
     }
 
     void amrex_fi_fillcoarsepatch (MultiFab* mf, Real time, const MultiFab* cmf,
@@ -64,9 +92,10 @@ extern "C"
                                    FPhysBC::fill_physbc_funptr_t cfill,
                                    FPhysBC::fill_physbc_funptr_t ffill,
                                    int rr, int interp_id,
-                                   int* lo_bc[], int* hi_bc[])
+                                   int* lo_bc[], int* hi_bc[],
+                                   INTERP_HOOK pre_interp, INTERP_HOOK post_interp)
     {
-	Array<BCRec> bcs;
+	Vector<BCRec> bcs;
         // skip first scomp components
 	for (int i = scomp; i < scomp+ncomp; ++i) {
 	    bcs.emplace_back(lo_bc[i], hi_bc[i]);
@@ -79,6 +108,8 @@ extern "C"
                                      *cgeom, *fgeom,
                                      cbc, fbc,
                                      IntVect{AMREX_D_DECL(rr,rr,rr)},
-                                     interp[interp_id], bcs);
+                                     interp[interp_id], bcs,
+                                     FIInterpHook(pre_interp),
+                                     FIInterpHook(post_interp));
     }
 }

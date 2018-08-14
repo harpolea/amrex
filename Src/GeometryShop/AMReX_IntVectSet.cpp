@@ -1,18 +1,7 @@
-
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
 #include "AMReX_Box.H"
 #include "AMReX_BoxIterator.H"
 #include "AMReX_IntVectSet.H"
+
 namespace amrex
 {
   ///
@@ -108,12 +97,7 @@ namespace amrex
   IntVectSet::
   operator|=(const IntVectSet& a_sivs)
   {
-    const std::set<IntVect, lex_compare_iv> inputset = a_sivs.m_stdSet;
-    std::set<IntVect,lex_compare_iv>::iterator it;
-    for(it = inputset.begin(); it!=  inputset.end(); ++it)
-      {
-        m_stdSet.insert(*it);
-      }
+    m_stdSet.insert(a_sivs.cbegin(), a_sivs.cend());
     return *this;
   }
   ///
@@ -142,17 +126,13 @@ namespace amrex
   {
     if(&a_sivs != this)
       {
-        std::set<IntVect, lex_compare_iv> newSet;
-        std::set<IntVect, lex_compare_iv>::iterator it;
-        for(it = m_stdSet.begin(); it != m_stdSet.end(); ++it)
-          {
-            const IntVect& iv = *it;
-            if(contains(iv) && a_sivs.contains(iv))
-              {
-                newSet.insert(iv);
-              }
-          }
-        m_stdSet = newSet;
+        std::unordered_set<IntVect, IntVect::shift_hasher> newSet;
+	for (const auto& iv : *this) {
+	    if (a_sivs.contains(iv)) {
+		newSet.insert(iv);
+	    }
+	}
+	m_stdSet = std::move(newSet);
       }
     return *this;
   }
@@ -162,28 +142,17 @@ namespace amrex
   IntVectSet::
   operator&=(const Box& a_box)
   {
-    IntVectSet removeivs;
-    std::set<IntVect, lex_compare_iv>::iterator it;
-    for(it = m_stdSet.begin(); it!=  m_stdSet.end();  ++it)
-      {
-        //leaving out the ++it because  erase 
-        const IntVect& iv = *it;
-        if(!a_box.contains(iv))
-        {
-          removeivs |= iv;
-        }
-      }
-    *this -= removeivs;
-    return *this;
+      *this = intersect(*this,a_box);
+      return *this;
   }
+
   ///not
   IntVectSet& 
   IntVectSet::
   operator-=(const IntVectSet& a_sivs)
   {
-    std::set<IntVect, lex_compare_iv>::iterator it;
     //leaving out the ++it because  erase 
-    for(it = m_stdSet.begin(); it!=  m_stdSet.end(); )
+    for(auto it = m_stdSet.begin(); it!=  m_stdSet.end(); )
       {
         if(a_sivs.contains(*it))
           {
@@ -192,8 +161,9 @@ namespace amrex
         else
           {
             ++it;
-          }
+         }
       }
+
     return *this;
   }
   ///not
@@ -201,10 +171,7 @@ namespace amrex
   IntVectSet::
   operator-=(const IntVect& a_iv)
   {
-    if(contains(a_iv))
-      {
-        m_stdSet.erase(m_stdSet.find(a_iv));
-      }
+    m_stdSet.erase(a_iv);
     return *this;
   }
   ///not
@@ -223,22 +190,7 @@ namespace amrex
   IntVectSet::
   operator==(const IntVectSet& a_lhs) const
   {
-    if(a_lhs.m_stdSet.size() != m_stdSet.size())
-      {
-        return false;
-      }
-
-    bool retval = true;
-    std::set<IntVect, lex_compare_iv>::iterator it;
-    for(it = m_stdSet.begin(); it!=  m_stdSet.end(); ++it)
-      {
-        if((!contains(*it)) || (!a_lhs.contains(*it)))
-          {
-            retval = false;
-            break;
-          }
-      }
-    return retval;
+      return this->m_stdSet == a_lhs.m_stdSet;
   }
 
   ///
@@ -246,7 +198,7 @@ namespace amrex
   IntVectSet::
   contains(const IntVect& a_iv) const
   {
-    std::set<IntVect, lex_compare_iv>::iterator it = m_stdSet.find(a_iv);
+    auto it = m_stdSet.find(a_iv);
     return (it != m_stdSet.end());
   }
 
@@ -289,15 +241,13 @@ namespace amrex
   grow(int igrow)
   {
     IntVectSet newSet;
-    std::set<IntVect, lex_compare_iv>::iterator it;
-    for(it = m_stdSet.begin(); it != m_stdSet.end(); ++it)
+    for(const auto& iv : *this)
       {
-        const IntVect& iv = *it;
         Box grid(iv, iv);
         grid.grow(igrow);
         newSet |= grid;
       }
-    *this = newSet;
+    *this = std::move(newSet);
   }
 
   ///
@@ -306,15 +256,13 @@ namespace amrex
   grow(int idir, int igrow)
   {
     IntVectSet newSet;
-    std::set<IntVect, lex_compare_iv>::iterator it;
-    for(it = m_stdSet.begin(); it != m_stdSet.end(); ++it)
+    for(const auto& iv : *this)
       {
-        const IntVect& iv = *it;
         Box grid(iv, iv);
         grid.grow(idir, igrow);
         newSet |= grid;
       }
-    *this = newSet;
+    *this = std::move(newSet);
   }
 
   ///
@@ -334,15 +282,13 @@ namespace amrex
   growHi(int a_dir)
   {
     IntVectSet newSet;
-    std::set<IntVect, lex_compare_iv>::iterator it;
-    for(it = m_stdSet.begin(); it != m_stdSet.end(); ++it)
+    for(const auto& iv : *this)
       {
-        const IntVect& iv = *it;
         Box grid(iv, iv);
         grid.growHi(a_dir);
         newSet |= grid;
       }
-    *this = newSet;
+    *this = std::move(newSet);
   }
 
   ///
@@ -351,15 +297,13 @@ namespace amrex
   refine(int iref)
   {
     IntVectSet newSet;
-    std::set<IntVect, lex_compare_iv>::iterator it;
-    for(it = m_stdSet.begin(); it != m_stdSet.end(); ++it)
+    for(const auto& iv : *this)
       {
-        const IntVect& iv = *it;
         Box grid(iv, iv);
         grid.refine(iref);
         newSet |= grid;
       }
-    *this = newSet;
+    *this = std::move(newSet);
   }
 
   ///
@@ -367,16 +311,13 @@ namespace amrex
   IntVectSet::
   coarsen(int iref)
   {
-    std::set<IntVect, lex_compare_iv> newSet;
-    std::set<IntVect, lex_compare_iv>::iterator it;
-    for(it = m_stdSet.begin(); it != m_stdSet.end(); ++it)
+    container_type newSet;
+    for(auto ivcoar : *this)
       {
-        const IntVect& iv = *it;
-        IntVect ivcoar = iv;
         ivcoar.coarsen(iref);
         newSet.insert(ivcoar);
       }
-    m_stdSet = newSet;
+    m_stdSet = std::move(newSet);
   }
 
   ///
@@ -384,15 +325,13 @@ namespace amrex
   IntVectSet::
   shift(const IntVect& a_iv)
   {
-    std::set<IntVect, lex_compare_iv> newSet;
-    std::set<IntVect, lex_compare_iv>::iterator it;
-    for(it = m_stdSet.begin(); it != m_stdSet.end(); ++it)
+    container_type newSet;
+    for(auto iv : *this)
       {
-        IntVect iv = *it;
         iv.shift(a_iv);
         newSet.insert(iv);
       }
-    m_stdSet = newSet;
+    m_stdSet = std::move(newSet);
   }
 
   ///
@@ -400,8 +339,7 @@ namespace amrex
   IntVectSet::
   clear()
   {
-    std::set<IntVect, lex_compare_iv> newSet;
-    m_stdSet = newSet;
+    m_stdSet.clear();
   }
 
   ///
@@ -412,10 +350,8 @@ namespace amrex
     int bignum = 100000;
     IntVect lo = bignum*IntVect::TheUnitVector();
     IntVect hi =-bignum*IntVect::TheUnitVector();
-    std::set<IntVect, lex_compare_iv>::iterator it;
-    for(it = m_stdSet.begin(); it != m_stdSet.end(); ++it)
+    for (const auto& iv : *this)
       {
-        const IntVect& iv = *it;
         for(int idir = 0; idir < SpaceDim; idir++)
           {
             lo[idir] = std::min(lo[idir], iv[idir]);
@@ -432,22 +368,15 @@ namespace amrex
   IntVectSet::
   isEmpty() const
   {
-    return (m_stdSet.size() == 0);
+      return m_stdSet.empty();
   }
   ///
   void 
   IntVectSet::
-  getVectorIV(std::vector<IntVect>& a_vect) const
+  getVectorIV(Vector<IntVect>& a_vect) const
   {
     a_vect.resize(m_stdSet.size());
-
-    std::set<IntVect, lex_compare_iv>::iterator it;
-    int ivec = 0;
-    for(it = m_stdSet.begin(); it != m_stdSet.end(); ++it)
-      {
-        a_vect[ivec] = *it;
-        ivec++;
-      }
+    std::copy(std::begin(*this), std::end(*this), std::begin(a_vect));
   }
   ///
   void 
@@ -468,7 +397,7 @@ namespace amrex
   ///
   void 
   IntVectSet::
-  define(const std::vector<IntVect>& a_vect)
+  define(const Vector<IntVect>& a_vect)
   {
     makeEmpty();
     for(int ivec = 0; ivec  < a_vect.size(); ivec++)
@@ -552,4 +481,26 @@ namespace amrex
   {
     m_ivs = NULL;
   }
+
+    IntVectSet intersect (const IntVectSet& a, const IntVectSet& b, const Box& bx)
+    {
+	IntVectSet r;
+	for (const auto& iv : a) {
+	    if (bx.contains(iv) && b.contains(iv)) {
+		r |= iv;
+	    }
+	}
+	return r;
+    }
+
+    IntVectSet intersect (const IntVectSet& ivs, const Box& bx)
+    {
+	IntVectSet r;
+	for (const auto& iv : ivs) {
+	    if (bx.contains(iv)) {
+		r |= iv;
+	    }
+	}
+	return r;
+    }
 }

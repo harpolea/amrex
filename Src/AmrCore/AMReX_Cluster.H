@@ -1,11 +1,12 @@
 
-#ifndef _Cluster_H_
-#define _Cluster_H_ 
+#ifndef AMREX_Cluster_H_
+#define AMREX_Cluster_H_
 
 #include <list>
 #include <AMReX_IntVect.H>
 #include <AMReX_Box.H>
 #include <AMReX_Array.H>
+#include <AMReX_Vector.H>
 #include <AMReX_BoxArray.H>
 #include <AMReX_REAL.H>
 

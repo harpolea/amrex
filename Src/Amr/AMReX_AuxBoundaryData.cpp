@@ -44,7 +44,8 @@ AuxBoundaryData::copy (const AuxBoundaryData& src,
 
 AuxBoundaryData::AuxBoundaryData (const AuxBoundaryData& rhs)
     :
-    m_fabs(rhs.m_fabs.boxArray(),rhs.m_fabs.DistributionMap(),rhs.m_fabs.nComp(),0),
+    m_fabs(rhs.m_fabs.boxArray(),rhs.m_fabs.DistributionMap(),rhs.m_fabs.nComp(),0,
+           MFInfo(), FArrayBoxFactory()),
     m_ngrow(rhs.m_ngrow)
 {
     m_fabs.copy(rhs.m_fabs,0,0,rhs.m_fabs.nComp());
@@ -74,7 +75,7 @@ AuxBoundaryData::initialize (const BoxArray& ba,
     {
         Box dmn = geom.Domain();
 
-        for (int d = 0; d < BL_SPACEDIM; d++) {
+        for (int d = 0; d < AMREX_SPACEDIM; d++) {
             if (!geom.isPeriodic(d)) {
                 dmn.grow(d,n_grow);
             }
@@ -87,7 +88,7 @@ AuxBoundaryData::initialize (const BoxArray& ba,
 
     if (gcells.size() < NProcs)
     {
-        gcells.maxSize(BL_SPACEDIM == 3 ? 64 : 128);
+        gcells.maxSize(AMREX_SPACEDIM == 3 ? 64 : 128);
     }
 
     BoxArray nba(gcells);
@@ -97,7 +98,7 @@ AuxBoundaryData::initialize (const BoxArray& ba,
 
     if (nba.size() > 0)
     {
-        m_fabs.define(nba, ndm, n_comp, 0);
+        m_fabs.define(nba, ndm, n_comp, 0, MFInfo(), FArrayBoxFactory());
     }
     else
     {

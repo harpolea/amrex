@@ -1,18 +1,5 @@
-
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-
-#ifndef _EBISBOX_H___
-#define _EBISBOX_H___
+#ifndef AMREX_EBISBOX_H_
+#define AMREX_EBISBOX_H_
 
 #include "AMReX_REAL.H"
 #include "AMReX_IntVect.H"
@@ -87,7 +74,7 @@ namespace amrex
     /**
        Return the VoFs in the cell.
     */
-    std::vector<VolIndex> getVoFs(const IntVect& a_iv) const;
+    Vector<VolIndex> getVoFs(const IntVect& a_iv) const;
 
     ///
     /**
@@ -101,7 +88,7 @@ namespace amrex
        you probably need to define your EBISLayout with
        more ghost cells.
     */
-    std::vector<VolIndex> getVoFs(const VolIndex& a_vof,
+    Vector<VolIndex> getVoFs(const VolIndex& a_vof,
                              const int& a_dir,
                              const Side::LoHiSide& a_sd,
                              const int& a_steps) const;
@@ -161,12 +148,12 @@ namespace amrex
        Return the faces on the side and direction
        of the input VoF.
     */
-    std::vector<FaceIndex> getFaces(const VolIndex& a_vof,
+    Vector<FaceIndex> getFaces(const VolIndex& a_vof,
                                const int& a_idir,
                                const Side::LoHiSide& a_sd) const;
 
     ///
-    std::vector<FaceIndex> getAllFaces(const IntVect& a_iv,
+    Vector<FaceIndex> getAllFaces(const IntVect& a_iv,
                                   const int& a_idir,
                                   const Side::LoHiSide& a_sd) const;
     ///
@@ -243,7 +230,7 @@ namespace amrex
        EBISBox (factor of two refinement).  The result is only
        defined if this {\tt EBISBox} was defined by coarsening.
     */
-    std::vector<VolIndex> refine(const VolIndex& a_coarVoF) const;
+    Vector<VolIndex> refine(const VolIndex& a_coarVoF) const;
 
     ///
     /**
@@ -286,7 +273,7 @@ namespace amrex
        EBISBox (factor of two refinement).  The result is only
        defined if this  EBISBox was defined by coarsening.
     */
-    std::vector<FaceIndex> refine(const FaceIndex& a_coarFace,const EBISBox& a_fineEBISBox) const;
+    Vector<FaceIndex> refine(const FaceIndex& a_coarFace,const EBISBox& a_fineEBISBox) const;
 
     ///
     /**
@@ -312,7 +299,7 @@ namespace amrex
     /// define from scratch using irregular graph
     void
     define(const BaseFab<int>&      a_regIrregCovered,
-           const std::vector<IrregNode>& a_irregGraph,
+           const Vector<IrregNode>& a_irregGraph,
            const Box&               a_validRegion,
            const Box&               a_domain);
 
@@ -345,6 +332,46 @@ namespace amrex
 
     ///pointer comparison
     bool operator==(const EBISBox& ebiin);
+
+    EBISBox (EBISBox&& rhs) noexcept = default;
+
+
+
+    /// get the moment at  the VoF associated with the  monomial with the input exponents
+    /**
+       Given VoF variables x, y, z,   p = mono(0), q = mono(1), r = mono(2),
+       returns integral_over_VoF(x^p y^q z^r dV) for all p q
+    **/
+    IndMomSpaceDim getVolumeMoments(const VolIndex& a_vof) const
+      {
+        return m_data.getVolumeMoments(a_vof);
+      }
+
+    /// get the normal the irregular face associated with the  monomial with the input exponents 
+    /**
+       Given VoF variables x, y, z,   p = mono(0), q = mono(1), r = mono(2),
+       returns integral_over_VoF((x^p y^q z^r) dV) for p q r
+    **/
+    IndMomSpaceDim getEBMoments(const VolIndex& a_vof) const
+      {
+        return m_data.getEBMoments(a_vof);
+      }
+
+    /// get the moment at  the face associated with the  monomial with the input exponents
+    /**
+       Given face variables x, y,  p = mono(0), q = mono(1)),
+       returns integral_over_face(x^p y^q dA) for all p q
+    **/
+    IndMomSDMinOne getFaceMoments(const FaceIndex& a_face) const
+      {
+        return m_data.getFaceMoments(a_face);
+      }
+
+    /// I am sick of guessing this name wrong
+    IndMomSDMinOne getAreaMoments(const FaceIndex& a_face) const
+      {
+        return getFaceMoments(a_face);
+      }
 
   private:
 
@@ -408,14 +435,14 @@ namespace amrex
     return m_graph.isRegular(a_box);
   }
 
-  inline std::vector<VolIndex>
+  inline Vector<VolIndex>
   EBISBox::getVoFs(const IntVect& a_iv) const
   {
     return m_graph.getVoFs(a_iv);
   }
 
 /*******************************/
-  inline std::vector<FaceIndex>
+  inline Vector<FaceIndex>
   EBISBox::getAllFaces(const IntVect& a_iv,
                        const int& a_idir,
                        const Side::LoHiSide& a_sd) const
@@ -423,7 +450,7 @@ namespace amrex
     return m_graph.getAllFaces(a_iv, a_idir, a_sd);
   }
 /*******************************/
-  inline std::vector<FaceIndex>
+  inline Vector<FaceIndex>
   EBISBox::getFaces(const VolIndex& a_vof,
                     const int& a_idir,
                     const Side::LoHiSide& a_sd) const

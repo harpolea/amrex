@@ -1,24 +1,13 @@
-/*
- *      .o.       ooo        ooooo ooooooooo.             ooooooo  ooooo 
- *     .888.      `88.       .888' `888   `Y88.            `8888    d8'  
- *    .8"888.      888b     d'888   888   .d88'  .ooooo.     Y888..8P    
- *   .8' `888.     8 Y88. .P  888   888ooo88P'  d88' `88b     `8888'     
- *  .88ooo8888.    8  `888'   888   888`88b.    888ooo888    .8PY888.    
- * .8'     `888.   8    Y     888   888  `88b.  888    .o   d8'  `888b   
- *o88o     o8888o o8o        o888o o888o  o888o `Y8bod8P' o888o  o88888o 
- *
- */
-
-#ifndef _AGGSTENCILI_H_
-#define _AGGSTENCILI_H_
+#ifndef AMREX_AGGSTENCILI_H_
+#define AMREX_AGGSTENCILI_H_
 
 namespace amrex
 {
   /**************/
   template <class srcData_t, class dstData_t>
   AggStencil<srcData_t, dstData_t>::
-  AggStencil(const std::vector<std::shared_ptr<BaseIndex>   > & a_dstVoFs,
-             const std::vector<std::shared_ptr<BaseStencil> > & a_vofStencil,
+  AggStencil(const Vector<std::shared_ptr<BaseIndex>   > & a_dstVoFs,
+             const Vector<std::shared_ptr<BaseStencil> > & a_vofStencil,
              const srcData_t                                  & a_srcData,
              const dstData_t                                  & a_dstData)
   {
@@ -77,8 +66,8 @@ namespace amrex
 
     const int numtypelph = a_lph.numDataTypes();
     const int numtypephi = a_phi.numDataTypes();
-    std::vector<Real*>       dataPtrsLph(numtypelph);
-    std::vector<const Real*> dataPtrsPhi(numtypephi);
+    Vector<Real*>       dataPtrsLph(numtypelph);
+    Vector<const Real*> dataPtrsPhi(numtypephi);
     for (int icomp = 0; icomp < a_nco; icomp++)
       {
         int varDst = a_dst + icomp;
@@ -119,9 +108,9 @@ namespace amrex
   AggStencil<srcData_t, dstData_t>::
   cache(const dstData_t& a_lph) const
   {
-    m_cacheDst.resize( m_ebstencil.size(), std::vector<Real>(a_lph.nComp(), 0.));
+    m_cacheDst.resize( m_ebstencil.size(), Vector<Real>(a_lph.nComp(), 0.));
     BL_PROFILE("AggSten::cache");
-    std::vector<const Real*> dataPtrsLph(a_lph.numDataTypes());
+    Vector<const Real*> dataPtrsLph(a_lph.numDataTypes());
     for (int ivar = 0; ivar < a_lph.nComp(); ivar++)
       {
         for (int ivec = 0; ivec < dataPtrsLph.size(); ivec++)
@@ -143,7 +132,7 @@ namespace amrex
   uncache(dstData_t& a_lph) const
   {
     BL_PROFILE("AggSten::uncache");
-    std::vector<Real*> dataPtrsLph(a_lph.numDataTypes());
+    Vector<Real*> dataPtrsLph(a_lph.numDataTypes());
     for (int ivar = 0; ivar < a_lph.nComp(); ivar++)
       {
         for (int ivec = 0; ivec < dataPtrsLph.size(); ivec++)

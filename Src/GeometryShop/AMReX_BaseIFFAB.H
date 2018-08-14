@@ -1,24 +1,13 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-#ifndef _BASEIFFAB_H_
-#define _BASEIFFAB_H_
+#ifndef AMREX_BASEIFFAB_H_
+#define AMREX_BASEIFFAB_H_
 
 #include <cmath>
 #include <cstdlib>
-#include <vector>
 #include "AMReX_IntVectSet.H"
 #include "AMReX_FaceIndex.H"
 #include "AMReX_BaseFab.H"
 #include "AMReX_EBGraph.H"
+#include "AMReX_Print.H"
 
 
 namespace amrex
@@ -136,7 +125,11 @@ namespace amrex
         return (m_isDefined);
       }
 
-
+    //for T==Real, we need to check for NaN
+    bool isValid(const T& a_value) const
+      {
+        return true;
+      }
 ///
 /**
    Return the number of data components of this BaseIFFAB.
@@ -160,6 +153,14 @@ namespace amrex
     T& operator() (const FaceIndex& a_face,const int& varlocin);
     const T& operator()(const FaceIndex& a_face,const int& varlocin) const;
 
+    T& operator() (int a_iface, int varlocin) 
+      {
+        return *(getIndex(a_iface, varlocin));
+      }
+    const T& operator()(int a_iface, int varlocin) const 
+      {
+        return *(getIndex(a_iface, varlocin));
+      }
 
 ///
     T* dataPtr(const int& a_comp);
@@ -168,7 +169,9 @@ namespace amrex
 ///
     const T* dataPtr(const int& a_comp) const;
 
-
+    T* dataPtr () { return m_data; }
+    
+    std::size_t size () const { return m_nComp*m_nFaces; }
 
     ///for copy and fillboundary where stuff is already defined
     std::size_t nBytes (const Box& bx, int start_comp, int ncomps) const;
@@ -187,6 +190,7 @@ namespace amrex
 
     ///default false. can make this true with template specialization if you are sure.
     static bool preAllocatable () { return false; }
+    static bool isCopyOMPSafe () { return false; }
 
     ///includes all meta data
     std::size_t nBytesFull() const;
@@ -205,11 +209,23 @@ namespace amrex
 
     mutable bool    m_verbose;
 ///
-    const std::vector<FaceIndex>& getFaces() const
+    const Vector<FaceIndex>& getFaces() const
       {
         return m_faces;
       }
 
+    //slow! for debugging only
+    bool hasFace(const FaceIndex& a_face) const
+      {
+        for(int iface = 0; iface < m_faces.size(); iface++)
+        {
+          if(m_faces[iface] == a_face)
+          {
+            return true;
+          }
+        }
+        return false;
+      }
     static bool s_verbose;
 
     EBGraph m_ebgraph;
@@ -217,19 +233,37 @@ namespace amrex
   private:
     void   setDefaultValues();
 
-    void   getFaceSubset(std::vector<FaceIndex>& a_subFaces, const Box& a_subBox) const;
+    void   getFaceSubset(Vector<FaceIndex>& a_subFaces, const Box& a_subBox) const;
   protected:
 
     //because my debugging functions get confounded  by templates
-    void dumpFaces(const vector<FaceIndex>& a_faces) const;
+    void dumpFaces(const Vector<FaceIndex>& a_faces) const;
     int m_nFaces;
     int m_nComp;
     int m_direction;
     IntVectSet m_ivs;
-    std::vector<FaceIndex> m_faces;
+    Vector<FaceIndex> m_faces;
     T* m_data;
 
     bool    m_isDefined;
+
+    int getFaceIndexIndex (const FaceIndex& a_face) const 
+      {
+        AMREX_ASSERT(std::is_sorted(m_faces.begin(), m_faces.end()));
+	auto low = std::lower_bound(m_faces.begin(), m_faces.end(), a_face);
+	if (low == m_faces.end() || a_face != *low) 
+        {
+          amrex::AllPrint() << "face = " << a_face << endl;
+          amrex::Error("BaseIFFAB:index not found");
+	}
+	return low - m_faces.begin();
+      }
+
+    T* getIndex(int ifaceindex, int a_comp) const 
+      {
+        return m_data + ifaceindex + a_comp*m_nFaces;
+      }
+
   private:
 //we disallow copy construction and assigment for data holders
     void operator= (const BaseIFFAB<T>&)
@@ -245,5 +279,10 @@ namespace amrex
 }
 #include "AMReX_BaseIFFABI.H"
 
-
+  namespace amrex
+  {
+    //template specialization for valid for Real (Weiqun uses this to check for unassigned data).
+    template< >  bool BaseIFFAB<Real>::isValid(const Real& a_input) const;
+    
+  }
 #endif

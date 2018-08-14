@@ -14,13 +14,13 @@ FabSet::FabSet () {}
 
 FabSet::FabSet (const BoxArray& grids, const DistributionMapping& dmap, int ncomp)
     :
-    m_mf(grids,dmap,ncomp,0)
+    m_mf(grids,dmap,ncomp,0,MFInfo(),FArrayBoxFactory())
 {}
 
 void
 FabSet::define (const BoxArray& grids, const DistributionMapping& dm, int ncomp)
 {
-    m_mf.define(grids, dm, ncomp, 0);
+    m_mf.define(grids, dm, ncomp, 0, MFInfo(), FArrayBoxFactory());
 }
 
 FabSet&
@@ -40,10 +40,11 @@ FabSet::copyFrom (const FabSet& src, int scomp, int dcomp, int ncomp)
 }
 
 FabSet&
-FabSet::copyFrom (const MultiFab& src, int ngrow, int scomp, int dcomp, int ncomp)
+FabSet::copyFrom (const MultiFab& src, int ngrow, int scomp, int dcomp, int ncomp,
+		  const Periodicity& period)
 {
     BL_ASSERT(boxArray() != src.boxArray());
-    m_mf.copy(src,scomp,dcomp,ncomp,ngrow,0);
+    m_mf.copy(src,scomp,dcomp,ncomp,ngrow,0,period);
     return *this;
 }
 
@@ -145,8 +146,8 @@ FabSet::linComb (Real a, const MultiFab& mfa, int a_comp,
     BL_ASSERT(mfa.boxArray() == mfb.boxArray());
     BL_ASSERT(boxArray() != mfa.boxArray());
 
-    MultiFab bdrya(boxArray(),DistributionMap(),ncomp,0);
-    MultiFab bdryb(boxArray(),DistributionMap(),ncomp,0);
+    MultiFab bdrya(boxArray(),DistributionMap(),ncomp,0,MFInfo(),FArrayBoxFactory());
+    MultiFab bdryb(boxArray(),DistributionMap(),ncomp,0,MFInfo(),FArrayBoxFactory());
 
 #ifdef _OPENMP
 #pragma omp parallel

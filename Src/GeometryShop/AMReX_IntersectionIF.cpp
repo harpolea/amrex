@@ -1,15 +1,3 @@
-
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
 #include "AMReX_IntersectionIF.H"
 
 namespace amrex
@@ -55,6 +43,38 @@ namespace amrex
   }
 
 
+  Real 
+  IntersectionIF::
+  derivative(const  IntVect& a_deriv,
+             const RealVect& a_point) const
+  {
+    // Maximum of the implicit functions values
+    Real retval;
+
+    retval = -1.0;
+
+    // Find the maximum value and return it
+    if (m_numFuncs > 0)
+    {
+
+      int whichfunc = 0;
+      Real funcval = m_impFuncs[0]->value(a_point);
+
+      for (int ifunc = 1; ifunc < m_numFuncs; ifunc++)
+      {
+        Real cur = m_impFuncs[ifunc]->value(a_point);
+        if (cur > funcval)
+        {
+          funcval = cur;
+          whichfunc = ifunc;
+        }
+      }
+      retval = m_impFuncs[whichfunc]->derivative(a_deriv, a_point);
+    }
+
+    return retval;
+  }
+
   BaseIF* IntersectionIF::newImplicitFunction() const
   {
     IntersectionIF* intersectionPtr = new IntersectionIF(m_impFuncs);
@@ -62,7 +82,7 @@ namespace amrex
     return static_cast<BaseIF*>(intersectionPtr);
   }
 
-  IntersectionIF::IntersectionIF(const vector<BaseIF *>& a_impFuncs)
+  IntersectionIF::IntersectionIF(const Vector<BaseIF *>& a_impFuncs)
   {
     // Number of implicit function in intersection
     m_numFuncs = a_impFuncs.size();

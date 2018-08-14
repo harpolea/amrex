@@ -24,18 +24,23 @@
 
 #include <AMReX_ParallelDescriptor.H>
 #include <AMReX_BoxArray.H>
+#include <AMReX_Print.H>
 
 #ifdef _OPENMP
 #include <omp.h>
 #endif
-
-const char* path_sep_str = "/";
 
 #include <sys/types.h>
 #include <sys/times.h>
 #include <sys/time.h>
 #include <sys/param.h>
 #include <unistd.h>
+
+using std::ostringstream;
+
+namespace {
+    const char* path_sep_str = "/";
+}
 
 //
 // Return true if argument is a non-zero length string of digits.
@@ -134,7 +139,7 @@ amrex::UtilCreateDirectory (const std::string& path,
 			    mode_t mode, bool verbose)
 {
     bool retVal(false);
-    Array<std::pair<std::string, int> > pathError;
+    Vector<std::pair<std::string, int> > pathError;
 
     if (path.length() == 0 || path == path_sep_str) {
         return true;
@@ -210,10 +215,10 @@ amrex::UtilCreateDirectory (const std::string& path,
 
     if(retVal == false  || verbose == true) {
       for(int i(0); i < pathError.size(); ++i) {
-        std::cout << "amrex::UtilCreateDirectory:: path errno:  " 
-                  << pathError[i].first << " :: "
-                  << strerror(pathError[i].second)
-                  << std::endl;
+          amrex::AllPrint()<< "amrex::UtilCreateDirectory:: path errno:  " 
+                           << pathError[i].first << " :: "
+                           << strerror(pathError[i].second)
+                           << std::endl;
       }
     }
 
@@ -264,8 +269,10 @@ amrex::UtilCreateCleanDirectory (const std::string &path, bool callbarrier)
   if(ParallelDescriptor::IOProcessor()) {
     if(amrex::FileExists(path)) {
       std::string newoldname(path + ".old." + amrex::UniqueString());
-      std::cout << "amrex::UtilCreateCleanDirectory():  " << path
-                << " exists.  Renaming to:  " << newoldname << std::endl;
+      if (amrex::system::verbose) {
+          amrex::Print() << "amrex::UtilCreateCleanDirectory():  " << path
+                         << " exists.  Renaming to:  " << newoldname << std::endl;
+      }
       std::rename(path.c_str(), newoldname.c_str());
     }
     if( ! amrex::UtilCreateDirectory(path, 0755)) {
@@ -286,8 +293,10 @@ amrex::UtilCreateDirectoryDestructive(const std::string &path, bool callbarrier)
   {
     if(amrex::FileExists(path)) 
     {
-      std::cout << "amrex::UtilCreateCleanDirectoryDestructive():  " << path
-                << " exists.  I am destroying it.  " << std::endl;
+      if (amrex::Verbose()) {
+          amrex::Print() << "amrex::UtilCreateCleanDirectoryDestructive():  " << path
+                         << " exists.  I am destroying it.  " << std::endl;
+      }
       char command[2000];
       sprintf(command, "\\rm -rf %s", path.c_str());;
       int retVal = std::system(command);
@@ -313,8 +322,10 @@ amrex::UtilRenameDirectoryToOld (const std::string &path, bool callbarrier)
   if(ParallelDescriptor::IOProcessor()) {
     if(amrex::FileExists(path)) {
       std::string newoldname(path + ".old." + amrex::UniqueString());
-      std::cout << "amrex::UtilRenameDirectoryToOld():  " << path
-                << " exists.  Renaming to:  " << newoldname << std::endl;
+      if (amrex::Verbose()) {
+          amrex::Print() << "amrex::UtilRenameDirectoryToOld():  " << path
+                         << " exists.  Renaming to:  " << newoldname << std::endl;
+      }
       std::rename(path.c_str(), newoldname.c_str());
     }
   }
@@ -334,20 +345,13 @@ namespace
 {
     int nthreads;
 
-    amrex::Array<std::mt19937> generators;
-}
-
-void
-amrex::InitRandom (unsigned long seed)
-{
-    for (int i =0; i < nthreads; i++) {
-        generators[i].seed(seed);
-    }
+    amrex::Vector<std::mt19937> generators;
 }
 
 void
 amrex::InitRandom (unsigned long seed, int nprocs)
 {
+
 #ifdef _OPENMP
     nthreads = omp_get_max_threads();
 #else
@@ -411,7 +415,7 @@ amrex::Random_int(unsigned long n)
 void
 amrex::SaveRandomState(std::ostream& os)
 {
-    for (unsigned i = 0; i < nthreads; i++) {
+    for (int i = 0; i < nthreads; i++) {
         os << generators[i] << "\n";
     }
 }
@@ -420,14 +424,14 @@ void
 amrex::RestoreRandomState(std::istream& is, int nthreads_old, int nstep_old)
 {
     int N = std::min(nthreads, nthreads_old);
-    for (unsigned i = 0; i < N; i++)
+    for (int i = 0; i < N; i++)
         is >> generators[i];
     if (nthreads > nthreads_old) {
         const int NProcs = ParallelDescriptor::NProcs();
         const int MyProc = ParallelDescriptor::MyProc();
-        for (unsigned i = nthreads_old; i < nthreads; i++) {
+        for (int i = nthreads_old; i < nthreads; i++) {
 	    unsigned long seed = MyProc+1 + i*NProcs;
-	    if (ULONG_MAX/(unsigned long)(nstep_old+1) > nthreads*NProcs) { // avoid overflow
+	    if (ULONG_MAX/(unsigned long)(nstep_old+1) >static_cast<unsigned long>(nthreads*NProcs)) { // avoid overflow
 		seed += nstep_old*nthreads*NProcs;
 	    }
 
@@ -437,15 +441,15 @@ amrex::RestoreRandomState(std::istream& is, int nthreads_old, int nstep_old)
 }
 
 void
-amrex::UniqueRandomSubset (Array<int> &uSet, int setSize, int poolSize,
+amrex::UniqueRandomSubset (Vector<int> &uSet, int setSize, int poolSize,
                            bool printSet)
 {
   if(setSize > poolSize) {
     amrex::Abort("**** Error in UniqueRandomSubset:  setSize > poolSize.");
   }
   std::set<int> copySet;
-  Array<int> uSetTemp;
-  while(copySet.size() < setSize) {
+  Vector<int> uSetTemp;
+  while(static_cast<int>(copySet.size()) < setSize) {
     int r(amrex::Random_int(poolSize));
     if(copySet.find(r) == copySet.end()) {
       copySet.insert(r);
@@ -455,13 +459,13 @@ amrex::UniqueRandomSubset (Array<int> &uSet, int setSize, int poolSize,
   uSet = uSetTemp;
   if(printSet) {
     for(int i(0); i < uSet.size(); ++i) {
-      std::cout << "uSet[" << i << "]  = " << uSet[i] << std::endl;
+        amrex::AllPrint() << "uSet[" << i << "]  = " << uSet[i] << std::endl;
     }
   }
 }
 
 void
-amrex::NItemsPerBin (int totalItems, Array<int> &binCounts)
+amrex::NItemsPerBin (int totalItems, Vector<int> &binCounts)
 {
   if(binCounts.size() == 0) {
     return;
@@ -469,9 +473,9 @@ amrex::NItemsPerBin (int totalItems, Array<int> &binCounts)
   bool verbose(false);
   int countForAll(totalItems / binCounts.size());
   int remainder(totalItems % binCounts.size());
-  if(ParallelDescriptor::IOProcessor() && verbose) {
-    std::cout << "amrex::NItemsPerBin:  countForAll remainder = " << countForAll
-              << "  " << remainder << std::endl;
+  if(verbose) {
+      amrex::Print() << "amrex::NItemsPerBin:  countForAll remainder = " << countForAll
+                     << "  " << remainder << std::endl;
   }
   for(int i(0); i < binCounts.size(); ++i) {
     binCounts[i] = countForAll;
@@ -480,17 +484,104 @@ amrex::NItemsPerBin (int totalItems, Array<int> &binCounts)
     ++binCounts[i];
   }
   for(int i(0); i < binCounts.size(); ++i) {
-    if(ParallelDescriptor::IOProcessor() && verbose) {
-      std::cout << "amrex::NItemsPerBin::  binCounts[" << i << "] = " << binCounts[i] << std::endl;
+    if(verbose) {
+        amrex::Print() << "amrex::NItemsPerBin::  binCounts[" << i << "] = " << binCounts[i] << std::endl;
     }
   }
 }
+
+// -------------------------------------------------------------------
+int amrex::CRRBetweenLevels(int fromlevel, int tolevel,
+                            const Vector<int> &refratios)
+{
+  BL_ASSERT(fromlevel >= 0);
+  BL_ASSERT(tolevel >= fromlevel);
+  BL_ASSERT(tolevel <= refratios.size());
+  int level, rr = 1;
+  for(level = fromlevel; level < tolevel; ++level) {
+    rr *= refratios[level];
+  }
+  return rr;
+}
+
+// -------------------------------------------------------------------
+int amrex::HashDistributionMap(const DistributionMapping &dm, int hashSize)
+{
+  BL_ASSERT(hashSize > 0);
+
+  const Vector<int> &dmArrayMap = dm.ProcessorMap();
+  Vector<long> hash(hashSize, 0);
+
+  // Create hash by summing processer map over
+  //   a looped hash array of given size. 
+  for (int i=0; i<dmArrayMap.size(); i++)
+  {
+    int hashIndex = (i%hashSize);
+    hash[hashIndex] += dmArrayMap[i];
+  }
+
+  // Output hash is the ones digit of each element
+  //   of the hash array.
+  ostringstream outstr;
+  for (int j=0; j<hashSize; j++)
+  {
+     outstr << (hash[j]%10); 
+  }
+
+  //
+  return ( std::atoi(outstr.str().c_str()) );
+}
+
+// -------------------------------------------------------------------
+int amrex::HashBoxArray(const BoxArray & ba, int hashSize)
+{
+  BL_ASSERT(hashSize > 0);
+
+  Vector<long> hash(hashSize, 0);
+  int hashSum(0), hashCount(0);
+
+  // Create hash by summing smallEnd, bigEnd and type
+  //   over a looped hash array of given size.
+  // For any empty boxes, skip AMREX_SPACEDIM inputs.
+  // For an empty box array, hash=0, regardless of size.
+  if (!ba.empty())
+  {
+    for (int i=0; i<ba.size(); i++)
+    {
+      if (!ba[i].isEmpty())
+      {
+        for (int j=0; j<AMREX_SPACEDIM; j++)
+        {
+           hashSum = ba[i].smallEnd(j) + ba[i].bigEnd(j) + ba[i].ixType()[j];
+           hash[(hashCount%hashSize)] += hashSum;
+           hashCount++;
+        }
+      }
+      else
+      {
+        hashCount+=AMREX_SPACEDIM;
+      }
+    }
+  }
+
+  // Output hash is the ones digit of each element
+  //   of the hash array.
+  ostringstream outstr;
+  for (int j=0; j<hashSize; j++)
+  {
+     outstr << (hash[j]%10); 
+  }
+
+  return ( std::atoi(outstr.str().c_str()) );
+} 
+
 
 
 //
 // Fortran entry points for amrex::Random().
 //
 
+#ifndef AMREX_XSDK
 BL_FORT_PROC_DECL(BLUTILINITRAND,blutilinitrand)(const int* sd)
 {
     unsigned long seed = *sd;
@@ -507,6 +598,7 @@ BL_FORT_PROC_DECL(BLUTILRAND,blutilrand)(amrex::Real* rn)
 {
     *rn = amrex::Random();
 }
+#endif
 
 //
 // Lower tail quantile for standard normal distribution function.
@@ -610,6 +702,7 @@ amrex::InvNormDist (double p)
     return x;
 }
 
+#ifndef AMREX_XSDK
 BL_FORT_PROC_DECL(BLINVNORMDIST,blinvnormdist)(amrex::Real* result)
 {
     //
@@ -622,6 +715,8 @@ BL_FORT_PROC_DECL(BLINVNORMDIST,blinvnormdist)(amrex::Real* result)
 
     *result = amrex::InvNormDist(val);
 }
+#endif
+
 
 //
 //****************************************************************************80
@@ -776,6 +871,7 @@ amrex::InvNormDistBest (double p)
   return value;
 }
 
+#ifndef AMREX_XSDK
 BL_FORT_PROC_DECL(BLINVNORMDISTBEST,blinvnormdistbest)(amrex::Real* result)
 {
     //
@@ -788,8 +884,8 @@ BL_FORT_PROC_DECL(BLINVNORMDISTBEST,blinvnormdistbest)(amrex::Real* result)
 
     *result = amrex::InvNormDistBest(val);
 }
+#endif
 
-
 //
 // Sugar for parsing IO
 //
@@ -847,9 +943,9 @@ amrex::expect::the_string() const
 
 int amrex::StreamRetry::nStreamErrors = 0;
 
-amrex::StreamRetry::StreamRetry(std::ostream &os, const std::string &suffix,
-                                 const int maxtries)
-    : tries(0), maxTries(maxtries), sros(os), spos(os.tellp()), suffix(suffix)
+amrex::StreamRetry::StreamRetry(std::ostream &a_os, const std::string &a_suffix,
+                                 const int a_maxtries)
+    : tries(0), maxTries(a_maxtries), sros(a_os), spos(a_os.tellp()), suffix(a_suffix)
 {
 }
 
@@ -859,7 +955,7 @@ amrex::StreamRetry::StreamRetry(const std::string &filename,
     : tries(0), maxTries(maxtries),
       abortOnRetryFailure(abortonretryfailure),
       fileName(filename),
-      sros(std::cerr)    // unused here, just to make the compiler happy
+      sros(amrex::ErrorStream())    // unused here, just to make the compiler happy
 {
   nStreamErrors = 0;
 }
@@ -874,30 +970,38 @@ bool amrex::StreamRetry::TryOutput()
       ++nStreamErrors;
       int myProc(ParallelDescriptor::MyProc());
       if(tries <= maxTries) {
-        std::cout << "PROC: " << myProc << " :: STREAMRETRY_" << suffix << " # "
-                  << tries << " :: gbfe:  "
-                  << sros.good() << sros.bad() << sros.fail() << sros.eof()
-                  << " :: sec = " << ParallelDescriptor::second()
-                  << " :: os.tellp() = " << sros.tellp()
-                  << " :: rewind spos = " << spos
-                  << std::endl;
+          if (amrex::Verbose()) {
+              amrex::AllPrint() << "PROC: " << myProc << " :: STREAMRETRY_" << suffix << " # "
+                                << tries << " :: gbfe:  "
+                                << sros.good() << sros.bad() << sros.fail() << sros.eof()
+                                << " :: sec = " << ParallelDescriptor::second()
+                                << " :: os.tellp() = " << sros.tellp()
+                                << " :: rewind spos = " << spos
+                                << std::endl;
+          }
         sros.clear();  // clear the bad bits
-        std::cout << "After os.clear() : gbfe:  " << sros.good() << sros.bad()
-	          << sros.fail() << sros.eof() << std::endl;
+        if (amrex::Verbose()) {
+            amrex::AllPrint() << "After os.clear() : gbfe:  " << sros.good() << sros.bad()
+                              << sros.fail() << sros.eof() << std::endl;
+        }
         sros.seekp(spos, std::ios::beg);  // reset stream position
         ++tries;
         return true;
       } else {
-        std::cout << "PROC: " << myProc << " :: STREAMFAILED_" << suffix << " # "
-                  << tries << " :: File may be corrupt.  :: gbfe:  "
-                  << sros.good() << sros.bad() << sros.fail() << sros.eof()
-                  << " :: sec = " << ParallelDescriptor::second()
-                  << " :: os.tellp() = " << sros.tellp()
-                  << " :: rewind spos = " << spos
-                  << std::endl;
+        if (amrex::Verbose()) {
+            amrex::AllPrint() << "PROC: " << myProc << " :: STREAMFAILED_" << suffix << " # "
+                              << tries << " :: File may be corrupt.  :: gbfe:  "
+                              << sros.good() << sros.bad() << sros.fail() << sros.eof()
+                              << " :: sec = " << ParallelDescriptor::second()
+                              << " :: os.tellp() = " << sros.tellp()
+                              << " :: rewind spos = " << spos
+                              << std::endl;
+        }
         sros.clear();  // clear the bad bits
-        std::cout << "After os.clear() : gbfe:  " << sros.good() << sros.bad()
-	          << sros.fail() << sros.eof() << std::endl;
+        if (amrex::Verbose()) {
+            amrex::AllPrint() << "After os.clear() : gbfe:  " << sros.good() << sros.bad()
+                              << sros.fail() << sros.eof() << std::endl;
+        }
         return false;
       }
     } else {
@@ -924,8 +1028,10 @@ bool amrex::StreamRetry::TryFileOutput()
         if(ParallelDescriptor::IOProcessor()) {
           const std::string& badFileName = amrex::Concatenate(fileName + ".bad",
                                                                tries - 1, 2);
-          std::cout << nWriteErrors << " STREAMERRORS : Renaming file from "
-                    << fileName << "  to  " << badFileName << std::endl;
+          if (amrex::Verbose()) {
+              amrex::Print() << nWriteErrors << " STREAMERRORS : Renaming file from "
+                             << fileName << "  to  " << badFileName << std::endl;
+          }
           std::rename(fileName.c_str(), badFileName.c_str());
         }
         ParallelDescriptor::Barrier("StreamRetry::TryFileOutput");  // wait for file rename
@@ -948,15 +1054,15 @@ bool amrex::StreamRetry::TryFileOutput()
 }
 
 
-void amrex::SyncStrings(const Array<std::string> &localStrings,
-                         Array<std::string> &syncedStrings, bool &alreadySynced)
+void amrex::SyncStrings(const Vector<std::string> &localStrings,
+                         Vector<std::string> &syncedStrings, bool &alreadySynced)
 {
 #ifdef BL_USE_MPI
   const int nProcs(ParallelDescriptor::NProcs());
   const int ioProcNumber(ParallelDescriptor::IOProcessorNumber());
   int nUnmatched(0);
 
-  Array<std::string> localStringsCopy = localStrings;
+  Vector<std::string> localStringsCopy = localStrings;
 
   // ---- broadcast ioproc strings
   int pfStringsSize(0);
@@ -969,14 +1075,14 @@ void amrex::SyncStrings(const Array<std::string> &localStrings,
   }
   ParallelDescriptor::Bcast(&pfStringsSize, 1);
 
-  Array<char> pfCharArray(pfStringsSize + 1);
+  Vector<char> pfCharArray(pfStringsSize + 1);
   if(ParallelDescriptor::IOProcessor()) {
     std::strcpy(pfCharArray.dataPtr(), pfStrings.str().c_str());  // null terminated
   }
   ParallelDescriptor::Bcast(pfCharArray.dataPtr(), pfCharArray.size());
 
   // ---- extract the ioproc strings
-  Array<std::string> ioprocStrings, sendStrings;
+  Vector<std::string> ioprocStrings, sendStrings;
   if( ! ParallelDescriptor::IOProcessor()) {
     std::istringstream pfIn(pfCharArray.dataPtr());
     std::string pfName;
@@ -1024,7 +1130,7 @@ void amrex::SyncStrings(const Array<std::string> &localStrings,
 
   int sendStringsSize(0);
   std::ostringstream ossSendStrings;
-  Array<char> sendCharArray(1);  // cannot be zero for gather call
+  Vector<char> sendCharArray(1);  // cannot be zero for gather call
   if( ! ParallelDescriptor::IOProcessor()) {
     for(int i(0); i < sendStrings.size(); ++i) {
       ossSendStrings << sendStrings[i] << '\n';
@@ -1034,12 +1140,12 @@ void amrex::SyncStrings(const Array<std::string> &localStrings,
     std::strcpy(sendCharArray.dataPtr(), ossSendStrings.str().c_str());  // null terminated
   }
 
-  Array<int> nChars(nProcs, 0);
+  Vector<int> nChars(nProcs, 0);
   ParallelDescriptor::Gather(&sendStringsSize, 1, nChars.dataPtr(), 1, ioProcNumber);
 
   int totalChars(0);
-  Array<char> recvStrings(1);
-  Array<int> offset(nProcs, 0);
+  Vector<char> recvStrings(1);
+  Vector<int> offset(nProcs, 0);
   if(ParallelDescriptor::IOProcessor()) {
     for(int i(0); i < nChars.size(); ++i) {
       totalChars += nChars[i];
@@ -1086,7 +1192,7 @@ void amrex::SyncStrings(const Array<std::string> &localStrings,
   }
   ParallelDescriptor::Bcast(&syncedStringsSize, 1);
 
-  Array<char> syncedCharArray(syncedStringsSize + 1);
+  Vector<char> syncedCharArray(syncedStringsSize + 1);
   if(ParallelDescriptor::IOProcessor()) {
     std::strcpy(syncedCharArray.dataPtr(), syncedStrStr.str().c_str());  // null terminated
   }
@@ -1110,28 +1216,22 @@ void amrex::SyncStrings(const Array<std::string> &localStrings,
 
 }
 
-
-
-amrex::Array<char> amrex::SerializeStringArray(const Array<std::string> &stringArray)
+amrex::Vector<char> amrex::SerializeStringArray(const Vector<std::string> &stringArray)
 {
   std::ostringstream stringStream;
   for(int i(0); i < stringArray.size(); ++i) {
     stringStream << stringArray[i] << '\n';
   }
 
-  Array<char> charArray(stringStream.str().size() + 1);
+  Vector<char> charArray(stringStream.str().size() + 1);
   std::strcpy(charArray.dataPtr(), stringStream.str().c_str());  // null terminated
 
   return charArray;
 }
 
-
-
-
-
-amrex::Array<std::string> amrex::UnSerializeStringArray(const Array<char> &charArray)
+amrex::Vector<std::string> amrex::UnSerializeStringArray(const Vector<char> &charArray)
 {
-  Array<std::string> stringArray;
+  Vector<std::string> stringArray;
   std::istringstream stringStream(charArray.dataPtr());
   std::string sTemp;
   while( ! stringStream.eof()) {
@@ -1144,69 +1244,87 @@ amrex::Array<std::string> amrex::UnSerializeStringArray(const Array<char> &charA
   return stringArray;
 }
 
-
-void amrex::BroadcastBox(Box &bB, int myLocalId, int rootId, const MPI_Comm &localComm)
+void amrex::BroadcastBool(bool &bBool, int myLocalId, int rootId, const MPI_Comm &localComm)
 {
-  Array<int> baseBoxAI;
-  if(myLocalId == rootId) {
-    baseBoxAI = amrex::SerializeBox(bB);
+  int numBool;
+  if (myLocalId == rootId) {
+    numBool = bBool;
   }
-  amrex::BroadcastArray(baseBoxAI, myLocalId, rootId, localComm);
+
+  amrex::ParallelDescriptor::Bcast(&numBool, 1, rootId, localComm);
+
   if(myLocalId != rootId) {
-    bB = amrex::UnSerializeBox(baseBoxAI);
+    bBool = numBool;
   }
 }
 
 
-
-void amrex::BroadcastBoxArray(BoxArray &bBA, int myLocalId, int rootId, const MPI_Comm &localComm)
+void amrex::BroadcastString(std::string &bStr, int myLocalId, int rootId, const MPI_Comm &localComm)
 {
-  Array<int> sbaG;
+  Vector<std::string> vecString(1, bStr);
+  Vector<char> serialString;
   if(myLocalId == rootId) {
-    sbaG = amrex::SerializeBoxArray(bBA);
+    serialString = amrex::SerializeStringArray(vecString);
   }
-  amrex::BroadcastArray(sbaG, myLocalId, rootId, localComm);
+
+  amrex::BroadcastArray(serialString, myLocalId, rootId, localComm);
+
   if(myLocalId != rootId) {
-    if(sbaG.size() > 0) {
-      bBA = amrex::UnSerializeBoxArray(sbaG);
-    }
+    vecString = amrex::UnSerializeStringArray(serialString);
+    bStr = vecString[0];
   }
 }
 
-
-void amrex::BroadcastDistributionMapping(DistributionMapping &dM,
-                                          int myLocalId, int rootId, const MPI_Comm &localComm,
-					  bool addToCache)
+void amrex::BroadcastStringArray(Vector<std::string> &bSA, int myLocalId, int rootId, const MPI_Comm &localComm)
 {
-  int dmStrategy(dM.strategy());
-  ParallelDescriptor::Bcast(&dmStrategy, 1, rootId, localComm);
-  if(myLocalId != rootId) {
-    dM.strategy(static_cast<DistributionMapping::Strategy>(dmStrategy));
-  }
-
-  Array<int> dmapA;
-
+  Vector<char> serialStringArray;
   if(myLocalId == rootId) {
-    dmapA = dM.ProcessorMap();
+    serialStringArray = amrex::SerializeStringArray(bSA);
   }
-  amrex::BroadcastArray(dmapA, myLocalId, rootId, localComm);
-  if(dmapA.size() > 0) {
-    if(myLocalId != rootId) {
-      dM.define(dmapA);
-    }
-  }
-  int dmID(dM.DistMapID()), nDM(DistributionMapping::NDistMaps());
-  ParallelDescriptor::Bcast(&dmID, 1, rootId, localComm);
-  ParallelDescriptor::Bcast(&nDM, 1, rootId, localComm);
+
+  amrex::BroadcastArray(serialStringArray, myLocalId, rootId, localComm);
+
   if(myLocalId != rootId) {
-    dM.SetDistMapID(dmID);
-    DistributionMapping::SetNDistMaps(nDM);
+    bSA = amrex::UnSerializeStringArray(serialStringArray);
   }
 }
-
 
 void amrex::USleep(double sleepsec) {
   constexpr unsigned int msps = 1000000;
   usleep(sleepsec * msps);
 }
 
+
+namespace {
+    static auto clock_time_begin = amrex::MaxResSteadyClock::now();
+}
+
+double amrex::second ()
+{
+    return std::chrono::duration_cast<std::chrono::duration<double> >
+        (amrex::MaxResSteadyClock::now() - clock_time_begin).count();
+}
+
+
+extern "C" {
+    void* amrex_malloc (std::size_t size)
+    {
+        return malloc(size);
+    }
+
+
+    void amrex_free (void* p)
+    {
+        std::free(p);
+    }
+
+    double amrex_random ()
+    {
+        return amrex::Random();
+    }
+
+    long amrex_random_int (long n)  // This is for Fortran, which doesn't have unsigned long.
+    {
+        return static_cast<long>(amrex::Random_int(static_cast<unsigned long>(n)));
+    }
+}

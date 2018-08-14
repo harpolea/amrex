@@ -54,10 +54,10 @@ int checkFlatPlate()
 
   FlatPlateGeom geometryGenerator(normalDir, plateLoc, plateLo, plateHi);
   BaseFab<int> regIrregCovered(domain,1);
-  std::vector<IrregNode> nodes;
+  Vector<IrregNode> nodes;
   RealVect origin = RealVect::Zero;
-
-  geometryGenerator.fillGraph(regIrregCovered, nodes, domain, domain, domain, origin, dx);
+  NodeMap nodemap;
+  geometryGenerator.fillGraph(regIrregCovered, nodes, nodemap, domain, domain, domain, origin, dx);
   for(int inode = 0; inode < nodes.size(); inode++)
   {
     std::cout << "(" << inode << "): ";

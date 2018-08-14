@@ -12,6 +12,7 @@
 #include <AMReX_BoxArray.H>
 #include <AMReX_DistributionMapping.H>
 #include <AMReX_ParallelDescriptor.H>
+#include <AMReX_ParallelReduce.H>
 #include <AMReX_Periodicity.H>
 #include <AMReX_Print.H>
 
@@ -20,11 +21,21 @@ namespace amrex {
 class MFIter;
 class MFGhostIter;
 class Geometry;
+class FArrayBox;
+template <typename FAB> class FabFactory;
+class AmrTask;
+#ifdef USE_PERILLA
+class Perilla;
+#endif
 
 class FabArrayBase
 {
     friend class MFIter;
     friend class MFGhostIter;
+    friend class AmrTask;
+#ifdef USE_PERILLA
+    friend class Perilla;
+#endif
 
 public:
 
@@ -32,19 +43,25 @@ public:
 
     virtual ~FabArrayBase();
 
-    FabArrayBase (FabArrayBase&& rhs) noexcept = default;
-    
-    FabArrayBase (const FabArrayBase& rhs) = delete;
-    FabArrayBase& operator= (const FabArrayBase& rhs) = delete;
-    FabArrayBase& operator= (FabArrayBase&& rhs) = delete;    
+    FabArrayBase (FabArrayBase&& rhs) noexcept = default;    
+    FabArrayBase (const FabArrayBase& rhs) = default;
+    FabArrayBase& operator= (const FabArrayBase& rhs) = default;
+    FabArrayBase& operator= (FabArrayBase&& rhs) = default;
 
     void define (const BoxArray&            bxs,
                  const DistributionMapping& dm,
                  int                        nvar,
                  int                        ngrow);
 
+    void define (const BoxArray&            bxs,
+                 const DistributionMapping& dm,
+                 int                        nvar,
+                 const IntVect&             ngrow);
+
     //! Return the grow factor that defines the region of definition.
-    int nGrow () const { return n_grow; }
+    int nGrow () const { return n_grow[0]; }
+
+    IntVect nGrowVect () const { return n_grow; }
 
     //! Return number of variables (aka components) associated with each point.
     int nComp () const { return n_comp; }
@@ -52,9 +69,6 @@ public:
     //! Return index type.
     IndexType ixType () const { return boxarray.ixType(); }
     
-    //! Return the communicator associated with this FabArray
-    ParallelDescriptor::Color color () const { return distributionMap.color(); }
-
     //Return whether this FabArray is empty
     bool empty () const { return boxarray.empty(); }
 
@@ -83,7 +97,7 @@ public:
     int local_size () const { return indexArray.size(); }
 
     //! Return constant reference to indices in the FabArray that we have access.
-    const Array<int> &IndexArray () const { return indexArray; }
+    const Vector<int> &IndexArray () const { return indexArray; }
 
     //! Return local index in the vector of FABs.
     int localindex (int K) const { 
@@ -187,6 +201,7 @@ public:
         bool operator!= (const BDKey& rhs) const {
             return m_ba_id != rhs.m_ba_id || m_dm_id != rhs.m_dm_id;
         }
+        friend std::ostream& operator<< (std::ostream& os, const BDKey& id);
     private:
         BoxArray::RefID            m_ba_id;
         DistributionMapping::RefID m_dm_id;
@@ -204,11 +219,11 @@ public:
     struct TileArray
     {
 	int nuse;
-	Array<int> numLocalTiles;
-	Array<int> indexMap;	
-	Array<int> localIndexMap;
-	Array<int> localTileIndexMap;
-	Array<Box> tileArray;
+	Vector<int> numLocalTiles;
+	Vector<int> indexMap;	
+	Vector<int> localIndexMap;
+	Vector<int> localTileIndexMap;
+	Vector<Box> tileArray;
 	TileArray () : nuse(-1) {;}
 	long bytes () const;
     };
@@ -280,33 +295,29 @@ public:
     // their maximum size.
     //
     static IntVect comm_tile_size;  // communication tile size
-    //
-    // The number of FabArrays that have been defined during this run
-    //
-    static int nFabArrays;
-    static int NFabArrays() { return nFabArrays; }
-    int AllocatedFAPtrID() const  { return aFAPId; }
 
     struct FPinfo
     {
 	FPinfo (const FabArrayBase& srcfa,
 		const FabArrayBase& dstfa,
-		Box                 dstdomain,
-		int                 dstng,
-		const BoxConverter& coarsener);
+		const Box&          dstdomain,
+		const IntVect&      dstng,
+		const BoxConverter& coarsener,
+                const Box&          cdomain);
 	~FPinfo ();
 
 	long bytes () const;
 
 	BoxArray            ba_crse_patch;
 	DistributionMapping dm_crse_patch;
-	Array<int>          dst_idxs;
-	Array<Box>          dst_boxes;
+        std::unique_ptr<FabFactory<FArrayBox> > fact_crse_patch;
+	Vector<int>          dst_idxs;
+	Vector<Box>          dst_boxes;
 	//
 	BDKey               m_srcbdk;
 	BDKey               m_dstbdk;
 	Box                 m_dstdomain;
-	int                 m_dstng;
+	IntVect             m_dstng;
 	BoxConverter*       m_coarsener;
 	//
 	int                 m_nuse;
@@ -321,9 +332,10 @@ public:
 
     static const FPinfo& TheFPinfo (const FabArrayBase& srcfa,
 				    const FabArrayBase& dstfa,
-				    Box                 dstdomain,
-				    int                 dstng,
-				    const BoxConverter& coarsener);
+				    const Box&          dstdomain,
+				    const IntVect&      dstng,
+				    const BoxConverter& coarsener,
+                                    const Box&          cdomain);
 
     void flushFPinfo (bool no_assertion=false);
 
@@ -334,22 +346,22 @@ public:
     {
         CFinfo (const FabArrayBase& finefa,
                 const Geometry&     finegm,
-                int                 ng,
+                const IntVect&      ng,
                 bool                include_periodic,
                 bool                include_physbndry);
 
         long bytes () const;
 
-        static Box Domain (const Geometry& geom, int ng,
+        static Box Domain (const Geometry& geom, const IntVect& ng,
                            bool include_periodic, bool include_physbndry);
 
         BoxArray            ba_cfb;
         DistributionMapping dm_cfb;
-        Array<int>          fine_grid_idx; // local array
+        Vector<int>          fine_grid_idx; // local array
         //
         BDKey               m_fine_bdk;
         Box                 m_fine_domain;
-        int                 m_ng;
+        IntVect             m_ng;
         bool                m_include_periodic;
         bool                m_include_physbndry;
         //
@@ -365,7 +377,7 @@ public:
 
     static const CFinfo& TheCFinfo (const FabArrayBase& finefa,
                                     const Geometry&     finegm,
-                                    int                 ng,
+                                    const IntVect&      ng,
                                     bool                include_periodic,
                                     bool                include_physbndry);
 
@@ -380,19 +392,21 @@ public:
 
     //! Block until all send requests complete
     static void WaitForAsyncSends (int                 N_snds,
-                                   Array<MPI_Request>& send_reqs,
-                                   Array<char*>&       send_data,
-                                   Array<MPI_Status>&  stats);
+                                   Vector<MPI_Request>& send_reqs,
+                                   Vector<char*>&       send_data,
+                                   Vector<MPI_Status>&  stats);
 
 #ifdef BL_USE_UPCXX
     //! Block until all send requests complete
     static void WaitForAsyncSends_PGAS (int                 N_snds,
-                                        Array<char*>&       send_data,
+                                        Vector<char*>&       send_data,
                                         upcxx::event*       send_event,
                                         volatile int*       send_counter);
 #endif
 
 protected:
+
+    void clear ();
 
     DistributionMapping& ModifyDistributionMap () { return distributionMap; }
 
@@ -409,14 +423,11 @@ protected:
     //
     mutable BoxArray    boxarray;
     DistributionMapping distributionMap;
-    Array<int>          indexArray;
+    Vector<int>         indexArray;
     std::vector<bool>   ownership;
-    int                 n_grow;
+    IntVect             n_grow;
     int                 n_comp;
-    int                 aFAPId;      // ---- id of currently allocated fab array pointers
-    int                 aFAPIdLock;  // ---- lock for resizing sidecars
-
-    mutable BDKey m_bdkey;
+    mutable BDKey       m_bdkey;
 
     //
     // Tiling
@@ -440,13 +451,14 @@ protected:
     //
     struct FB
     {
-        FB (const FabArrayBase& fa, bool cross, const Periodicity& period,
+        FB (const FabArrayBase& fa, const IntVect& nghost,
+            bool cross, const Periodicity& period,
 	    bool enforce_periodicity_only);
         ~FB ();
 
 	IndexType    m_typ;
         IntVect      m_crse_ratio; // BoxArray in FabArrayBase may have crse_ratio.
-        int          m_ngrow;
+        IntVect      m_ngrow;
         bool         m_cross;
 	bool         m_epo;
 	Periodicity  m_period;
@@ -475,7 +487,8 @@ protected:
     static FBCache    m_TheFBCache;
     static CacheStats m_FBC_stats;
     //
-    const FB& getFB (const Periodicity& period, bool cross=false, bool enforce_periodicity_only = false) const;
+    const FB& getFB (const IntVect& nghost, const Periodicity& period,
+                     bool cross=false, bool enforce_periodicity_only = false) const;
     //
     void flushFB (bool no_assertion=false) const;       // This flushes its own FB.
     static void flushFBCache (); // This flushes the entire cache.
@@ -485,22 +498,24 @@ protected:
     //
     struct CPC
     {
-	CPC (const FabArrayBase& dstfa, int dstng,
-	     const FabArrayBase& srcfa, int srcng,
+	CPC (const FabArrayBase& dstfa, const IntVect& dstng,
+	     const FabArrayBase& srcfa, const IntVect& srcng,
 	     const Periodicity& period);
 	CPC (const BoxArray& dstba, const DistributionMapping& dstdm, 
-	     const Array<int>& dstidx, int dstng,
+	     const Vector<int>& dstidx, const IntVect& dstng,
 	     const BoxArray& srcba, const DistributionMapping& srcdm, 
-	     const Array<int>& srcidx, int srcng,
+	     const Vector<int>& srcidx, const IntVect& srcng,
 	     const Periodicity& period, int myproc);
+        CPC (const BoxArray& ba, const IntVect& ng,
+             const DistributionMapping& dstdm, const DistributionMapping& srcdm);
         ~CPC ();
 
         long bytes () const;	
 
 	BDKey       m_srcbdk;
 	BDKey       m_dstbdk;
-	int         m_srcng;
-	int         m_dstng;
+	IntVect     m_srcng;
+	IntVect     m_dstng;
 	Periodicity m_period;
 	BoxArray    m_srcba;
 	BoxArray    m_dstba;
@@ -519,9 +534,9 @@ protected:
 
     private:
 	void define (const BoxArray& ba_dst, const DistributionMapping& dm_dst,
-		     const Array<int>& imap_dst,
+		     const Vector<int>& imap_dst,
 		     const BoxArray& ba_src, const DistributionMapping& dm_src,
-		     const Array<int>& imap_src,
+		     const Vector<int>& imap_src,
 		     int MyProc = ParallelDescriptor::MyProc());
     };
     //
@@ -531,7 +546,8 @@ protected:
     static CPCache    m_TheCPCache;
     static CacheStats m_CPC_stats;
     //
-    const CPC& getCPC (int dstng, const FabArrayBase& src, int srcng, const Periodicity& period) const;
+    const CPC& getCPC (const IntVect& dstng, const FabArrayBase& src, const IntVect& srcng,
+                       const Periodicity& period) const;
     // 
     void flushCPC (bool no_assertion=false) const;      // This flushes its own CPC.
     static void flushCPCache (); // This flusheds the entire cache.
@@ -583,11 +599,13 @@ protected:
     static FabArrayStats m_FA_stats;
 
 #ifdef BL_USE_MPI
-    static bool CheckRcvStats(const Array<MPI_Status>& recv_stats,
-			      const Array<int>& recv_size,
+    static bool CheckRcvStats(Vector<MPI_Status>& recv_stats,
+			      const Vector<int>& recv_size,
 			      MPI_Datatype datatype, int tag);
 #endif
 };
+
+std::ostream& operator<< (std::ostream& os, const FabArrayBase::BDKey& id);
 
 }
 

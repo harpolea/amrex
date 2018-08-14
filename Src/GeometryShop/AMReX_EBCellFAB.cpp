@@ -1,14 +1,3 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
 #include "AMReX_EBCellFAB.H"
 #include "AMReX_FArrayBox.H"
 #include "AMReX_BoxIterator.H"
@@ -83,7 +72,7 @@ namespace amrex
         }
       }
 
-    std::vector<VolIndex>  irrvofs = m_irrFAB.getVoFs();
+    Vector<VolIndex>  irrvofs = m_irrFAB.getVoFs();
     for(int ivof = 0; ivof < irrvofs.size(); ivof++)
     {
         for (int icomp = 0; icomp < nComp(); icomp++)
@@ -101,8 +90,8 @@ namespace amrex
   kappaWeight()
   {
     const EBISBox& ebbox = getEBISBox();
-    const Box& box = BaseEBCellFAB<Real>::box();
-    const IntVectSet irregCells = ebbox.getIrregIVS(box);
+    const Box& bx = BaseEBCellFAB<Real>::box();
+    const IntVectSet irregCells = ebbox.getIrregIVS(bx);
     for (VoFIterator vit(irregCells, ebbox.getEBGraph()); vit.ok(); ++vit)
     {
       VolIndex vof = vit();
@@ -153,7 +142,7 @@ namespace amrex
         }
       }
 
-      std::vector<VolIndex>  irrvofs = m_irrFAB.getVoFs();
+      Vector<VolIndex>  irrvofs = m_irrFAB.getVoFs();
       for(int ivof = 0; ivof < irrvofs.size(); ivof++)
       {
         const VolIndex& vof = irrvofs[ivof];
@@ -409,8 +398,8 @@ namespace amrex
          
     // Find the max on irregular cells.
     const EBISBox& ebbox = getEBISBox();
-    const Box& box = BaseEBCellFAB<Real>::box();
-    const IntVectSet validCells(box);
+    const Box& bx = BaseEBCellFAB<Real>::box();
+    const IntVectSet validCells(bx);
     for (VoFIterator vit(validCells, ebbox.getEBGraph()); vit.ok(); ++vit)
     {
       VolIndex vofi = vit();
@@ -429,8 +418,8 @@ namespace amrex
          
     // Find the min on irregular cells.
     const EBISBox& ebbox = getEBISBox();
-    const Box& box = BaseEBCellFAB<Real>::box();
-    const IntVectSet validCells(box);
+    const Box& bx = BaseEBCellFAB<Real>::box();
+    const IntVectSet validCells(bx);
     for (VoFIterator vit(validCells, ebbox.getEBGraph()); vit.ok(); ++vit)
     {
       VolIndex vofi = vit();

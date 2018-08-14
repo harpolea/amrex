@@ -1,15 +1,3 @@
-
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
 #ifndef BL_BASEIVFABFACTORY_H_
 #define BL_BASEIVFABFACTORY_H_
 
@@ -36,14 +24,13 @@ namespace amrex
     virtual ~BaseIVFactory () {}
 
     ///
-    virtual BaseIVFAB<T>* create (const Box& box, int ncomps, const FabInfo& info, int box_index) const
+    virtual BaseIVFAB<T>* create (const Box& box, int ncomps, const FabInfo& info, int box_index) const override
       {
         EBGraph& graph       = (*m_graphs)[box_index];
         IntVectSet ivs;
         if(m_sets)
         {
-          int localIndex  = m_sets->localindex(box_index);
-          ivs   = (*m_sets)[localIndex];
+          ivs   = (*m_sets)[box_index];
         }
         else
         {
@@ -53,6 +40,10 @@ namespace amrex
         BaseIVFAB<T>* retval = new  BaseIVFAB<T>(ivs, graph, ncomps);
         return retval;
       }
+
+    virtual BaseIVFactory<T>* clone () const override {
+        return new BaseIVFactory<T>(*this);
+    }
 
     ///
     BaseIVFactory(shared_ptr<FabArray<EBGraph> > a_graphs)

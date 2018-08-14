@@ -1,14 +1,3 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
 #include "AMReX_EBCFInterp.H"
 #include "AMReX_EBArith.H"
 #include "AMReX_EBLevelDataOps.H"
@@ -76,18 +65,18 @@ namespace amrex
     }
     for(MFIter mfi(m_eblgFine.getDBL(), m_eblgFine.getDM()); mfi.isValid(); ++mfi)
     {
-      std::vector< std::shared_ptr<BaseIndex  > > baseDstVoFs;
-      std::vector< std::shared_ptr<BaseStencil> > baseSten;
+      Vector< std::shared_ptr<BaseIndex  > > baseDstVoFs;
+      Vector< std::shared_ptr<BaseStencil> > baseSten;
       IntVectSet cfivs = getCFIVS(mfi);
       
       const EBISBox  & ebisFine =   m_eblgFine.getEBISL()[ mfi];
       const EBISBox  & ebisCoFi =   m_eblgCoFi.getEBISL()[ mfi];
 
       VoFIterator vofit(cfivs, ebisFine.getEBGraph());
-      const std::vector<VolIndex>& volvec = vofit.getVector();
+      const Vector<VolIndex>& volvec = vofit.getVector();
       baseDstVoFs.resize(volvec.size());
       baseSten.resize(   volvec.size());
-      std::vector<VoFStencil> allsten(volvec.size());
+      Vector<VoFStencil> allsten(volvec.size());
       for(int ivec = 0; ivec < volvec.size(); ivec++)
       {
         getStencil(allsten[ivec],  volvec[ivec], ebisFine, ebisCoFi);
@@ -174,8 +163,8 @@ namespace amrex
       if(m_slowMode)
       {
 
-        vector<VolIndex  >& vofs     = m_slowVoFs[mfi];
-        vector<VoFStencil>& stencils = m_slowStencils[mfi];
+        Vector<VolIndex  >& vofs     = m_slowVoFs[mfi];
+        Vector<VoFStencil>& stencils = m_slowStencils[mfi];
         for(int ivof = 0; ivof < vofs.size(); ivof++)
         {
           for(int icomp = 0; icomp < inco; icomp++)

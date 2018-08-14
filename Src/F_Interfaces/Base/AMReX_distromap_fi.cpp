@@ -11,6 +11,12 @@ extern "C" {
 	dm = new DistributionMapping(*ba);
     }
 
+    void amrex_fi_new_distromap_from_pmap (DistributionMapping*& dm, const int* pmap, const int plen)
+    {
+        Vector<int> PMap(pmap,pmap+plen);
+        dm = new DistributionMapping(std::move(PMap));
+    }
+
     void amrex_fi_delete_distromap (DistributionMapping* dm)
     {
 	delete dm;

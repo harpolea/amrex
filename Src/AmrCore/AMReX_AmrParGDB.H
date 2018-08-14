@@ -1,5 +1,5 @@
-#ifndef _AmrParGDB_H
-#define _AmrParGDB_H
+#ifndef AMREX_AmrParGDB_H
+#define AMREX_AmrParGDB_H
 
 #include <AMReX_ParGDB.H>
 #include <AMReX_AmrCore.H>
@@ -42,8 +42,8 @@ public:
 
 protected:
     AmrCore* m_amrcore;
-    Array<DistributionMapping> m_dmap;
-    Array<BoxArray>            m_ba;
+    Vector<DistributionMapping> m_dmap;
+    Vector<BoxArray>            m_ba;
 };
 
 inline 

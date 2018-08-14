@@ -1,6 +1,6 @@
 
-#ifndef _StateData_H_
-#define _StateData_H_ 
+#ifndef AMREX_StateData_H_
+#define AMREX_StateData_H_
 
 #include <memory>
 
@@ -10,12 +10,16 @@
 #include <AMReX_MFCopyDescriptor.H>
 #include <AMReX_BCRec.H>
 #include <AMReX_Array.H>
+#include <AMReX_Vector.H>
 #include <AMReX_VisMF.H>
 #include <AMReX_DistributionMapping.H>
 #include <AMReX_PhysBCFunct.H>
 #include <AMReX_Geometry.H>
 #include <AMReX_RealBox.H>
 #include <AMReX_StateDescriptor.H>
+#ifdef AMREX_USE_EB
+#include <AMReX_EBLevelGrid.H>
+#endif
 
 namespace amrex {
 
@@ -40,11 +44,15 @@ public:
 	       const DistributionMapping& dm,
                const StateDescriptor* d,
                Real                   cur_time,
-               Real                   dt);
+               Real                   dt,
+               const FabFactory<FArrayBox>& factory);
     //
     // The destructor.
     //
     ~StateData ();
+
+    StateData (StateData&& rhs) noexcept = default;
+
     //
     // Takes an empty StateData object dest and defines it with the same properties
     // as the input StateData src. Does a deep copy of the data from src into dest.
@@ -58,7 +66,8 @@ public:
 		 const DistributionMapping& dm,
                  const StateDescriptor& d, 
                  Real                   cur_time,
-                 Real                   dt);
+                 Real                   dt,
+                 const FabFactory<FArrayBox>& factory);
     //
     // Copies old data from another StateData object and sets the same time level.
     // If old data is uninitialized, allocates it with same properties as the input data.
@@ -87,12 +96,24 @@ public:
     void swapTimeLevels (Real dt);
     //
     // Swaps old data with a new MultiFab.
+    // Deletes the previous old data.
     //
     void replaceOldData ( MultiFab* mf );
     //
+    // Swaps old data with another StateData.
+    // Does not delete the previous old data.
+    //
+    void replaceOldData ( StateData& s );
+    //
     // Swaps new data with a new MultiFab.
+    // Deletes the previous new data.
     //
     void replaceNewData ( MultiFab* mf );
+    //
+    // Swaps new data with another StateData.
+    // Does not delete the previous new data.
+    //
+    void replaceNewData ( StateData& s );
 
     //
     // Sets time of old and new data.
@@ -112,12 +133,12 @@ public:
     void syncNewTimeLevel (Real t_new);
 
     void RegisterData (MultiFabCopyDescriptor& multiFabCopyDesc,
-                       Array<MultiFabId>&      mfid);
+                       Vector<MultiFabId>&      mfid);
 
     void InterpAddBox (MultiFabCopyDescriptor& multiFabCopyDesc,
-		       Array<MultiFabId>&      mfid,
+		       Vector<MultiFabId>&      mfid,
 		       BoxList*                returnedUnfillableBoxes,
-		       Array<FillBoxId>&       returnedFillBoxIds,
+		       Vector<FillBoxId>&       returnedFillBoxIds,
 		       const Box&              subbox,
 		       Real                    time,
 		       int                     src_comp,
@@ -126,8 +147,8 @@ public:
 		       bool                    extrap = false);
 
     void InterpFillFab (MultiFabCopyDescriptor&  fabCopyDesc,
-			const Array<MultiFabId>& mfid,
-			const Array<FillBoxId>&  fillBoxIds,
+			const Vector<MultiFabId>& mfid,
+			const Vector<FillBoxId>&  fillBoxIds,
 			FArrayBox&               dest,
 			Real                     time,
 			int                      src_comp,
@@ -160,6 +181,7 @@ public:
 		  const Box&             p_domain,
 		  const BoxArray&        grds,
 		  const DistributionMapping& dm,
+                  const FabFactory<FArrayBox>& factroy,
                   const StateDescriptor& d,
                   const std::string&     restart_file);
     //
@@ -181,6 +203,9 @@ public:
     const BoxArray& boxArray () const { return grids; }
     //
     const DistributionMapping& DistributionMap () const { return dmap; }
+    void setDistributionMap ( DistributionMapping& new_dmap ) { dmap = new_dmap; }
+    //
+    const FabFactory<FArrayBox>& Factory () const { return *m_factory; }
     //
     // Returns the current time.
     //
@@ -236,26 +261,22 @@ public:
     //
     bool hasNewData () const { return new_data != 0; }
 
-    void getData (Array<MultiFab*>& data,
-		  Array<Real>& datatime,
+    void getData (Vector<MultiFab*>& data,
+		  Vector<Real>& datatime,
 		  Real time) const;
-
-    void AddProcsToComp(const StateDescriptor &sdPtr,
-                        int ioProcNumSCS, int ioProcNumAll,
-                        int scsMyId, MPI_Comm scsComm);
-
-    void Check() const;
 
     //
     // These facilitate prereading FabArray headers to avoid
     // synchronization when reading multiple FabArrays
     //
-    static const Array<std::string> &FabArrayHeaderNames() { return fabArrayHeaderNames; }
+    static const Vector<std::string> &FabArrayHeaderNames() { return fabArrayHeaderNames; }
     static void ClearFabArrayHeaderNames() { fabArrayHeaderNames.clear(); }
-    static void SetFAHeaderMapPtr(std::map<std::string, Array<char> > *fahmp) { faHeaderMap = fahmp; }
+    static void SetFAHeaderMapPtr(std::map<std::string, Vector<char> > *fahmp) { faHeaderMap = fahmp; }
 
 
 private:
+
+    std::unique_ptr<FabFactory<FArrayBox> > m_factory;
 
     struct TimeInterval
     {
@@ -296,11 +317,11 @@ private:
     // This is used as a temporary collection of FabArray header
     // names written during a checkpoint
     //
-    static Array<std::string> fabArrayHeaderNames;
+    static Vector<std::string> fabArrayHeaderNames;
     //
     // This is used to store preread FabArray headers
     //
-    static std::map<std::string, Array<char> > *faHeaderMap;  // ---- [faheader name, the header]
+    static std::map<std::string, Vector<char> > *faHeaderMap;  // ---- [faheader name, the header]
 
     void restartDoit (std::istream& is, const std::string& restart_file);
 };

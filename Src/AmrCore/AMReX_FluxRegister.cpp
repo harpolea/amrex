@@ -4,7 +4,7 @@
 #include <AMReX_FLUXREG_F.H>
 #include <AMReX_ParallelDescriptor.H>
 #include <AMReX_BLProfiler.H>
-#include <AMReX_ccse-mpi.H>
+#include <AMReX_iMultiFab.H>
 
 #include <vector>
 
@@ -73,7 +73,7 @@ FluxRegister::define (const BoxArray&            fine_boxes,
     grids = fine_boxes;
     grids.coarsen(ratio);
 
-    for (int dir = 0; dir < BL_SPACEDIM; dir++)
+    for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
     {
         const Orientation lo_face(dir,Orientation::low);
         const Orientation hi_face(dir,Orientation::high);
@@ -87,6 +87,12 @@ FluxRegister::define (const BoxArray&            fine_boxes,
     }
 }
 
+void
+FluxRegister::clear ()
+{
+    BndryRegister::clear();
+}
+
 FluxRegister::~FluxRegister () {}
 
 Real
@@ -94,7 +100,7 @@ FluxRegister::SumReg (int comp) const
 {
     Real sum = 0.0;
 
-    for (int dir = 0; dir < BL_SPACEDIM; dir++)
+    for (int dir = 0; dir < AMREX_SPACEDIM; dir++)
     {
         const FabSet& lofabs = bndry[Orientation(dir,Orientation::low) ];
         const FabSet& hifabs = bndry[Orientation(dir,Orientation::high)];
@@ -129,7 +135,8 @@ FluxRegister::CrseInit (const MultiFab& mflx,
     const Orientation face_lo(dir,Orientation::low);
     const Orientation face_hi(dir,Orientation::high);
  
-    MultiFab mf(mflx.boxArray(),mflx.DistributionMap(),numcomp,0);
+    MultiFab mf(mflx.boxArray(),mflx.DistributionMap(),numcomp,0,
+                MFInfo(), mflx.Factory());
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -184,7 +191,8 @@ FluxRegister::CrseInit (const MultiFab& mflx,
     BL_ASSERT(srccomp >= 0 && srccomp+numcomp <= mflx.nComp());
     BL_ASSERT(destcomp >= 0 && destcomp+numcomp <= ncomp);
 
-    MultiFab area(mflx.boxArray(), mflx.DistributionMap(), 1, mflx.nGrow());
+    MultiFab area(mflx.boxArray(), mflx.DistributionMap(), 1, mflx.nGrow(),
+                  MFInfo(), mflx.Factory());
 
     area.setVal(1, 0, 1, area.nGrow());
 
@@ -207,7 +215,8 @@ FluxRegister::CrseAdd (const MultiFab& mflx,
     const Orientation face_lo(dir,Orientation::low);
     const Orientation face_hi(dir,Orientation::high);
  
-    MultiFab mf(mflx.boxArray(),mflx.DistributionMap(),numcomp,0);
+    MultiFab mf(mflx.boxArray(),mflx.DistributionMap(),numcomp,0,
+                MFInfo(), mflx.Factory());
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -243,7 +252,8 @@ FluxRegister::CrseAdd (const MultiFab& mflx,
     BL_ASSERT(srccomp >= 0 && srccomp+numcomp <= mflx.nComp());
     BL_ASSERT(destcomp >= 0 && destcomp+numcomp <= ncomp);
 
-    MultiFab area(mflx.boxArray(), mflx.DistributionMap(), 1, mflx.nGrow());
+    MultiFab area(mflx.boxArray(), mflx.DistributionMap(), 1, mflx.nGrow(),
+                  MFInfo(), mflx.Factory());
 
     area.setVal(1, 0, 1, area.nGrow());
 
@@ -306,27 +316,27 @@ FluxRegister::FineAdd (const FArrayBox& flux,
 
     FArrayBox& loreg = bndry[Orientation(dir,Orientation::low)][boxno];
 
-#ifndef NDEBUG
+#ifdef AMREX_DEBUG
     Box cbox = amrex::coarsen(flux.box(),ratio);
     BL_ASSERT(cbox.contains(loreg.box()));
 #endif
     const int* rlo = loreg.box().loVect();
     const int* rhi = loreg.box().hiVect();
     Real* lodat = loreg.dataPtr(destcomp);
-    FORT_FRFINEADD(lodat,ARLIM(rlo),ARLIM(rhi),
-                   flxdat,ARLIM(flo),ARLIM(fhi),
+    amrex_frfineadd(lodat,AMREX_ARLIM(rlo),AMREX_ARLIM(rhi),
+                   flxdat,AMREX_ARLIM(flo),AMREX_ARLIM(fhi),
                    &numcomp,&dir,ratio.getVect(),&mult);
 
     FArrayBox& hireg = bndry[Orientation(dir,Orientation::high)][boxno];
 
-#ifndef NDEBUG
+#ifdef AMREX_DEBUG
     BL_ASSERT(cbox.contains(hireg.box()));
 #endif
     rlo = hireg.box().loVect();
     rhi = hireg.box().hiVect();
     Real* hidat = hireg.dataPtr(destcomp);
-    FORT_FRFINEADD(hidat,ARLIM(rlo),ARLIM(rhi),
-                   flxdat,ARLIM(flo),ARLIM(fhi),
+    amrex_frfineadd(hidat,AMREX_ARLIM(rlo),AMREX_ARLIM(rhi),
+                   flxdat,AMREX_ARLIM(flo),AMREX_ARLIM(fhi),
                    &numcomp,&dir,ratio.getVect(),&mult);
 }
 
@@ -353,29 +363,29 @@ FluxRegister::FineAdd (const FArrayBox& flux,
 
     FArrayBox& loreg = bndry[Orientation(dir,Orientation::low)][boxno];
 
-#ifndef NDEBUG
+#ifdef AMREX_DEBUG
     Box cbox = amrex::coarsen(flux.box(),ratio);
     BL_ASSERT(cbox.contains(loreg.box()));
 #endif
     const int* rlo = loreg.box().loVect();
     const int* rhi = loreg.box().hiVect();
     Real* lodat = loreg.dataPtr(destcomp);
-    FORT_FRFAADD(lodat,ARLIM(rlo),ARLIM(rhi),
-                 flxdat,ARLIM(flo),ARLIM(fhi),
-                 area_dat,ARLIM(alo),ARLIM(ahi),
+    amrex_frfaadd(lodat,AMREX_ARLIM(rlo),AMREX_ARLIM(rhi),
+                 flxdat,AMREX_ARLIM(flo),AMREX_ARLIM(fhi),
+                 area_dat,AMREX_ARLIM(alo),AMREX_ARLIM(ahi),
                  &numcomp,&dir,ratio.getVect(),&mult);
 
     FArrayBox& hireg = bndry[Orientation(dir,Orientation::high)][boxno];
 
-#ifndef NDEBUG
+#ifdef AMREX_DEBUG
     BL_ASSERT(cbox.contains(hireg.box()));
 #endif
     rlo = hireg.box().loVect();
     rhi = hireg.box().hiVect();
     Real* hidat = hireg.dataPtr(destcomp);
-    FORT_FRFAADD(hidat,ARLIM(rlo),ARLIM(rhi),
-                 flxdat,ARLIM(flo),ARLIM(fhi),
-                 area_dat,ARLIM(alo),ARLIM(ahi),
+    amrex_frfaadd(hidat,AMREX_ARLIM(rlo),AMREX_ARLIM(rhi),
+                 flxdat,AMREX_ARLIM(flo),AMREX_ARLIM(fhi),
+                 area_dat,AMREX_ARLIM(alo),AMREX_ARLIM(ahi),
                  &numcomp,&dir,ratio.getVect(),&mult);
 }
 
@@ -385,7 +395,7 @@ FluxRegister::Reflux (MultiFab&       mf,
 		      Real            scale,
 		      int             scomp,
 		      int             dcomp,
-		      int             ncomp,
+		      int             nc,
 		      const Geometry& geom)
 {
     BL_PROFILE("FluxRegister::Reflux()");
@@ -397,10 +407,10 @@ FluxRegister::Reflux (MultiFab&       mf,
 	int islo = face.isLow();
 
         MultiFab flux(amrex::convert(mf.boxArray(), IntVect::TheDimensionVector(idir)),
-                      mf.DistributionMap(), ncomp, 0);
+                      mf.DistributionMap(), nc, 0, MFInfo(), mf.Factory());
 	flux.setVal(0.0);
 
-	bndry[face].copyTo(flux, 0, scomp, 0, ncomp, geom.periodicity());
+	bndry[face].copyTo(flux, 0, scomp, 0, nc, geom.periodicity());
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -418,11 +428,11 @@ FluxRegister::Reflux (MultiFab&       mf,
 	    const FArrayBox& vfab = volume[mfi];
 	    const Box& vbox = vfab.box();
 
-	    FORT_FRREFLUX(bx.loVect(), bx.hiVect(),
+	    amrex_frreflux(bx.loVect(), bx.hiVect(),
 			  sfab.dataPtr(dcomp), sbox.loVect(), sbox.hiVect(),
 			  ffab.dataPtr(     ), fbox.loVect(), fbox.hiVect(),
 			  vfab.dataPtr(     ), vfab.loVect(), vbox.hiVect(),
-			  &ncomp, &scale, &idir, &islo);
+			  &nc, &scale, &idir, &islo);
 			  
 	}
     }
@@ -433,25 +443,26 @@ FluxRegister::Reflux (MultiFab&       mf,
 		      Real            scale,
 		      int             scomp,
 		      int             dcomp,
-		      int             ncomp,
+		      int             nc,
 		      const Geometry& geom)
 {
     const Real* dx = geom.CellSize();
     
-    MultiFab volume(mf.boxArray(), mf.DistributionMap(), 1, mf.nGrow());
+    MultiFab volume(mf.boxArray(), mf.DistributionMap(), 1, mf.nGrow(),
+                    MFInfo(), mf.Factory());
     
     volume.setVal(AMREX_D_TERM(dx[0],*dx[1],*dx[2]), 0, 1, mf.nGrow());
 
-    Reflux(mf,volume,scale,scomp,dcomp,ncomp,geom);
+    Reflux(mf,volume,scale,scomp,dcomp,nc,geom);
 }
 
 void
 FluxRegister::ClearInternalBorders (const Geometry& geom)
 {
-    int ncomp = this->nComp();
+    int nc = this->nComp();
     const Box& domain = geom.Domain();
     
-    for (int dir = 0; dir < BL_SPACEDIM; dir++) {
+    for (int dir = 0; dir < AMREX_SPACEDIM; dir++) {
 	Orientation lo(dir, Orientation::low);
 	Orientation hi(dir, Orientation::high);
 	
@@ -468,16 +479,16 @@ FluxRegister::ClearInternalBorders (const Geometry& geom)
 	    for (FabSetIter fsi(frlo); fsi.isValid(); ++fsi) {
 		const Box& bx = fsi.validbox();
 		const std::vector< std::pair<int,Box> >& isects = bahi.intersections(bx);
-		for (int ii = 0; ii < isects.size(); ++ii) {
-		    frlo[fsi].setVal(0.0, isects[ii].second, 0, ncomp);
+		for (int ii = 0; ii < static_cast<int>(isects.size()); ++ii) {
+		    frlo[fsi].setVal(0.0, isects[ii].second, 0, nc);
 		}
 		if (geom.isPeriodic(dir)) {
 		    if (bx.smallEnd(dir) == domain.smallEnd(dir)) {
 			const Box& sbx = amrex::shift(bx, dir, domain.length(dir));
 			const std::vector<std::pair<int,Box> >& isects2 = bahi.intersections(sbx);
-			for (int ii = 0; ii < isects2.size(); ++ii) {
+			for (int ii = 0; ii < static_cast<int>(isects2.size()); ++ii) {
 			    const Box& bx2 = amrex::shift(isects2[ii].second, dir, -domain.length(dir));
-			    frlo[fsi].setVal(0.0, bx2, 0, ncomp);
+			    frlo[fsi].setVal(0.0, bx2, 0, nc);
 			}		      
 		    }
 		}
@@ -486,21 +497,95 @@ FluxRegister::ClearInternalBorders (const Geometry& geom)
 	    for (FabSetIter fsi(frhi); fsi.isValid(); ++fsi) {
 		const Box& bx = fsi.validbox();
 		const std::vector< std::pair<int,Box> >& isects = balo.intersections(bx);
-		for (int ii = 0; ii < isects.size(); ++ii) {
-		    frhi[fsi].setVal(0.0, isects[ii].second, 0, ncomp);
+		for (int ii = 0; ii < static_cast<int>(isects.size()); ++ii) {
+		    frhi[fsi].setVal(0.0, isects[ii].second, 0, nc);
 		}
 		if (geom.isPeriodic(dir)) {
 		    if (bx.bigEnd(dir) == domain.bigEnd(dir)) {
 			const Box& sbx = amrex::shift(bx, dir, -domain.length(dir));
 			const std::vector<std::pair<int,Box> >& isects2 = balo.intersections(sbx);
-			for (int ii = 0; ii < isects2.size(); ++ii) {
+			for (int ii = 0; ii < static_cast<int>(isects2.size()); ++ii) {
 			    const Box& bx2 = amrex::shift(isects2[ii].second, dir, domain.length(dir));
-			    frhi[fsi].setVal(0.0, bx2, 0, ncomp);
+			    frhi[fsi].setVal(0.0, bx2, 0, nc);
 			}		      
 		    }
 		}
 	    }
 	}
+    }
+}
+
+void
+FluxRegister::OverwriteFlux (Array<MultiFab*,AMREX_SPACEDIM> const& crse_fluxes,
+                             Real scale, int srccomp, int destcomp, int numcomp,
+                             const Geometry& crse_geom)
+{
+    BL_PROFILE("FluxRegister::OverwriteFlux()");
+
+    const auto& cperiod = crse_geom.periodicity();
+
+    Box cdomain = crse_geom.Domain();
+    for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+        if (Geometry::isPeriodic(idim)) cdomain.grow(idim, 1);
+    }
+
+    // cell-centered mask: 0: coarse, 1: covered by fine, 2: phys bc
+    const BoxArray& cba = amrex::convert(crse_fluxes[0]->boxArray(), IntVect::TheCellVector());
+    const BoxArray& cfba = amrex::coarsen(grids, ratio);
+    iMultiFab cc_mask(cba, crse_fluxes[0]->DistributionMap(), 1, 1);
+    {
+        const std::vector<IntVect>& pshifts = cperiod.shiftIntVect();
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+        {
+            std::vector< std::pair<int,Box> > isects;
+
+            for (MFIter mfi(cc_mask); mfi.isValid(); ++mfi)
+            {
+                IArrayBox& fab = cc_mask[mfi];
+                fab.setVal(0);  // coarse by default
+                fab.setComplement(2, cdomain, 0, 1); // phys bc
+
+                const Box& bx = fab.box();
+                for (const auto& iv : pshifts)
+                {
+                    cfba.intersections(bx+iv, isects);
+                    for (const auto& is : isects)
+                    {
+                        fab.setVal(1, is.second-iv, 0, 1);
+                    }
+                }
+            }
+        }
+    }
+
+    for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
+    {
+        MultiFab& crse_flux = *crse_fluxes[idim];
+        MultiFab fine_flux(crse_flux.boxArray(), crse_flux.DistributionMap(),
+                           numcomp, 0);
+        fine_flux.setVal(0.0);
+
+        Orientation lo_face(idim, Orientation::low);
+        Orientation hi_face(idim, Orientation::high);
+        
+        bndry[lo_face].copyTo(fine_flux, 0, srccomp, 0, numcomp, cperiod);
+        bndry[hi_face].plusTo(fine_flux, 0, srccomp, 0, numcomp, cperiod);
+
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+        for (MFIter mfi(crse_flux,true); mfi.isValid(); ++mfi)
+        {
+            const Box& bx = mfi.tilebox();
+            amrex_froverwrite_cfb(BL_TO_FORTRAN_BOX(bx),
+                                  BL_TO_FORTRAN_N_ANYD(crse_flux[mfi],destcomp),
+                                  BL_TO_FORTRAN_ANYD(fine_flux[mfi]),
+                                  BL_TO_FORTRAN_ANYD(cc_mask[mfi]),
+                                  &numcomp, &idim, &scale);
+        }
     }
 }
 
@@ -542,27 +627,6 @@ FluxRegister::read (const std::string& name, std::istream& is)
     BndryRegister* br = this;
 
     br->read(name,is);
-}
-
-void
-FluxRegister::AddProcsToComp(int ioProcNumSCS, int ioProcNumAll,
-                             int scsMyId, MPI_Comm scsComm)
-{
-  // ---- ints
-  ParallelDescriptor::Bcast(&fine_level, 1, ioProcNumSCS, scsComm);
-  ParallelDescriptor::Bcast(&ncomp, 1, ioProcNumSCS, scsComm);
-
-  // ---- IntVects
-  Array<int> iv(BL_SPACEDIM, -1);
-  if(scsMyId == ioProcNumSCS) {
-    for(int i(0); i < BL_SPACEDIM; ++i) { iv[i] = ratio[i]; }
-  }
-  ParallelDescriptor::Bcast(iv.dataPtr(), iv.size(), ioProcNumSCS, scsComm);
-  if(scsMyId != ioProcNumSCS) {
-    for(int i(0); i < BL_SPACEDIM; ++i) { ratio[i] = iv[i]; }
-  }
-  BndryRegister::AddProcsToComp(ioProcNumSCS, ioProcNumAll,
-                                scsMyId, scsComm);
 }
 
 }

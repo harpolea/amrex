@@ -1,23 +1,27 @@
-AMREX_HOME ?= ../../..
 
 TOP = $(AMREX_HOME)
+USE_EB =FALSE
 #
 # Variables for the user to set ...
 #
 PRECISION     = DOUBLE
 DEBUG	      = TRUE
 DEBUG	      = FALSE
+#DIM	      = 3
 DIM	      = 2
+DIM           = 1
 COMP          = g++
-USE_MPI       = TRUE
+#USE_MPI       = TRUE 
+USE_MPI       = FALSE
 #
 # Base name of the executable.
 #
 #EBASE = Add
-#EBASE = ComputeAmrDataNorms
+### this has no main EBASE = ComputeAmrDataNorms
 #EBASE = DiffFab
-#EBASE = DiffSameDomainRefined
-EBASE = DiffSameDomainRefinedStag
+EBASE = DiffSameDomainRefined
+#EBASE = DiffSameDomainRefinedComposite
+#EBASE = DiffSameDomainRefinedStag
 #EBASE = DiffSameGrid2
 #EBASE = DiffSameGrid
 #EBASE = DiffSameGridRefined
@@ -25,6 +29,7 @@ EBASE = DiffSameDomainRefinedStag
 #EBASE = PltFileNormB
 #EBASE = PltFileNorm
 #EBASE = PltFileScalConvRate
+#EBASE  = RichardsonConvergenceTest
 
 CEXE_sources += $(EBASE).cpp
 
@@ -33,7 +38,7 @@ include $(AMREX_HOME)/Tools/GNUMake/Make.defs
 DEFINES += -DBL_NOLINEVALUES -DBL_PARALLEL_IO
 
 include Make.package
-include ../Make.package
+#include ../Make.package
 include $(AMREX_HOME)/Src/Base/Make.package
 include $(AMREX_HOME)/Src/Boundary/Make.package
 #include $(AMREX_HOME)/Src/Amr/Make.package
@@ -55,8 +60,11 @@ vpathdir += $(AMREX_HOME)/Src/Amr
 INCLUDE_LOCATIONS += $(AMREX_HOME)/Src/Extern/amrdata
 vpathdir += $(AMREX_HOME)/Src/Extern/amrdata
 
-CEXE_sources += BCRec.cpp
-CEXE_headers += BCRec.H BC_TYPES.H
+INCLUDE_LOCATIONS += $(AMREX_HOME)/Src/Extern/ProfParser
+vpathdir += $(AMREX_HOME)/Src/Extern/ProfParser
+
+CEXE_sources += AMReX_BCRec.cpp
+CEXE_headers += AMReX_BCRec.H AMReX_BC_TYPES.H
 
 vpath %.c   : . $(vpathdir)
 vpath %.h   : . $(vpathdir)
