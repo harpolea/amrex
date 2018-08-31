@@ -225,7 +225,7 @@ TagBox::numTags (const Box& b) const
 }
 
 long
-TagBox::collate (std::vector<IntVect>& ar, int start) const
+TagBox::collate (Vector<IntVect>& ar, int start) const
 {
     BL_ASSERT(start >= 0);
     //
@@ -317,7 +317,7 @@ void
 TagBox::get_itags(Vector<int>& ar, const Box& tilebx) const
 {
     int Lbx[] = {1,1,1};
-    for (int idim=0; idim<BL_SPACEDIM; idim++) {
+    for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
 	Lbx[idim] = dlen[idim];
     }
     
@@ -325,7 +325,7 @@ TagBox::get_itags(Vector<int>& ar, const Box& tilebx) const
 
     long Ntb = 1, stb=0;
     int Ltb[] = {1,1,1};
-    for (int idim=0; idim<BL_SPACEDIM; idim++) {
+    for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
 	Ltb[idim] = tilebx.length(idim);
 	Ntb *= Ltb[idim];
 	stb += stride[idim] * (tilebx.smallEnd(idim) - domain.smallEnd(idim));
@@ -357,7 +357,7 @@ void
 TagBox::tags (const Vector<int>& ar, const Box& tilebx)
 {
     int Lbx[] = {1,1,1};
-    for (int idim=0; idim<BL_SPACEDIM; idim++) {
+    for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
 	Lbx[idim] = dlen[idim];
     }
     
@@ -365,7 +365,7 @@ TagBox::tags (const Vector<int>& ar, const Box& tilebx)
 
     long stb=0;
     int Ltb[] = {1,1,1};
-    for (int idim=0; idim<BL_SPACEDIM; idim++) {
+    for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
 	Ltb[idim] = tilebx.length(idim);
 	stb += stride[idim] * (tilebx.smallEnd(idim) - domain.smallEnd(idim));
     }
@@ -390,7 +390,7 @@ void
 TagBox::tags_and_untags (const Vector<int>& ar, const Box& tilebx)
 {
     int Lbx[] = {1,1,1};
-    for (int idim=0; idim<BL_SPACEDIM; idim++) {
+    for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
 	Lbx[idim] = dlen[idim];
     }
     
@@ -398,7 +398,7 @@ TagBox::tags_and_untags (const Vector<int>& ar, const Box& tilebx)
 
     long stb=0;
     int Ltb[] = {1,1,1};
-    for (int idim=0; idim<BL_SPACEDIM; idim++) {
+    for (int idim=0; idim<AMREX_SPACEDIM; idim++) {
 	Ltb[idim] = tilebx.length(idim);
 	stb += stride[idim] * (tilebx.smallEnd(idim) - domain.smallEnd(idim));
     }
@@ -428,7 +428,7 @@ TagBoxArray::TagBoxArray (const BoxArray& ba,
 int
 TagBoxArray::borderSize () const
 {
-    return n_grow;
+    return n_grow[0];
 }
 
 void 
@@ -436,14 +436,14 @@ TagBoxArray::buffer (int nbuf)
 {
     if (nbuf != 0)
     {
-        BL_ASSERT(nbuf <= n_grow);
+        BL_ASSERT(nbuf <= n_grow[0]);
 
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
 	for (MFIter mfi(*this); mfi.isValid(); ++mfi)
 	{
-	    get(mfi).buffer(nbuf, n_grow);
+	    get(mfi).buffer(nbuf, n_grow[0]);
         } 
     }
 }
@@ -457,7 +457,7 @@ TagBoxArray::mapPeriodic (const Geometry& geom)
 
     // This function is called after coarsening.
     // So we can assume that n_grow is 0.
-    BL_ASSERT(n_grow == 0);
+    BL_ASSERT(n_grow[0] == 0);
 
     TagBoxArray tmp(boxArray(),DistributionMap()); // note that tmp is filled w/ CLEAR.
 
@@ -491,7 +491,7 @@ TagBoxArray::numTags () const
 }
 
 void
-TagBoxArray::collate (std::vector<IntVect>& TheGlobalCollateSpace) const
+TagBoxArray::collate (Vector<IntVect>& TheGlobalCollateSpace) const
 {
     BL_PROFILE("TagBoxArray::collate()");
 
@@ -508,7 +508,7 @@ TagBoxArray::collate (std::vector<IntVect>& TheGlobalCollateSpace) const
     //
     // Local space for holding just those tags we want to gather to the root cpu.
     //
-    std::vector<IntVect> TheLocalCollateSpace(count);
+    Vector<IntVect> TheLocalCollateSpace(count);
 
     count = 0;
 
@@ -520,12 +520,7 @@ TagBoxArray::collate (std::vector<IntVect>& TheGlobalCollateSpace) const
 
     if (count > 0)
     {
-        //
-        // Remove duplicate IntVects.
-        //
-	std::set<IntVect> tmp (TheLocalCollateSpace.begin(),
-			       TheLocalCollateSpace.end());
-	TheLocalCollateSpace.assign( tmp.begin(), tmp.end() );
+        amrex::RemoveDuplicates(TheLocalCollateSpace);
 	count = TheLocalCollateSpace.size();
     }
     //
@@ -554,7 +549,7 @@ TagBoxArray::collate (std::vector<IntVect>& TheGlobalCollateSpace) const
     // Tell root CPU how many tags each CPU will be sending.
     //
     const int IOProcNumber = ParallelDescriptor::IOProcessorNumber();
-    count *= BL_SPACEDIM;  // Convert from count of tags to count of integers to expect.
+    count *= AMREX_SPACEDIM;  // Convert from count of tags to count of integers to expect.
     const std::vector<long>& countvec = ParallelDescriptor::Gather(count, IOProcNumber);
     
     std::vector<long> offset(countvec.size(),0L);
@@ -567,7 +562,7 @@ TagBoxArray::collate (std::vector<IntVect>& TheGlobalCollateSpace) const
     //
     // Gather all the tags to IOProcNumber into TheGlobalCollateSpace.
     //
-    BL_ASSERT(sizeof(IntVect) == BL_SPACEDIM * sizeof(int));
+    BL_ASSERT(sizeof(IntVect) == AMREX_SPACEDIM * sizeof(int));
     const int* psend = (count > 0) ? TheLocalCollateSpace[0].getVect() : 0;
     int* precv = TheGlobalCollateSpace[0].getVect();
     ParallelDescriptor::Gatherv(psend, count,
@@ -575,12 +570,7 @@ TagBoxArray::collate (std::vector<IntVect>& TheGlobalCollateSpace) const
 
     if (ParallelDescriptor::IOProcessor())
     {
-        //
-        // Remove yet more possible duplicate IntVects.
-        //
-	std::set<IntVect> tmp (TheGlobalCollateSpace.begin(),
-			       TheGlobalCollateSpace.end());
-	TheGlobalCollateSpace.assign( tmp.begin(), tmp.end() );
+        amrex::RemoveDuplicates(TheGlobalCollateSpace);
 	numtags = TheGlobalCollateSpace.size();
     }
 
@@ -588,7 +578,7 @@ TagBoxArray::collate (std::vector<IntVect>& TheGlobalCollateSpace) const
     // Now broadcast them back to the other processors.
     //
     ParallelDescriptor::Bcast(&numtags, 1, IOProcNumber);
-    ParallelDescriptor::Bcast(TheGlobalCollateSpace[0].getVect(), numtags*BL_SPACEDIM, IOProcNumber);
+    ParallelDescriptor::Bcast(TheGlobalCollateSpace[0].getVect(), numtags*AMREX_SPACEDIM, IOProcNumber);
     TheGlobalCollateSpace.resize(numtags);
 
 #else
@@ -651,18 +641,10 @@ TagBoxArray::coarsen (const IntVect & ratio)
 	(*this)[mfi].coarsen(ratio,isOwner(mfi.LocalIndex()));
     }
 
-    boxarray.growcoarsen(n_grow,ratio);
+    boxarray.growcoarsen(n_grow[0],ratio);
     updateBDKey();  // because we just modify boxarray in-place.
 
-    n_grow = 0;
-}
-
-void
-TagBoxArray::AddProcsToComp (int ioProcNumSCS, int ioProcNumAll,
-                             int scsMyId, MPI_Comm scsComm)
-{
-    FabArray<TagBox>::AddProcsToComp(ioProcNumSCS, ioProcNumAll,
-				     scsMyId, scsComm);
+    n_grow = IntVect::TheZeroVector();
 }
 
 }

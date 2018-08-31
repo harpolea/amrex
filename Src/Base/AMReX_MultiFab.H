@@ -63,6 +63,18 @@ public:
               const FabFactory<FArrayBox>& factory = FArrayBoxFactory());
 #endif
 
+    MultiFab (const BoxArray&            bs,
+              const DistributionMapping& dm,
+              int                        ncomp,
+              const IntVect&             ngrow,
+#ifdef AMREX_STRICT_MODE
+	      const MFInfo&              info,
+              const FabFactory<FArrayBox>& factory);
+#else
+	      const MFInfo&              info = MFInfo(),
+              const FabFactory<FArrayBox>& factory = FArrayBoxFactory());
+#endif
+
     /**
      * \brief Make an alias MultiFab. maketype must be
      * amrex::make_alias.  scomp is the starting component of the
@@ -77,18 +89,33 @@ public:
     MultiFab (const BoxArray& ba, const DistributionMapping& dm, int ncomp, int ngrow,
               const Vector<Real*>& p);
 
+    MultiFab (const BoxArray& ba, const DistributionMapping& dm, int ncomp, const IntVect& ngrow,
+              const Vector<Real*>& p);
+
     virtual ~MultiFab () override;
 
-    MultiFab (MultiFab&& rhs) noexcept = default;
+    MultiFab (MultiFab&& rhs) noexcept;
+    MultiFab& operator= (MultiFab&& rhs) noexcept = default;
 
     MultiFab (const MultiFab& rhs) = delete;
     MultiFab& operator= (const MultiFab& rhs) = delete;
-    MultiFab& operator= (MultiFab&& rhs) = delete;
 
     virtual void define (const BoxArray&            bxs,
 			 const DistributionMapping& dm,
 			 int                        nvar,
 			 int                        ngrow,
+#ifdef AMREX_STRICT_MODE
+			 const MFInfo&              info,
+                         const FabFactory<FArrayBox>& factory) override;
+#else
+			 const MFInfo&              info = MFInfo(),
+                         const FabFactory<FArrayBox>& factory = FArrayBoxFactory()) override;
+#endif
+
+    virtual void define (const BoxArray&            bxs,
+			 const DistributionMapping& dm,
+			 int                        nvar,
+			 const IntVect&             ngrow,
 #ifdef AMREX_STRICT_MODE
 			 const MFInfo&              info,
                          const FabFactory<FArrayBox>& factory) override;
@@ -142,6 +169,8 @@ public:
     * component comp of the MultiFab.
     */
     Real norm0 (int comp = 0, int nghost = 0, bool local = false) const;
+
+    Real norm0 (const iMultiFab& mask, int comp = 0, int nghost = 0, bool local = false) const;
 
     /**
     * \brief Returns the maximum *absolute* value contained in 
@@ -399,6 +428,11 @@ public:
     static Real Dot (const MultiFab& x, int xcomp,
 		     const MultiFab& y, int ycomp,
 		     int num_comp, int nghost, bool local = false);
+
+    static Real Dot (const iMultiFab& mask,
+                     const MultiFab& x, int xcomp,
+		     const MultiFab& y, int ycomp,
+		     int num_comp, int nghost, bool local = false);
     /**
     * \brief Add src to dst including nghost ghost cells.
     * The two MultiFabs MUST have the same underlying BoxArray.
@@ -409,6 +443,13 @@ public:
 		     int             dstcomp,
 		     int             numcomp,
 		     int             nghost);
+ 
+    static void Add (MultiFab&       dst,
+                     const MultiFab& src,
+                     int             srccomp,
+                     int             dstcomp,
+                     int             numcomp,
+                     const IntVect&  nghost);
     /**
     * \brief Copy from src to dst including nghost ghost cells.
     * The two MultiFabs MUST have the same underlying BoxArray.
@@ -420,6 +461,24 @@ public:
                       int             dstcomp,
                       int             numcomp,
                       int             nghost);
+
+    static void Copy (MultiFab&       dst,
+                      const MultiFab& src,
+                      int             srccomp,
+                      int             dstcomp,
+                      int             numcomp,
+                      const IntVect&  nghost);
+
+#ifdef USE_PERILLA
+    static void Copy (MultiFab&       dst,
+                const MultiFab& src,
+                int             f,
+                int             srccomp,
+                int             dstcomp,
+                int             numcomp,
+                const Box&      bx);
+#endif
+
     /**
     * \brief Subtract src from dst including nghost ghost cells.
     * The two MultiFabs MUST have the same underlying BoxArray.
@@ -430,6 +489,13 @@ public:
 			  int             dstcomp,
 			  int             numcomp,
 			  int             nghost);
+
+    static void Subtract (MultiFab&       dst,
+			  const MultiFab& src,
+			  int             srccomp,
+			  int             dstcomp,
+			  int             numcomp,
+			  const IntVect&  nghost);
     /**
     * \brief Multiply dst by src including nghost ghost cells.
     * The two MultiFabs MUST have the same underlying BoxArray.
@@ -440,6 +506,13 @@ public:
 			  int             dstcomp,
 			  int             numcomp,
 			  int             nghost);
+
+    static void Multiply (MultiFab&       dst,
+			  const MultiFab& src,
+			  int             srccomp,
+			  int             dstcomp,
+			  int             numcomp,
+			  const IntVect&  nghost);
     /**
     * \brief Divide dst by src including nghost ghost cells.
     * The two MultiFabs MUST have the same underlying BoxArray.
@@ -450,6 +523,13 @@ public:
 			int             dstcomp,
 			int             numcomp,
 			int             nghost);
+
+    static void Divide (MultiFab&       dst,
+			const MultiFab& src,
+			int             srccomp,
+			int             dstcomp,
+			int             numcomp,
+			const IntVect&  nghost);
     /**
     * \brief dst += a*src
     */
@@ -517,6 +597,14 @@ public:
     * \brief This tests on whether the MultiFab is fully nodal.
     */
     bool is_nodal () const;
+    /**
+    * \brief This tests on whether the MultiFab is nodal in direction dir.
+    */
+    bool is_nodal (int dir) const;
+    /**
+    * \brief This tests on whether the MultiFab is cell-centered.
+    */
+    bool is_cell_centered () const;
 
     bool contains_inf (int scomp, int ncomp, int ngrow = 0, bool local=false) const;
     /**
@@ -544,9 +632,6 @@ public:
     static void Initialize ();
     static void Finalize ();
 
-    virtual void AddProcsToComp (int ioProcNumSCS, int ioProcNumAll,
-                                 int scsMyId, MPI_Comm scsComm) override;
-
 private:
     //
     // Some useful typedefs.
@@ -554,6 +639,12 @@ private:
     typedef FabArrayBase::CopyComTagsContainer CopyComTagsContainer;
     typedef FabArrayBase::MapOfCopyComTagContainers MapOfCopyComTagContainers;
 };
+
+inline void GccPlacaterMF ()
+{
+    std::allocator<MultiFab*> a1;
+    std::allocator<MultiFab const*> a2;
+}
 
 }
 

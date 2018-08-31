@@ -18,7 +18,8 @@ namespace amrex {
 class BoxArray;
 class MultiFab;
 template <typename T> class FabArray;
-
+class FabArrayBase;
+    
 /**
 * \brief Calculates the distribution of FABs to MPI processes.
 *
@@ -39,9 +40,10 @@ class DistributionMapping
   public:
 
     template <typename T> friend class FabArray;
+    friend class FabArrayBase;
 
     //! The distribution strategies
-    enum Strategy { UNDEFINED = -1, ROUNDROBIN, KNAPSACK, SFC, PFC, RRSFC };
+    enum Strategy { UNDEFINED = -1, ROUNDROBIN, KNAPSACK, SFC, RRSFC };
 
     //! The default constructor.
     DistributionMapping ();
@@ -49,12 +51,11 @@ class DistributionMapping
     /**
     * \brief Create an object with the specified mapping.
     */
-    explicit DistributionMapping (const Vector<int>& pmap,
-				  ParallelDescriptor::Color color = ParallelDescriptor::DefaultColor());
+    explicit DistributionMapping (const Vector<int>& pmap);
+    explicit DistributionMapping (Vector<int>&& pmap) noexcept;
     //! Build mapping out of BoxArray over nprocs processors.
     explicit DistributionMapping (const BoxArray& boxes,
-				  int nprocs = ParallelDescriptor::NProcs(), 
-				  ParallelDescriptor::Color color = ParallelDescriptor::DefaultColor());
+				  int nprocs = ParallelDescriptor::NProcs());
     /**
     * \brief This is a very specialized distribution map.
     * Do NOT use it unless you really understand what it does.
@@ -79,13 +80,13 @@ class DistributionMapping
     * You need to call this if you built your DistributionMapping
     * with the default constructor.
     */
-    void define (const BoxArray& boxes, int nprocs = ParallelDescriptor::NProcs(),
-		 ParallelDescriptor::Color color = ParallelDescriptor::DefaultColor());
+    void define (const BoxArray& boxes, int nprocs = ParallelDescriptor::NProcs());
     /**
     * \brief Build mapping out of an Array of ints. You need to call this if you
     * built your DistributionMapping with the default constructor.
     */
     void define (const Vector<int>& pmap);
+    void define (Vector<int>&& pmap) noexcept;
     /**
     * \brief Returns a constant reference to the mapping of boxes in the
     * underlying BoxArray to the CPU that holds the FAB on that Box.
@@ -93,8 +94,6 @@ class DistributionMapping
     * NCPU is the number of CPUs being used.
     */
     const Vector<int>& ProcessorMap () const;
-    //
-    ParallelDescriptor::Color color() const { return m_color; }
 
     //! Length of the underlying processor map.
     long size () const { return m_ref->m_pmap.size(); }
@@ -106,11 +105,6 @@ class DistributionMapping
 
     //! Equivalent to ProcessorMap()[index].
     int operator[] (int index) const { return m_ref->m_pmap[index]; }
-
-    // Replace the cached processor map.  This is to support FabArray::MoveAllFabs
-    //   All FabArrays using the cached map must move their fabs before
-    //   calling this function.
-    void ReplaceCachedProcessorMap(const Vector<int> &newProcMap);
 
     //! Set/get the distribution strategy.
     static void strategy (Strategy how);
@@ -128,16 +122,15 @@ class DistributionMapping
     //! Are the distributions different?
     bool operator!= (const DistributionMapping& rhs) const;
 
-    void SFCProcessorMap(const BoxArray& boxes, const std::vector<long>& wgts,
-                         int nprocs);
-    void PFCProcessorMap(const BoxArray& boxes, const std::vector<long>& wgts,
-                         int nprocs);
+    void SFCProcessorMap(const BoxArray& boxes, const std::vector<long>& wgts, int nprocs,
+                         bool sort=true);
     void KnapSackProcessorMap(const std::vector<long>& wgts, int nprocs,
                               Real* efficiency = 0,
 			      bool do_full_knapsack = true,
 			      int nmax = std::numeric_limits<int>::max());
     void RoundRobinProcessorMap(int nboxes, int nprocs);
     void RoundRobinProcessorMap(const std::vector<long>& wgts, int nprocs);
+
     /**
     * \brief Initializes distribution strategy from ParmParse.
     *
@@ -146,7 +139,6 @@ class DistributionMapping
     *   DistributionMapping.strategy = ROUNDROBIN
     *   DistributionMapping.strategy = KNAPSACK
     *   DistributionMapping.strategy = SFC
-    *   DistributionMapping.strategy = PFC
     *   DistributionMapping.strategy = RRFC
     */
     static void Initialize ();
@@ -157,66 +149,24 @@ class DistributionMapping
                           const DistributionMapping& rhs)
 		  { return lhs.m_ref == rhs.m_ref; }
 
-    static void PrintDiagnostics(const std::string &filename);
-
-    //! Initialize the topological proximity map
-    static void InitProximityMap(bool makeMap = false, bool reinit = false);
-    static int NHops(const Box &tbox, const IntVect &ivfrom, const IntVect &ivto);
-    static int ProcNumberFromRank(const int rank);
-    static std::vector<int> RanksFromProcNumber(const int procnum);
-    static IntVect TopIVFromProcNumber(const int procnum);
-    static std::vector<int> ProcNumbersFromTopIV(const IntVect &iv);
-    static IntVect TopIVFromRank(const int rank);
-    static std::vector<int> RanksFromTopIV(const IntVect &iv);
-    static std::string GetProcName();
-    static int GetProcNumber();
-    static int ProximityMap(const int rank)   { return proximityMap[rank];   }
-    static int ProximityOrder(const int rank) { return proximityOrder[rank]; }
-
-#if !defined(BL_NO_FORT)
-    static void ReadCheckPointHeader(const std::string &filename,
-				     Vector<IntVect>  &refRatio,
-                                     Vector<BoxArray> &allBoxes);
-#endif
-    static void PFCMultiLevelMap(const Vector<IntVect>  &refRatio,
-                                 const Vector<BoxArray> &allBoxes);
-
-    static Vector<Vector<int> > MultiLevelMapPFC(const Vector<IntVect>  &refRatio,
-                                               const Vector<BoxArray> &allBoxes,
-					       int maxgrid);
-    static Vector<Vector<int> > MultiLevelMapRandom(const Vector<IntVect>  &refRatio,
-                                                  const Vector<BoxArray> &allBoxes,
-						  int maxgrid,
-						  int maxRank = -1, int minRank = 0);
-    static Vector<Vector<int> > MultiLevelMapKnapSack(const Vector<IntVect>  &refRatio,
-                                                    const Vector<BoxArray> &allBoxes,
-						    int maxgrid);
-
-    static int NDistMaps() { return nDistMaps; }
-    static void SetNDistMaps(int ndm) { nDistMaps = ndm; }
-    int DistMapID() const { return dmID; }
-    void SetDistMapID(int dmid) { dmID = dmid; }
-
-    bool Check() const;
-
-#ifdef BL_USE_MPI
-    static Vector<int> TranslateProcMap(const Vector<int> &pm_old, const MPI_Group group_new, const MPI_Group group_old);
-#endif
-
     static DistributionMapping makeKnapSack   (const MultiFab& weight,
                                                int nmax=std::numeric_limits<int>::max());
     static DistributionMapping makeKnapSack   (const Vector<Real>& rcost);
 
     static DistributionMapping makeRoundRobin (const MultiFab& weight);
-    static DistributionMapping makeSFC        (const MultiFab& weight, const BoxArray& boxes);
+    static DistributionMapping makeSFC        (const MultiFab& weight, bool sort=true);
+
+    static std::vector<std::vector<int> > makeSFC (const BoxArray& ba);
 
 private:
 
+    const Vector<int>& getIndexArray ();
+    const std::vector<bool>& getOwnerShip ();
+    
     //! Ways to create the processor map.
     void RoundRobinProcessorMap (const BoxArray& boxes, int nprocs);
     void KnapSackProcessorMap   (const BoxArray& boxes, int nprocs);
     void SFCProcessorMap        (const BoxArray& boxes, int nprocs);
-    void PFCProcessorMap        (const BoxArray& boxes, int nprocs);
     void RRSFCProcessorMap      (const BoxArray& boxes, int nprocs);
 
     using LIpair = std::pair<long,int>;
@@ -253,18 +203,11 @@ private:
 
     void SFCProcessorMapDoIt (const BoxArray&          boxes,
                               const std::vector<long>& wgts,
-                              int                      nprocs);
-
-    void PFCProcessorMapDoIt (const BoxArray&          boxes,
-                              const std::vector<long>& wgts,
-                              int                      nprocs);
+                              int                      nprocs,
+                              bool                     sort=true);
 
     void RRSFCDoIt           (const BoxArray&          boxes,
                               int                      nprocs);
-
-    //! Current # of bytes of FAB data.
-    static void CurrentBytesUsed (int nprocs, Vector<long>& result);
-    static void CurrentCellsUsed (int nprocs, Vector<long>& result);
 
     //! Least used ordering of CPUs (by # of bytes of FAB data).
     void LeastUsedCPUs (int nprocs, Vector<int>& result);
@@ -296,26 +239,20 @@ private:
 
         explicit Ref (const Vector<int>& pmap) : m_pmap(pmap) {}
 
+        explicit Ref (Vector<int>&& pmap) noexcept : m_pmap(std::move(pmap)) {}
+
 	//! dtor, copy-ctor, copy-op=, move-ctor, and move-op= are compiler generated.
 
-	//! Local data -- our processor map.
-        Vector<int> m_pmap;
+        void clear () { m_pmap.clear();  m_index_array.clear();   m_ownership.clear(); }
+        
+        Vector<int> m_pmap; // index array for all boxes
+        Vector<int> m_index_array;  // index array for local boxes owned by the team
+        std::vector<bool> m_ownership; // true ownership
     };
     //
     // The data -- a reference-counted pointer to a Ref.
     //
     std::shared_ptr<Ref> m_ref;
-    ParallelDescriptor::Color m_color;
-    int dmID;
-
-    //! Topological proximity map
-    static long totalCells;
-    static Real bytesPerCell;
-    static Vector<int> proximityMap;    // i == rank, pMap[i]   == proximity mapped rank
-    static Vector<int> proximityOrder;  // i == rank, pOrder[i] == proximity mapped order
-    static Vector<long> totalBoxPoints;  // i == rank
-
-    static int nDistMaps;
 
 public:
     struct RefID {

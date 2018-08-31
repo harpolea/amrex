@@ -1,8 +1,8 @@
-#ifndef AMREX_LayoutData__H_
-#define AMREX_LayoutData__H_
+#ifndef AMREX_LayoutData_H_
+#define AMREX_LayoutData_H_
 
-#include "AMReX_FabArrayBase.H"
-#include "AMReX_MFIter.H"
+#include <AMReX_FabArrayBase.H>
+#include <AMReX_MFIter.H>
 
 namespace amrex
 {
@@ -25,14 +25,60 @@ namespace amrex
                 const DistributionMapping & a_dm)
       {
         FabArrayBase::define(a_grids, a_dm, 1, 0);
-
+        m_need_to_clear_bd = true;
+        addThisBD();
         m_data.resize(local_size());
       }
 
-    LayoutData (const LayoutData& rhs) = default;
-    LayoutData& operator= (const LayoutData& rhs) = default;
-    LayoutData& operator= (LayoutData&& rhs) = default;
-    LayoutData (LayoutData&& rhs) = default;
+    ~LayoutData () { if (m_need_to_clear_bd) clearThisBD(); }
+
+    LayoutData (const LayoutData& rhs) noexcept
+        : FabArrayBase(rhs),
+          m_data(rhs.m_data),
+          m_need_to_clear_bd(rhs.m_need_to_clear_bd)
+    {
+        if (m_need_to_clear_bd) addThisBD();
+    }
+
+    LayoutData (LayoutData&& rhs) noexcept
+        : FabArrayBase(std::move(rhs)),
+          m_data(std::move(rhs.m_data)),
+          m_need_to_clear_bd(rhs.m_need_to_clear_bd)
+    {
+        rhs.m_need_to_clear_bd = false;
+    }
+
+    LayoutData& operator= (const LayoutData& rhs) noexcept
+    {
+        if (&rhs != this)
+        {
+            m_data.clear();
+            if (m_need_to_clear_bd) clearThisBD();
+
+            FabArrayBase::operator=(rhs);
+            m_data = rhs.m_data;
+            m_need_to_clear_bd = rhs.m_need_to_clear_bd;
+
+            if (m_need_to_clear_bd) addThisBD();
+        }
+        return *this;
+    }
+
+    LayoutData& operator= (LayoutData&& rhs) noexcept
+    {
+        if (&rhs != this)
+        {
+            m_data.clear();
+            if (m_need_to_clear_bd) clearThisBD();
+
+            FabArrayBase::operator=(std::move(rhs));
+            m_data = std::move(rhs.m_data);
+            m_need_to_clear_bd = rhs.m_need_to_clear_bd;
+
+            rhs.m_need_to_clear_bd = false;
+        }
+        return *this;
+    }
 
     T& operator[](const MFIter& a_mfi)
       {
@@ -65,8 +111,8 @@ namespace amrex
       }
 
   private:
-    Vector<T> m_data;
-        
+      Vector<T> m_data;
+      bool m_need_to_clear_bd = false;
   };
 }
 #endif

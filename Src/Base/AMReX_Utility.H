@@ -2,10 +2,12 @@
 #ifndef BL_UTILITY_H
 #define BL_UTILITY_H
 
-
+#include <cstdlib>
 #include <iostream>
 #include <string>
 #include <map>
+#include <chrono>
+#include <type_traits>
 
 #include <sys/types.h>
 #include <unistd.h>
@@ -202,8 +204,7 @@ namespace amrex
     *  INTEGER seed
     *  call blinitrand(seed)
     */
-    void InitRandom (unsigned long seed);
-    void InitRandom (unsigned long seed, int nprocs);
+    void InitRandom (unsigned long seed, int nprocs=ParallelDescriptor::NProcs());
 
     void ResetRandomSeed(unsigned long seed);
     /**
@@ -236,6 +237,13 @@ namespace amrex
     int CRRBetweenLevels(int fromlevel, int tolevel,
                          const Vector<int> &refratios);
 
+    /* \brief Create a semi-unique hash output to compare Distribution Maps.
+              Use multiple hashes of different sizes to ensure uniqueness. */
+    int HashDistributionMap(const DistributionMapping & dm, int hashSize);
+
+    /* \brief Create a semi-unique hash output to compare BoxArrays
+              Use multiple hashes of different sizes to ensure uniqueness. */
+    int HashBoxArray(const BoxArray & ba, int hashSize);
 
 
     class expect;
@@ -291,14 +299,19 @@ namespace amrex
     template <typename T> long bytesOf (const std::vector<T>& v);
     template <typename Key, typename T, class Compare> long bytesOf (const std::map<Key,T,Compare>& m);
 
+    void BroadcastBool(bool &bBool, int myLocalId, int rootId, const MPI_Comm &localComm);
+
+    void BroadcastString(std::string &bStr, int myLocalId, int rootId, const MPI_Comm &localComm);
+    void BroadcastStringArray(Vector<std::string> &bSA, int myLocalId, int rootId, const MPI_Comm &localComm);
+
     template<class T> void BroadcastArray(Vector<T> &aT, int myLocalId, int rootId, const MPI_Comm &localComm);
-    void BroadcastBox(Box &bB, int myLocalId, int rootId, const MPI_Comm &localComm);
-    void BroadcastBoxArray(BoxArray &bBA, int myLocalId, int rootId, const MPI_Comm &localComm);
-    void BroadcastDistributionMapping(DistributionMapping &dM,
-                                      int myLocalId, int rootId, const MPI_Comm &localComm,
-				      bool addToCache);
     void USleep(double sleepsec);
 
+
+    using MaxResSteadyClock = std::conditional<std::chrono::high_resolution_clock::is_steady,
+                                               std::chrono::high_resolution_clock,
+                                               std::chrono::steady_clock>::type;
+    double second ();
 }
 
 template<class T> void amrex::BroadcastArray(Vector<T> &aT, int myLocalId, int rootId, const MPI_Comm &localComm)
@@ -394,6 +407,12 @@ long
 amrex::bytesOf (const std::map<Key,T,Compare>& m)
 {
     return sizeof(m) + m.size()*(sizeof(Key)+sizeof(T)+gcc_map_node_extra_bytes);
+}
+
+
+extern "C" {
+    void* amrex_malloc (std::size_t size);
+    void amrex_free (void* p);
 }
 
 #endif /*BL_UTILITY_H*/

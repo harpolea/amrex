@@ -32,6 +32,7 @@ bool VisMF::checkFilePositions(false);
 bool VisMF::usePersistentIFStreams(false);
 bool VisMF::useSynchronousReads(false);
 bool VisMF::useDynamicSetSelection(true);
+bool VisMF::allowSparseWrites(true);
 
 long VisMF::ioBufferSize(VisMF::IO_Buffer_Size);
 
@@ -39,8 +40,8 @@ long VisMF::ioBufferSize(VisMF::IO_Buffer_Size);
 //
 // Set these in Initialize().
 //
-int VisMF::nOutFiles(64);
-int VisMF::nMFFileInStreams(1);
+int VisMF::nOutFiles(256);
+int VisMF::nMFFileInStreams(4);
 
 namespace
 {
@@ -50,8 +51,6 @@ namespace
 void
 VisMF::Initialize ()
 {
-    BL_PROFILE("VisMF::Initialize");
-
     if(initialized) {
       return;
     }
@@ -82,6 +81,7 @@ VisMF::Initialize ()
     pp.query("usesynchronousreads", useSynchronousReads);
     pp.query("usedynamicsetselection", useDynamicSetSelection);
     pp.query("iobuffersize", ioBufferSize);
+    pp.query("allowsparsewrites", allowSparseWrites);
 
     initialized = true;
 }
@@ -271,7 +271,11 @@ operator<< (std::ostream        &os,
     os << hd.m_vers     << '\n';
     os << int(hd.m_how) << '\n';
     os << hd.m_ncomp    << '\n';
-    os << hd.m_ngrow    << '\n';
+    if (hd.m_ngrow == hd.m_ngrow[0]) {
+        os << hd.m_ngrow[0] << '\n';
+    } else {
+        os << hd.m_ngrow    << '\n';
+    }
 
     hd.m_ba.writeOn(os); os << '\n';
 
@@ -343,8 +347,15 @@ operator>> (std::istream  &is,
     is >> hd.m_ncomp;
     BL_ASSERT(hd.m_ncomp >= 0);
 
-    is >> hd.m_ngrow;
-    BL_ASSERT(hd.m_ngrow >= 0);
+    is >> std::ws;
+    if (is.peek() == '(') {
+        is >> hd.m_ngrow;
+    } else {
+        int ng;
+        is >> ng;
+        hd.m_ngrow = IntVect(AMREX_D_DECL(ng,ng,ng));
+    }
+    BL_ASSERT(hd.m_ngrow.min() >= 0);
 
     hd.m_ba.readFrom(is);
 
@@ -425,6 +436,12 @@ VisMF::nComp () const
 
 int
 VisMF::nGrow () const
+{
+    return m_hdr.m_ngrow[0];
+}
+
+IntVect
+VisMF::nGrowVect () const
 {
     return m_hdr.m_ngrow;
 }
@@ -873,8 +890,8 @@ VisMF::WriteHeader (const std::string &mf_name,
           std::stringstream hss;
 	  hss << hdr;
 	  if(hss.tellp() != bytesWritten) {
-	    std::cerr << "**** tellp error: hss.tellp() != bytesWritten :  "
-	              << hss.tellp() << "  " << bytesWritten << std::endl;
+              amrex::ErrorStream() << "**** tellp error: hss.tellp() != bytesWritten :  "
+                                   << hss.tellp() << "  " << bytesWritten << std::endl;
 	  }
 	}
 	
@@ -882,13 +899,14 @@ VisMF::WriteHeader (const std::string &mf_name,
     return bytesWritten;
 }
 
+
 long
 VisMF::Write (const FabArray<FArrayBox>&    mf,
               const std::string& mf_name,
               VisMF::How         how,
               bool               set_ghost)
 {
-    BL_PROFILE("VisMF::Write_FabArray");
+    BL_PROFILE("VisMF::Write(FabArray)");
     BL_ASSERT(mf_name[mf_name.length() - 1] != '/');
     BL_ASSERT(currentVersion != VisMF::Header::Undefined_v1);
 
@@ -920,6 +938,22 @@ VisMF::Write (const FabArray<FArrayBox>&    mf,
         }
     }
 
+    // ---- check if mf has sparse data
+    bool useSparseFPP(false);
+    const Vector<int> &pmap = mf.DistributionMap().ProcessorMap();
+    std::set<int> procsWithData;
+    Vector<int> procsWithDataVector;
+    for(int i(0); i < pmap.size(); ++i) {
+      procsWithData.insert(pmap[i]);
+    }
+    if(allowSparseWrites && (procsWithData.size() < nOutFiles)) {
+      useSparseFPP = true;
+//      amrex::Print() << "SSSSSSSS:  in VisMF::Write:  useSparseFPP for:  " << mf_name << '\n';
+      for(std::set<int>::iterator it = procsWithData.begin(); it != procsWithData.end(); ++it) {
+        procsWithDataVector.push_back(*it);
+      }
+    }
+
     int coordinatorProc(ParallelDescriptor::IOProcessorNumber());
     long bytesWritten(0);
     bool calcMinMax(false);
@@ -931,7 +965,9 @@ VisMF::Write (const FabArray<FArrayBox>&    mf,
 
     bool oldHeader(currentVersion == VisMF::Header::Version_v1);
 
-      if(useDynamicSetSelection) {
+      if(useSparseFPP) {
+        nfi.SetSparseFPP(procsWithDataVector);
+      } else if(useDynamicSetSelection) {
         nfi.SetDynamic();
       }
       for( ; nfi.ReadyToWrite(); ++nfi) {
@@ -1017,7 +1053,7 @@ VisMF::Write (const FabArray<FArrayBox>&    mf,
       }
 
 
-    if(useDynamicSetSelection) {
+    if(nfi.GetDynamic()) {
       coordinatorProc = nfi.CoordinatorProc();
     }
 
@@ -1027,8 +1063,7 @@ VisMF::Write (const FabArray<FArrayBox>&    mf,
       hdr.CalculateMinMax(mf, coordinatorProc);
     }
 
-    VisMF::FindOffsets(mf, filePrefix, hdr, groupSets, currentVersion,
-		       useDynamicSetSelection, nfi);
+    VisMF::FindOffsets(mf, filePrefix, hdr, groupSets, currentVersion, nfi);
 
     bytesWritten += VisMF::WriteHeader(mf_name, hdr, coordinatorProc);
 
@@ -1044,7 +1079,6 @@ VisMF::FindOffsets (const FabArray<FArrayBox> &mf,
                     VisMF::Header &hdr,
 		    bool groupSets,
 		    VisMF::Header::Version whichVersion,
-		    bool useDynamicSetSelection,
 		    NFilesIter &nfi)
 {
     BL_PROFILE("VisMF::FindOffsets");
@@ -1052,13 +1086,14 @@ VisMF::FindOffsets (const FabArray<FArrayBox> &mf,
     const int myProc(ParallelDescriptor::MyProc());
     const int nProcs(ParallelDescriptor::NProcs());
     int coordinatorProc(ParallelDescriptor::IOProcessorNumber());
-    if(useDynamicSetSelection) {
+    if(nfi.GetDynamic()) {
       coordinatorProc = nfi.CoordinatorProc();
     }
 
     if(FArrayBox::getFormat() == FABio::FAB_ASCII ||
        FArrayBox::getFormat() == FABio::FAB_8BIT)
     {
+
 #ifdef BL_USE_MPI
     Vector<int> nmtags(nProcs,0);
     Vector<int> offset(nProcs,0);
@@ -1144,7 +1179,7 @@ VisMF::FindOffsets (const FabArray<FArrayBox> &mf,
 	int nFiles(NFilesIter::ActualNFiles(nOutFiles));
 	int whichFileNumber(-1);
 	std::string whichFileName;
-	Vector<long> currentOffset(nFiles, 0L);
+	Vector<long> currentOffset(nProcs, 0L);
 
         if(hdr.m_vers == VisMF::Header::Version_v1) {
 	  // ---- find the length of the fab header instead of asking the file system
@@ -1162,11 +1197,18 @@ VisMF::FindOffsets (const FabArray<FArrayBox> &mf,
 	}
 
 	Vector<int> fileNumbers;
-        if(useDynamicSetSelection) {
+        if(nfi.GetDynamic()) {
 	  fileNumbers = nfi.FileNumbersWritten();
-        } else {
+        }
+         else if(nfi.GetSparseFPP()) {        // if sparse, write to (file number = rank)
+ 	  fileNumbers.resize(nProcs);
+	  for(int i(0); i < nProcs; ++i) {
+	    fileNumbers[i] = i;
+          }
+        }
+        else {
 	  fileNumbers.resize(nProcs);
-	  for(int i(0); i < fileNumbers.size(); ++i) {
+	  for(int i(0); i < nProcs; ++i) {
 	    fileNumbers[i] = NFilesIter::FileNumber(nFiles, i, groupSets);
 	  }
 	}
@@ -1177,20 +1219,21 @@ VisMF::FindOffsets (const FabArray<FArrayBox> &mf,
 	  for(int ri(0); ri < fileNumbersWriteOrder[fn].size(); ++ri) {
 	    int rank(fileNumbersWriteOrder[fn][ri]);
 	    std::map<int, Vector<int> >::iterator rboIter = rankBoxOrder.find(rank);
-	    if(rboIter != rankBoxOrder.end()) {
-	      Vector<int> &index = rboIter->second;
+
+            if(rboIter != rankBoxOrder.end()) {
+              Vector<int> &index = rboIter->second;
 	      whichFileNumber = fileNumbers[rank];
 	      whichFileName   = VisMF::BaseName(NFilesIter::FileName(whichFileNumber, filePrefix));
 
 	      for(int i(0); i < index.size(); ++i) {
-	        hdr.m_fod[index[i]].m_name = whichFileName;
-	        hdr.m_fod[index[i]].m_head = currentOffset[whichFileNumber];
-	        currentOffset[whichFileNumber] += mf.fabbox(index[i]).numPts() * nComps * whichRDBytes
-	                                          + fabHeaderBytes[index[i]];
-	      }
-	    }
-	  }
-	}
+                 hdr.m_fod[index[i]].m_name = whichFileName;
+                 hdr.m_fod[index[i]].m_head = currentOffset[whichFileNumber];
+                 currentOffset[whichFileNumber] += mf.fabbox(index[i]).numPts() * nComps * whichRDBytes
+	                                           + fabHeaderBytes[index[i]];
+              }
+            } 
+	  } 
+	}   
       }
       delete whichRD;
     }
@@ -1203,24 +1246,24 @@ VisMF::RemoveFiles(const std::string &mf_name, bool verbose)
     if(ParallelDescriptor::IOProcessor()) {
       std::string MFHdrFileName(mf_name + TheMultiFabHdrFileSuffix);
       if(verbose) {
-        std::cout << "---- removing:  " << MFHdrFileName << std::endl;
+        amrex::Print() << "---- removing:  " << MFHdrFileName << std::endl;
       }
       int retVal(std::remove(MFHdrFileName.c_str()));
       if(verbose) {
         if(retVal != 0) {
-          std::cout << "---- error removing:  " << MFHdrFileName << "  errno = "
+          amrex::Print() << "---- error removing:  " << MFHdrFileName << "  errno = "
 	            << strerror(errno) << std::endl;
         }
       }
       for(int ip(0); ip < nOutFiles; ++ip) {
         std::string fileName(NFilesIter::FileName(nOutFiles, mf_name + FabFileSuffix, ip, true));
         if(verbose) {
-          std::cout << "---- removing:  " << fileName << std::endl;
+          amrex::Print() << "---- removing:  " << fileName << std::endl;
 	}
         int rv(std::remove(fileName.c_str()));
         if(verbose) {
           if(rv != 0) {
-            std::cout << "---- error removing:  " << fileName << "  errno = "
+            amrex::Print() << "---- error removing:  " << fileName << "  errno = "
 	              << strerror(errno) << std::endl;
           }
 	}
@@ -1269,7 +1312,7 @@ VisMF::readFAB (int                  idx,
 {
     BL_PROFILE("VisMF::readFAB_idx");
     Box fab_box(hdr.m_ba[idx]);
-    if(hdr.m_ngrow) {
+    if(hdr.m_ngrow.max() > 0) {
         fab_box.grow(hdr.m_ngrow);
     }
 
@@ -1363,7 +1406,7 @@ VisMF::Read (FabArray<FArrayBox> &mf,
     int messTotal(0);
 
     if(verbose && myProc == coordinatorProc) {
-      std::cout << myProc << "::VisMF::Read:  about to read:  " << mf_name << std::endl;
+        amrex::AllPrint() << myProc << "::VisMF::Read:  about to read:  " << mf_name << std::endl;
     }
 
     std::string FullHdrFileName(mf_name + TheMultiFabHdrFileSuffix);
@@ -1459,16 +1502,16 @@ VisMF::Read (FabArray<FArrayBox> &mf,
       ++currentFileIndex;
     }
 
-    DistributionMapping dmFileOrder(ranksFileOrder);
+    DistributionMapping dmFileOrder(std::move(ranksFileOrder));
 
     bool inFileOrder(mf.DistributionMap() == dmFileOrder && mf.boxArray() == baFileOrder);
     if(inFileOrder) {
       if(myProc == coordinatorProc && verbose) {
-        std::cout << "VisMF::Read:  inFileOrder" << std::endl;
+          amrex::AllPrint() << "VisMF::Read:  inFileOrder" << std::endl;
       }
     } else {
       if(myProc == coordinatorProc && verbose) {
-        std::cout << "VisMF::Read:  not inFileOrder" << std::endl;
+          amrex::AllPrint() << "VisMF::Read:  not inFileOrder" << std::endl;
       }
       // ---- make a temporary fabarray in file order
       fafabFileOrder.define(baFileOrder, dmFileOrder, hdr.m_ncomp, hdr.m_ngrow, MFInfo(), mf.Factory());
@@ -1652,8 +1695,8 @@ VisMF::Read (FabArray<FArrayBox> &mf,
 	  int findex(fileNames.find(fname)->second);
 	  allReads[findex][whichProc].insert(std::pair<long, int>(iSeekPos, i));
 	} else {
-	  std::cout << "**** Error:  filename not found = " << fname << std::endl;
-	  amrex::Abort("**** Error in VisMF::Read");
+            amrex::ErrorStream() << "**** Error:  filename not found = " << fname << std::endl;
+            amrex::Abort("**** Error in VisMF::Read");
 	}
       }
     }
@@ -1780,12 +1823,12 @@ VisMF::Read (FabArray<FArrayBox> &mf,
     if(myProc == coordinatorProc && verbose) {
       Real mfReadTime = ParallelDescriptor::second() - startTime;
       totalTime += mfReadTime;
-      std::cout << "FARead ::  nBoxes = " << hdr.m_ba.size()
-                << "  nMessages = " << messTotal << '\n';
-      std::cout << "FARead ::  hTime = " << (hEndTime - hStartTime) << '\n';
-      std::cout << "FARead ::  faCopyTime = " << faCopyTime << '\n';
-      std::cout << "FARead ::  mfReadTime = " << mfReadTime
-                << "  totalTime = " << totalTime << std::endl;
+      amrex::AllPrint() << "FARead ::  nBoxes = " << hdr.m_ba.size()
+                        << "  nMessages = " << messTotal << '\n'
+                        << "FARead ::  hTime = " << (hEndTime - hStartTime) << '\n'
+                        << "FARead ::  faCopyTime = " << faCopyTime << '\n'
+                        << "FARead ::  mfReadTime = " << mfReadTime
+                        << "  totalTime = " << totalTime << std::endl;
     }
 
     BL_ASSERT(mf.ok());
@@ -1826,7 +1869,9 @@ VisMF::Check (const std::string& mf_name)
   int v1(true);
 
   if(ParallelDescriptor::IOProcessor()) {
-    std::cout << "---------------- VisMF::Check:  about to check:  " << mf_name << std::endl;
+   if (verbose) {
+       amrex::Print() << "---------------- VisMF::Check:  about to check:  " << mf_name << std::endl;
+   }
 
     char c;
     int nBadFabs(0);
@@ -1840,17 +1885,21 @@ VisMF::Check (const std::string& mf_name)
         ifs.close();
     }
 
-    std::cout << "hdr.version =  " << hdr.m_vers << std::endl;
-    std::cout << "hdr.boxarray size =  " << hdr.m_ba.size() << std::endl;
-    std::cout << "mf.ncomp =  " << hdr.m_ncomp << std::endl;
-    std::cout << "number of fabs on disk =  " << hdr.m_fod.size() << std::endl;
-    std::cout << "DirName = " << DirName(mf_name) << std::endl;
-    std::cout << "mf_name = " << mf_name << std::endl;
-    std::cout << "FullHdrFileName = " << FullHdrFileName << std::endl;
+    if (verbose) {
+        amrex::Print() << "hdr.version =  " << hdr.m_vers << "\n"
+                       << "hdr.boxarray size =  " << hdr.m_ba.size() << "\n"
+                       << "mf.ncomp =  " << hdr.m_ncomp << "\n"
+                       << "number of fabs on disk =  " << hdr.m_fod.size() << "\n"
+                       << "DirName = " << DirName(mf_name) << "\n"
+                       << "mf_name = " << mf_name << "\n"
+                       << "FullHdrFileName = " << FullHdrFileName << "\n";
+    }
 
     if(hdr.m_vers != VisMF::Header::Version_v1) {
      v1 = false;
-     std::cout << "**** VisMF::Check currently only supports Version_v1." << std::endl;
+     if (verbose) {
+         amrex::Print() << "**** VisMF::Check currently only supports Version_v1." << std::endl;
+     }
     } else {
 
     // check that the string FAB is where it should be
@@ -1863,8 +1912,10 @@ VisMF::Check (const std::string& mf_name)
       ifs.open(FullName.c_str(), std::ios::in|std::ios::binary);
 
       if( ! ifs.good()) {
-        std::cout << "**** Error:  could not open file:  " << FullName << std::endl;
-	continue;
+          if (verbose) {
+              amrex::AllPrint() << "**** Error:  could not open file:  " << FullName << std::endl;
+          }
+          continue;
       }
 
       ifs.seekg(fod.m_head, std::ios::beg);
@@ -1883,19 +1934,25 @@ VisMF::Check (const std::string& mf_name)
       }
       if(badFab) {
 	++nBadFabs;
-        std::cout << "**** Error in file:  " << FullName << "  Bad Fab at index = "
-	          << i << "  seekpos = " << fod.m_head << "  box = " << hdr.m_ba[i]
-	          << std::endl;
+        if (verbose) {
+            amrex::AllPrint() << "**** Error in file:  " << FullName << "  Bad Fab at index = "
+                              << i << "  seekpos = " << fod.m_head << "  box = " << hdr.m_ba[i]
+                              << std::endl;
+        }
       }
       ifs.close();
 
     }
     if(nBadFabs) {
-      std::cout << "Total Bad Fabs = " << nBadFabs << std::endl;
-      isOk = false;
+        if (verbose) {
+            amrex::AllPrint() << "Total Bad Fabs = " << nBadFabs << std::endl;
+        }
+        isOk = false;
     } else {
-      std::cout << "No Bad Fabs." << std::endl;
-      isOk = true;
+        if (verbose) {
+            amrex::AllPrint() << "No Bad Fabs." << std::endl;
+        }
+        isOk = true;
     }
     }
 

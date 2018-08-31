@@ -1,5 +1,5 @@
-#ifndef PLOTFILEUTIL_H_
-#define PLOTFILEUTIL_H_
+#ifndef AMREX_PLOTFILEUTIL_H_
+#define AMREX_PLOTFILEUTIL_H_
 
 #include <string>
 
@@ -60,8 +60,8 @@ namespace amrex
 				   int level_step,
                                    const std::string &versionName = "HyperCLaw-V1.1",
                                    const std::string &levelPrefix = "Level_",
-                                   const std::string &mfPrefix = "Cell");
-
+                                   const std::string &mfPrefix = "Cell",
+                                   const Vector<std::string>& extra_dirs = Vector<std::string>());
 
     void WriteMultiLevelPlotfile (const std::string &plotfilename,
                                   int nlevels,
@@ -73,7 +73,8 @@ namespace amrex
 				  const Vector<IntVect> &ref_ratio,
                                   const std::string &versionName = "HyperCLaw-V1.1",
                                   const std::string &levelPrefix = "Level_",
-                                  const std::string &mfPrefix = "Cell");
+                                  const std::string &mfPrefix = "Cell",
+                                  const Vector<std::string>& extra_dirs = Vector<std::string>());
 }
 
 #endif

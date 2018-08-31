@@ -1,16 +1,4 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
 #include "AMReX_AllRegularService.H"
-
 
 namespace amrex
 {
@@ -53,6 +41,7 @@ namespace amrex
   void
   AllRegularService::fillGraph(BaseFab<int>&        a_regIrregCovered,
                                Vector<IrregNode>&   a_nodes,
+                               NodeMap&             a_intersections,
                                const Box&           a_validRegion,
                                const Box&           a_ghostRegion,
                                const Box& a_domain,
@@ -63,5 +52,6 @@ namespace amrex
     a_regIrregCovered.resize(a_ghostRegion, 1);
     //set all cells to regular
     a_regIrregCovered.setVal(1);
+    a_intersections.clear();
   }
 }

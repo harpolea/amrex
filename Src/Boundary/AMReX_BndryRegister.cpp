@@ -48,11 +48,20 @@ BndryRegister::define (const BoxArray& grids_,
 }
 
 void
+BndryRegister::clear ()
+{
+    for (int i = 0; i < 2*AMREX_SPACEDIM; ++i) {
+        bndry[i].clear();
+    }
+    grids.clear();
+}
+
+void
 BndryRegister::init (const BndryRegister& src)
 {
     grids = src.grids;
 
-    for (int i = 0; i < 2*BL_SPACEDIM; i++)
+    for (int i = 0; i < 2*AMREX_SPACEDIM; i++)
     {
         bndry[i].define(src.bndry[i].boxArray(), src.DistributionMap(),
 			src.bndry[i].nComp());
@@ -78,7 +87,7 @@ BndryRegister::operator= (const BndryRegister& src)
         {
             grids.clear();
 
-            for (int i = 0; i < 2*BL_SPACEDIM; i++)
+            for (int i = 0; i < 2*AMREX_SPACEDIM; i++)
                 bndry[i].clear();
         }
 
@@ -196,7 +205,7 @@ BndryRegister::setBoxes (const BoxArray& _grids)
     //
     // Check that bndry regions are not allocated.
     //
-    for (int k = 0; k < 2*BL_SPACEDIM; k++)
+    for (int k = 0; k < 2*AMREX_SPACEDIM; k++)
         BL_ASSERT(bndry[k].size() == 0);
 }
 
@@ -260,11 +269,12 @@ BndryRegister::copyFrom (const MultiFab& src,
                          int             nghost,
                          int             src_comp,
                          int             dest_comp,
-                         int             num_comp)
+                         int             num_comp,
+                         const Periodicity& period)
 {
     for (OrientationIter face; face; ++face)
     {
-        bndry[face()].copyFrom(src,nghost,src_comp,dest_comp,num_comp);
+        bndry[face()].copyFrom(src,nghost,src_comp,dest_comp,num_comp,period);
     }
     return *this;
 }
@@ -274,11 +284,12 @@ BndryRegister::plusFrom (const MultiFab& src,
                          int             nghost,
                          int             src_comp,
                          int             dest_comp,
-                         int             num_comp)
+                         int             num_comp,
+                         const Periodicity& period)
 {
     for (OrientationIter face; face; ++face)
     {
-        bndry[face()].plusFrom(src,nghost,src_comp,dest_comp,num_comp);
+        bndry[face()].plusFrom(src,nghost,src_comp,dest_comp,num_comp,period);
     }
     return *this;
 }
@@ -286,7 +297,7 @@ BndryRegister::plusFrom (const MultiFab& src,
 void
 BndryRegister::write (const std::string& name, std::ostream& os) const
 {
-    if (ParallelDescriptor::IOProcessor(color()))
+    if (ParallelDescriptor::IOProcessor())
     {
         grids.writeOn(os);
         os << '\n';
@@ -343,19 +354,6 @@ BndryRegister::Copy (BndryRegister& dst, const BndryRegister& src)
     {
 	FabSet::Copy(dst[face()], src[face()]);
     }
-}
-
-void
-BndryRegister::AddProcsToComp(int ioProcNumSCS, int ioProcNumAll,
-                              int scsMyId, MPI_Comm scsComm)
-{
-  // ---- BoxArrays
-  amrex::BroadcastBoxArray(grids, scsMyId, ioProcNumSCS, scsComm);
-
-  // ---- FabSet
-  for(int i(0); i < (2 * BL_SPACEDIM); ++i) {
-    bndry[i].AddProcsToComp(ioProcNumSCS, ioProcNumAll, scsMyId, scsComm);
-  }
 }
 
 }

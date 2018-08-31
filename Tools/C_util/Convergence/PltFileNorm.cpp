@@ -11,11 +11,12 @@
 #include <AMReX_DataServices.H>
 #include <AMReX_Utility.H>
 
-#ifndef NDEBUG
+#ifdef AMREX_DEBUG
 #include <TV_TempWrite.H>
 #endif
 
 using std::ios;
+using namespace amrex;
 
 static
 void

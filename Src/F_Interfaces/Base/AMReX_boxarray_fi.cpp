@@ -41,7 +41,7 @@ extern "C" {
 
     void amrex_fi_boxarray_maxsize (BoxArray* ba, int sz[])
     {
-        IntVect iv(D_DECL(sz[0],sz[1],sz[2]));
+        IntVect iv(AMREX_D_DECL(sz[0],sz[1],sz[2]));
         ba->maxSize(iv);
     }
 
@@ -50,14 +50,33 @@ extern "C" {
         const Box& bx = (*ba)[i];
         const int* lov = bx.loVect();
 	const int* hiv = bx.hiVect();
-	for (int i = 0; i < BL_SPACEDIM; ++i) {
-	    lo[i] = lov[i];
-	    hi[i] = hiv[i];
+	for (int idim = 0; idim < BL_SPACEDIM; ++idim) {
+	    lo[idim] = lov[idim];
+	    hi[idim] = hiv[idim];
 	}
     }
 
     void amrex_fi_print_boxarray (const BoxArray* ba)
     {
 	AllPrint() << *ba;
+    }
+
+    void amrex_fi_boxarray_nodal_type (const BoxArray* ba, int inodal[3])
+    {
+        const IndexType typ = ba->ixType();
+        for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+            inodal[idim] = typ[idim];
+        }
+    }
+
+    long amrex_fi_boxarray_numpts (const BoxArray* ba)
+    {
+        return ba->numPts();
+    }
+
+    int amrex_fi_boxarray_intersects_box (const BoxArray* ba, const int* lo, const int* hi)
+    {
+        Box bx(IntVect(lo), IntVect(hi), ba->ixType());
+        return ba->intersects(bx);
     }
 }

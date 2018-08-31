@@ -1,14 +1,3 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -124,8 +113,8 @@ namespace amrex
       {
         retval = true;
         a_areaFracLo = (m_plateLocation - loclo)/a_dx;
-        a_areaFracLo = std::max(a_areaFracLo, 0.0);
-        a_areaFracLo = std::min(a_areaFracLo, 1.0);
+        a_areaFracLo = std::max(a_areaFracLo*1.0, 0.0);
+        a_areaFracLo = std::min(a_areaFracLo*1.0, 1.0);
         a_areaFracHi = 1.0 - a_areaFracLo;
       }
     }
@@ -182,7 +171,7 @@ namespace amrex
   ////////////
   void
   FlatPlateGeom::
-  addIrregularNodes(Vector<IrregNode>   & a_nodes,
+  addIrregularNodes(Vector<IrregNode>        & a_nodes,
                     const BaseFab<int>       & a_numVolumes,
                     const IntVect            & a_iv,
                     const Box                & a_domain,
@@ -193,6 +182,8 @@ namespace amrex
     {
       IrregNode loNode, hiNode;
       Real areaFracLo, areaFracHi;
+      loNode.m_hasMoments = false;
+      hiNode.m_hasMoments = false;
       loNode.m_cell = a_iv;
       hiNode.m_cell = a_iv;
       loNode.m_cellIndex = 0;
@@ -275,6 +266,7 @@ namespace amrex
     else //i am one volume but I point into two on at least one side
     {
       IrregNode edgeNode;
+      edgeNode.m_hasMoments = false;
       edgeNode.m_cell = a_iv;
       edgeNode.m_volFrac = 1.;
       edgeNode.m_cellIndex = 0;
@@ -348,7 +340,8 @@ namespace amrex
   void
   FlatPlateGeom::
   fillGraph(BaseFab<int>             & a_regIrregCovered,
-            Vector<IrregNode>   & a_nodes,
+            Vector<IrregNode>        & a_nodes,
+            NodeMap                  & a_intersections,
             const Box                & a_validRegion,
             const Box                & a_ghostRegion,
             const Box                & a_domain,
@@ -389,6 +382,9 @@ namespace amrex
         {
           a_regIrregCovered(iv, 0) = 0;
           numVolumes(iv, 0) =  numVol;
+          // TODO: Add intersections here
+          // ...this will break the node map data structure, since there is currently only one intersection
+          // allowed per edge.
           numIrreg++;
         }
 

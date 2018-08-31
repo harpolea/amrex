@@ -40,7 +40,7 @@ MultiFab::Dot (const MultiFab& x, int xcomp,
     Real sm = 0.0;
 
 #ifdef _OPENMP
-#pragma omp parallel reduction(+:sm)
+#pragma omp parallel if (!system::regtest_reduction) reduction(+:sm)
 #endif
     for (MFIter mfi(x,true); mfi.isValid(); ++mfi)
     {
@@ -49,7 +49,37 @@ MultiFab::Dot (const MultiFab& x, int xcomp,
     }
 
     if (!local)
-        ParallelDescriptor::ReduceRealSum(sm, x.color());
+        ParallelDescriptor::ReduceRealSum(sm);
+
+    return sm;
+}
+
+Real
+MultiFab::Dot (const iMultiFab& mask,
+               const MultiFab& x, int xcomp,
+	       const MultiFab& y, int ycomp,
+	       int numcomp, int nghost, bool local)
+{
+    BL_ASSERT(x.boxArray() == y.boxArray());
+    BL_ASSERT(x.boxArray() == mask.boxArray());
+    BL_ASSERT(x.DistributionMap() == y.DistributionMap());
+    BL_ASSERT(x.DistributionMap() == mask.DistributionMap());
+    BL_ASSERT(x.nGrow() >= nghost && y.nGrow() >= nghost);
+    BL_ASSERT(mask.nGrow() >= nghost);
+
+    Real sm = 0.0;
+
+#ifdef _OPENMP
+#pragma omp parallel if (!system::regtest_reduction) reduction(+:sm)
+#endif
+    for (MFIter mfi(x,true); mfi.isValid(); ++mfi)
+    {
+        const Box& bx = mfi.growntilebox(nghost);
+        sm += x[mfi].dotmask(mask[mfi],bx,xcomp,y[mfi],bx,ycomp,numcomp);
+    }
+
+    if (!local)
+        ParallelDescriptor::ReduceRealSum(sm);
 
     return sm;
 }
@@ -62,9 +92,20 @@ MultiFab::Add (MultiFab&       dst,
 	       int             numcomp,
 	       int             nghost)
 {
+    Add(dst,src,srccomp,dstcomp,numcomp,IntVect(nghost));
+}
+
+void
+MultiFab::Add (MultiFab&       dst,
+	       const MultiFab& src,
+	       int             srccomp,
+	       int             dstcomp,
+	       int             numcomp,
+	       const IntVect&  nghost)
+{
     BL_ASSERT(dst.boxArray() == src.boxArray());
     BL_ASSERT(dst.distributionMap == src.distributionMap);
-    BL_ASSERT(dst.nGrow() >= nghost && src.nGrow() >= nghost);
+    BL_ASSERT(dst.nGrowVect().allGE(nghost) && src.nGrowVect().allGE(nghost));
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -86,9 +127,20 @@ MultiFab::Copy (MultiFab&       dst,
                 int             numcomp,
                 int             nghost)
 {
+    Copy(dst,src,srccomp,dstcomp,numcomp,IntVect(nghost));
+}
+
+void
+MultiFab::Copy (MultiFab&       dst,
+                const MultiFab& src,
+                int             srccomp,
+                int             dstcomp,
+                int             numcomp,
+                const IntVect&  nghost)
+{
 // don't have to    BL_ASSERT(dst.boxArray() == src.boxArray());
     BL_ASSERT(dst.distributionMap == src.distributionMap);
-    BL_ASSERT(dst.nGrow() >= nghost); // && src.nGrow() >= nghost);
+    BL_ASSERT(dst.nGrowVect().allGE(nghost));
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -102,6 +154,33 @@ MultiFab::Copy (MultiFab&       dst,
     }
 }
 
+
+#ifdef USE_PERILLA
+void
+MultiFab::Copy (MultiFab&       dst,
+                const MultiFab& src,
+                int             f,
+                int             srccomp,
+                int             dstcomp,
+                int             numcomp,
+                const Box&      bx)
+{
+// don't have to    BL_ASSERT(dst.boxArray() == src.boxArray());
+    BL_ASSERT(dst.distributionMap == src.distributionMap);
+    //BL_ASSERT(dst.nGrow() >= nghost); // && src.nGrow() >= nghost);
+
+    int fis = src.IndexArray()[f];
+    int fid = dst.IndexArray()[f];
+    //const Box& bx = BoxLib::grow(dst[f].box(),nghost);
+    //const Box& bx = dst[fid].box();
+
+    if (bx.ok())
+      dst[fid].copy(src[fid], bx, srccomp, bx, dstcomp, numcomp);
+
+}
+#endif
+
+
 void
 MultiFab::Subtract (MultiFab&       dst,
 		    const MultiFab& src,
@@ -110,9 +189,20 @@ MultiFab::Subtract (MultiFab&       dst,
 		    int             numcomp,
 		    int             nghost)
 {
+    Subtract(dst,src,srccomp,dstcomp,numcomp,IntVect(nghost));
+}
+
+void
+MultiFab::Subtract (MultiFab&       dst,
+		    const MultiFab& src,
+		    int             srccomp,
+		    int             dstcomp,
+		    int             numcomp,
+		    const IntVect&  nghost)
+{
     BL_ASSERT(dst.boxArray() == src.boxArray());
     BL_ASSERT(dst.distributionMap == src.distributionMap);
-    BL_ASSERT(dst.nGrow() >= nghost && src.nGrow() >= nghost);
+    BL_ASSERT(dst.nGrowVect().allGE(nghost) && src.nGrowVect().allGE(nghost));
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -134,9 +224,20 @@ MultiFab::Multiply (MultiFab&       dst,
 		    int             numcomp,
 		    int             nghost)
 {
+    Multiply(dst,src,srccomp,dstcomp,numcomp,IntVect(nghost));
+}
+
+void
+MultiFab::Multiply (MultiFab&       dst,
+		    const MultiFab& src,
+		    int             srccomp,
+		    int             dstcomp,
+		    int             numcomp,
+		    const IntVect&  nghost)
+{
     BL_ASSERT(dst.boxArray() == src.boxArray());
     BL_ASSERT(dst.distributionMap == src.distributionMap);
-    BL_ASSERT(dst.nGrow() >= nghost && src.nGrow() >= nghost);
+    BL_ASSERT(dst.nGrowVect().allGE(nghost) && src.nGrowVect().allGE(nghost));
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -158,9 +259,20 @@ MultiFab::Divide (MultiFab&       dst,
 		  int             numcomp,
 		  int             nghost)
 {
+    Divide(dst,src,srccomp,dstcomp,numcomp,IntVect(nghost));
+}
+
+void
+MultiFab::Divide (MultiFab&       dst,
+		  const MultiFab& src,
+		  int             srccomp,
+		  int             dstcomp,
+		  int             numcomp,
+		  const IntVect&  nghost)
+{
     BL_ASSERT(dst.boxArray() == src.boxArray());
     BL_ASSERT(dst.distributionMap == src.distributionMap);
-    BL_ASSERT(dst.nGrow() >= nghost && src.nGrow() >= nghost);
+    BL_ASSERT(dst.nGrowVect().allGE(nghost) && src.nGrowVect().allGE(nghost));
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -376,6 +488,15 @@ MultiFab::MultiFab (const BoxArray&            bxs,
                     int                        ngrow,
 		    const MFInfo&              info,
                     const FabFactory<FArrayBox>& factory)
+    : MultiFab(bxs,dm,ncomp,IntVect(ngrow),info,factory)
+{}
+
+MultiFab::MultiFab (const BoxArray&            bxs,
+                    const DistributionMapping& dm,
+                    int                        ncomp,
+                    const IntVect&             ngrow,
+		    const MFInfo&              info,
+                    const FabFactory<FArrayBox>& factory)
     :
     FabArray<FArrayBox>(bxs,dm,ncomp,ngrow,info,factory)
 {
@@ -398,8 +519,22 @@ MultiFab::MultiFab (const MultiFab& rhs, MakeType maketype, int scomp, int ncomp
 
 MultiFab::MultiFab (const BoxArray& ba, const DistributionMapping& dm, int ncomp, int ngrow,
                     const Vector<Real*>& p)
+    : MultiFab(ba, dm, ncomp, IntVect(ngrow), p)
+{}
+
+MultiFab::MultiFab (const BoxArray& ba, const DistributionMapping& dm, int ncomp, const IntVect& ngrow,
+                    const Vector<Real*>& p)
     :
     FabArray<FArrayBox>(ba, dm, ncomp, ngrow, p)
+{
+#ifdef BL_MEM_PROFILING
+    ++num_multifabs;
+    num_multifabs_hwm = std::max(num_multifabs_hwm, num_multifabs);
+#endif
+}
+
+MultiFab::MultiFab (MultiFab&& rhs) noexcept
+    : FabArray<FArrayBox>(std::move(rhs))
 {
 #ifdef BL_MEM_PROFILING
     ++num_multifabs;
@@ -425,6 +560,18 @@ MultiFab::define (const BoxArray&            bxs,
                   const DistributionMapping& dm,
                   int                        nvar,
                   int                        ngrow,
+		  const MFInfo&              info,
+                  const FabFactory<FArrayBox>& factory)
+{
+    define(bxs, dm, nvar, IntVect(ngrow), info, factory);
+    if (SharedMemory() && info.alloc) initVal();  // else already done in FArrayBox
+}
+
+void
+MultiFab::define (const BoxArray&            bxs,
+                  const DistributionMapping& dm,
+                  int                        nvar,
+                  const IntVect&             ngrow,
 		  const MFInfo&              info,
                   const FabFactory<FArrayBox>& factory)
 {
@@ -469,7 +616,7 @@ MultiFab::contains_nan (int scomp,
     }
 
     if (!local)
-	ParallelDescriptor::ReduceBoolOr(r,this->color());
+	ParallelDescriptor::ReduceBoolOr(r);
 
     return r;
 }
@@ -505,7 +652,7 @@ MultiFab::contains_inf (int scomp,
     }
 
     if (!local)
-	ParallelDescriptor::ReduceBoolOr(r,this->color());
+	ParallelDescriptor::ReduceBoolOr(r);
 
     return r;
 }
@@ -522,13 +669,24 @@ MultiFab::is_nodal () const
     return boxArray().ixType().nodeCentered();
 }
 
+bool 
+MultiFab::is_nodal (int dir) const
+{
+    return boxArray().ixType().nodeCentered(dir);
+}
+
+bool 
+MultiFab::is_cell_centered () const
+{
+    return boxArray().ixType().cellCentered();
+}
 
 Real
 MultiFab::min (int comp,
                int nghost,
 	       bool local) const
 {
-    BL_ASSERT(nghost >= 0 && nghost <= n_grow);
+    BL_ASSERT(nghost >= 0 && nghost <= n_grow.min());
 
     Real mn = std::numeric_limits<Real>::max();
 
@@ -542,7 +700,7 @@ MultiFab::min (int comp,
     }
 
     if (!local)
-	ParallelDescriptor::ReduceRealMin(mn,this->color());
+	ParallelDescriptor::ReduceRealMin(mn);
 
     return mn;
 }
@@ -553,7 +711,7 @@ MultiFab::min (const Box& region,
                int        nghost,
 	       bool       local) const
 {
-    BL_ASSERT(nghost >= 0 && nghost <= n_grow);
+    BL_ASSERT(nghost >= 0 && nghost <= n_grow.min());
 
     Real mn = std::numeric_limits<Real>::max();
 
@@ -569,7 +727,7 @@ MultiFab::min (const Box& region,
     }
 
     if (!local)
-	ParallelDescriptor::ReduceRealMin(mn,this->color());
+	ParallelDescriptor::ReduceRealMin(mn);
 
     return mn;
 }
@@ -579,7 +737,7 @@ MultiFab::max (int comp,
                int nghost,
 	       bool local) const
 {
-    BL_ASSERT(nghost >= 0 && nghost <= n_grow);
+    BL_ASSERT(nghost >= 0 && nghost <= n_grow.min());
 
     Real mx = -std::numeric_limits<Real>::max();
 
@@ -593,7 +751,7 @@ MultiFab::max (int comp,
     }
 
     if (!local)
-	ParallelDescriptor::ReduceRealMax(mx,this->color());
+	ParallelDescriptor::ReduceRealMax(mx);
 
     return mx;
 }
@@ -604,7 +762,7 @@ MultiFab::max (const Box& region,
                int        nghost,
 	       bool       local) const
 {
-    BL_ASSERT(nghost >= 0 && nghost <= n_grow);
+    BL_ASSERT(nghost >= 0 && nghost <= n_grow.min());
 
     Real mx = -std::numeric_limits<Real>::max();
 
@@ -620,7 +778,7 @@ MultiFab::max (const Box& region,
     }
 	
     if (!local)
-	ParallelDescriptor::ReduceRealMax(mx,this->color());
+	ParallelDescriptor::ReduceRealMax(mx);
 
     return mx;
 }
@@ -629,8 +787,7 @@ IntVect
 MultiFab::minIndex (int comp,
                     int nghost) const
 {
-    BL_ASSERT(nghost >= 0 && nghost <= n_grow);
-    BL_ASSERT(this->color() == ParallelDescriptor::DefaultColor());
+    BL_ASSERT(nghost >= 0 && nghost <= n_grow.min());
 
     IntVect loc;
 
@@ -675,16 +832,16 @@ MultiFab::minIndex (int comp,
         if (ParallelDescriptor::IOProcessor())
         {
             mns.resize(NProcs);
-            locs.resize(NProcs*BL_SPACEDIM);
+            locs.resize(NProcs*AMREX_SPACEDIM);
         }
 
         const int IOProc = ParallelDescriptor::IOProcessorNumber();
 
         ParallelDescriptor::Gather(&mn, 1, mns.dataPtr(), 1, IOProc);
 
-        BL_ASSERT(sizeof(IntVect) == sizeof(int)*BL_SPACEDIM);
+        BL_ASSERT(sizeof(IntVect) == sizeof(int)*AMREX_SPACEDIM);
 
-        ParallelDescriptor::Gather(loc.getVect(), BL_SPACEDIM, locs.dataPtr(), BL_SPACEDIM, IOProc);
+        ParallelDescriptor::Gather(loc.getVect(), AMREX_SPACEDIM, locs.dataPtr(), AMREX_SPACEDIM, IOProc);
 
         if (ParallelDescriptor::IOProcessor())
         {
@@ -697,14 +854,14 @@ MultiFab::minIndex (int comp,
                 {
                     mn = mns[i];
 
-                    const int j = BL_SPACEDIM * i;
+                    const int j = AMREX_SPACEDIM * i;
 
                     loc = IntVect(AMREX_D_DECL(locs[j+0],locs[j+1],locs[j+2]));
                 }
             }
         }
 
-        ParallelDescriptor::Bcast(const_cast<int*>(loc.getVect()), BL_SPACEDIM, IOProc);
+        ParallelDescriptor::Bcast(const_cast<int*>(loc.getVect()), AMREX_SPACEDIM, IOProc);
     }
 
     return loc;
@@ -714,8 +871,7 @@ IntVect
 MultiFab::maxIndex (int comp,
                     int nghost) const
 {
-    BL_ASSERT(nghost >= 0 && nghost <= n_grow);
-    BL_ASSERT(this->color() == ParallelDescriptor::DefaultColor());
+    BL_ASSERT(nghost >= 0 && nghost <= n_grow.min());
 
     IntVect loc;
 
@@ -760,16 +916,16 @@ MultiFab::maxIndex (int comp,
         if (ParallelDescriptor::IOProcessor())
         {
             mxs.resize(NProcs);
-            locs.resize(NProcs*BL_SPACEDIM);
+            locs.resize(NProcs*AMREX_SPACEDIM);
         }
 
         const int IOProc = ParallelDescriptor::IOProcessorNumber();
 
         ParallelDescriptor::Gather(&mx, 1, mxs.dataPtr(), 1, IOProc);
 
-        BL_ASSERT(sizeof(IntVect) == sizeof(int)*BL_SPACEDIM);
+        BL_ASSERT(sizeof(IntVect) == sizeof(int)*AMREX_SPACEDIM);
 
-        ParallelDescriptor::Gather(loc.getVect(), BL_SPACEDIM, locs.dataPtr(), BL_SPACEDIM, IOProc);
+        ParallelDescriptor::Gather(loc.getVect(), AMREX_SPACEDIM, locs.dataPtr(), AMREX_SPACEDIM, IOProc);
 
         if (ParallelDescriptor::IOProcessor())
         {
@@ -782,17 +938,35 @@ MultiFab::maxIndex (int comp,
                 {
                     mx = mxs[i];
 
-                    const int j = BL_SPACEDIM * i;
+                    const int j = AMREX_SPACEDIM * i;
 
                     loc = IntVect(AMREX_D_DECL(locs[j+0],locs[j+1],locs[j+2]));
                 }
             }
         }
 
-        ParallelDescriptor::Bcast(const_cast<int*>(loc.getVect()), BL_SPACEDIM, IOProc);
+        ParallelDescriptor::Bcast(const_cast<int*>(loc.getVect()), AMREX_SPACEDIM, IOProc);
     }
 
     return loc;
+}
+
+Real
+MultiFab::norm0 (const iMultiFab& mask, int comp, int nghost, bool local) const
+{
+    Real nm0 = -std::numeric_limits<Real>::max();
+
+#ifdef _OPENMP
+#pragma omp parallel reduction(max:nm0)
+#endif
+    for (MFIter mfi(*this,true); mfi.isValid(); ++mfi)
+    {
+	nm0 = std::max(nm0, get(mfi).norminfmask(mfi.growntilebox(nghost), mask[mfi], comp, 1));
+    }
+
+    if (!local)	ParallelDescriptor::ReduceRealMax(nm0);
+
+    return nm0;
 }
 
 Real
@@ -818,7 +992,7 @@ MultiFab::norm0 (int comp, const BoxArray& ba, int nghost, bool local) const
     }
  
     if (!local)
-	ParallelDescriptor::ReduceRealMax(nm0,this->color());
+	ParallelDescriptor::ReduceRealMax(nm0);
  
     return nm0;
 }
@@ -837,7 +1011,7 @@ MultiFab::norm0 (int comp, int nghost, bool local) const
     }
 
     if (!local)
-	ParallelDescriptor::ReduceRealMax(nm0,this->color());
+	ParallelDescriptor::ReduceRealMax(nm0);
 
     return nm0;
 }
@@ -884,7 +1058,7 @@ MultiFab::norm0 (const Vector<int>& comps, int nghost, bool local) const
     }
 
     if (!local)
-	ParallelDescriptor::ReduceRealMax(nm0.dataPtr(), n, this->color());
+	ParallelDescriptor::ReduceRealMax(nm0.dataPtr(), n);
 
     return nm0;
 }
@@ -961,7 +1135,7 @@ MultiFab::norm2 (const Vector<int>& comps) const
 	}
     }
 
-    ParallelDescriptor::ReduceRealSum(&priv_nm2[0][0], n, this->color());
+    ParallelDescriptor::ReduceRealSum(&priv_nm2[0][0], n);
 
     for (int i=0; i<n; i++) {
 	nm2[i] = std::sqrt(priv_nm2[0][i]);
@@ -985,12 +1159,11 @@ MultiFab::norm1 (int comp, const Periodicity& period) const
 Real
 MultiFab::norm1 (int comp, int ngrow, bool local) const
 {
-    BL_ASSERT(ixType().cellCentered());
     
     Real nm1 = 0.e0;
 
 #ifdef _OPENMP
-#pragma omp parallel reduction(+:nm1)
+#pragma omp parallel if (!system::regtest_reduction) reduction(+:nm1)
 #endif
     for (MFIter mfi(*this,true); mfi.isValid(); ++mfi)
     {
@@ -998,7 +1171,7 @@ MultiFab::norm1 (int comp, int ngrow, bool local) const
     }
 
     if (!local)
-	ParallelDescriptor::ReduceRealSum(nm1,this->color());
+	ParallelDescriptor::ReduceRealSum(nm1);
 
     return nm1;
 }
@@ -1046,7 +1219,7 @@ MultiFab::norm1 (const Vector<int>& comps, int ngrow, bool local) const
     }
 
     if (!local)
-	ParallelDescriptor::ReduceRealSum(nm1.dataPtr(), n, this->color());
+	ParallelDescriptor::ReduceRealSum(nm1.dataPtr(), n);
 
     return nm1;
 }
@@ -1057,7 +1230,7 @@ MultiFab::sum (int comp, bool local) const
     Real sm = 0.e0;
 
 #ifdef _OPENMP
-#pragma omp parallel reduction(+:sm)
+#pragma omp parallel if (!system::regtest_reduction) reduction(+:sm)
 #endif
     for (MFIter mfi(*this,true); mfi.isValid(); ++mfi)
     {
@@ -1065,7 +1238,7 @@ MultiFab::sum (int comp, bool local) const
     }
 
     if (!local)
-        ParallelDescriptor::ReduceRealSum(sm, this->color());
+        ParallelDescriptor::ReduceRealSum(sm);
 
     return sm;
 }
@@ -1080,7 +1253,7 @@ MultiFab::minus (const MultiFab& mf,
     BL_ASSERT(strt_comp >= 0);
     BL_ASSERT(num_comp > 0);
     BL_ASSERT(strt_comp + num_comp - 1 < n_comp && strt_comp + num_comp - 1 < mf.n_comp);
-    BL_ASSERT(nghost <= n_grow && nghost <= mf.n_grow);
+    BL_ASSERT(nghost <= n_grow.min() && nghost <= mf.n_grow.min());
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -1103,7 +1276,7 @@ MultiFab::divide (const MultiFab& mf,
     BL_ASSERT(strt_comp >= 0);
     BL_ASSERT(num_comp > 0);
     BL_ASSERT(strt_comp + num_comp - 1 < n_comp && strt_comp + num_comp - 1 < mf.n_comp);
-    BL_ASSERT(nghost <= n_grow && nghost <= mf.n_grow);
+    BL_ASSERT(nghost <= n_grow.min() && nghost <= mf.n_grow.min());
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -1122,7 +1295,7 @@ MultiFab::plus (Real val,
                 int  num_comp,
                 int  nghost)
 {
-    BL_ASSERT(nghost >= 0 && nghost <= n_grow);
+    BL_ASSERT(nghost >= 0 && nghost <= n_grow.min());
     BL_ASSERT(comp+num_comp <= n_comp);
     BL_ASSERT(num_comp > 0);
 
@@ -1142,7 +1315,7 @@ MultiFab::plus (Real       val,
                 int        num_comp,
                 int        nghost)
 {
-    BL_ASSERT(nghost >= 0 && nghost <= n_grow);
+    BL_ASSERT(nghost >= 0 && nghost <= n_grow.min());
     BL_ASSERT(comp+num_comp <= n_comp);
     BL_ASSERT(num_comp > 0);
 
@@ -1168,7 +1341,7 @@ MultiFab::plus (const MultiFab& mf,
     BL_ASSERT(strt_comp >= 0);
     BL_ASSERT(num_comp > 0);
     BL_ASSERT(strt_comp + num_comp - 1 < n_comp && strt_comp + num_comp - 1 < mf.n_comp);
-    BL_ASSERT(nghost <= n_grow && nghost <= mf.n_grow);
+    BL_ASSERT(nghost <= n_grow.min() && nghost <= mf.n_grow.min());
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -1187,7 +1360,7 @@ MultiFab::mult (Real val,
                 int  num_comp,
                 int  nghost)
 {
-    BL_ASSERT(nghost >= 0 && nghost <= n_grow);
+    BL_ASSERT(nghost >= 0 && nghost <= n_grow.min());
     BL_ASSERT(comp+num_comp <= n_comp);
     BL_ASSERT(num_comp > 0);
 
@@ -1207,7 +1380,7 @@ MultiFab::mult (Real       val,
                 int        num_comp,
                 int        nghost)
 {
-    BL_ASSERT(nghost >= 0 && nghost <= n_grow);
+    BL_ASSERT(nghost >= 0 && nghost <= n_grow.min());
     BL_ASSERT(comp+num_comp <= n_comp);
     BL_ASSERT(num_comp > 0);
 
@@ -1229,7 +1402,7 @@ MultiFab::invert (Real numerator,
                   int  num_comp,
                   int  nghost)
 {
-    BL_ASSERT(nghost >= 0 && nghost <= n_grow);
+    BL_ASSERT(nghost >= 0 && nghost <= n_grow.min());
     BL_ASSERT(comp+num_comp <= n_comp);
     BL_ASSERT(num_comp > 0);
 
@@ -1249,7 +1422,7 @@ MultiFab::invert (Real       numerator,
                   int        num_comp,
                   int        nghost)
 {
-    BL_ASSERT(nghost >= 0 && nghost <= n_grow);
+    BL_ASSERT(nghost >= 0 && nghost <= n_grow.min());
     BL_ASSERT(comp+num_comp <= n_comp);
     BL_ASSERT(num_comp > 0);
 
@@ -1270,7 +1443,7 @@ MultiFab::negate (int comp,
                   int num_comp,
                   int nghost)
 {
-    BL_ASSERT(nghost >= 0 && nghost <= n_grow);
+    BL_ASSERT(nghost >= 0 && nghost <= n_grow.min());
     BL_ASSERT(comp+num_comp <= n_comp);
 
 #ifdef _OPENMP
@@ -1288,7 +1461,7 @@ MultiFab::negate (const Box& region,
                   int        num_comp,
                   int        nghost)
 {
-    BL_ASSERT(nghost >= 0 && nghost <= n_grow);
+    BL_ASSERT(nghost >= 0 && nghost <= n_grow.min());
     BL_ASSERT(comp+num_comp <= n_comp);
 
 #ifdef _OPENMP
@@ -1308,16 +1481,16 @@ MultiFab::SumBoundary (int scomp, int ncomp, const Periodicity& period)
 {
     BL_PROFILE("MultiFab::SumBoundary()");
 
-    if ( n_grow == 0 && boxArray().ixType().cellCentered()) return;
+    if ( n_grow == IntVect::TheZeroVector() && boxArray().ixType().cellCentered()) return;
 
     if (boxArray().ixType().cellCentered()) {
 	// Self copy is safe only for cell-centered MultiFab
-	this->copy(*this,scomp,scomp,ncomp,n_grow,0,period,FabArrayBase::ADD);
+	this->copy(*this,scomp,scomp,ncomp,n_grow,IntVect::TheZeroVector(),period,FabArrayBase::ADD);
     } else {
 	MultiFab tmp(boxArray(), DistributionMap(), ncomp, n_grow, MFInfo(), Factory());
 	MultiFab::Copy(tmp, *this, scomp, 0, ncomp, n_grow);
 	this->setVal(0.0, scomp, ncomp, 0);
-	this->copy(tmp,0,scomp,ncomp,n_grow,0,period,FabArrayBase::ADD);
+	this->copy(tmp,0,scomp,ncomp,n_grow,IntVect::TheZeroVector(),period,FabArrayBase::ADD);
     }
 }
 
@@ -1336,12 +1509,13 @@ MultiFab::OverlapMask (const Periodicity& period) const
     std::unique_ptr<MultiFab> p{new MultiFab(ba,dm,1,0, MFInfo(), Factory())};
     p->setVal(0.0);
 
+    const std::vector<IntVect>& pshifts = period.shiftIntVect();
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
     {
         std::vector< std::pair<int,Box> > isects;
-        const std::vector<IntVect>& pshifts = period.shiftIntVect();
         
         for (MFIter mfi(*p); mfi.isValid(); ++mfi)
         {
@@ -1374,12 +1548,13 @@ MultiFab::OwnerMask (const Periodicity& period) const
                                                DefaultFabFactory<IArrayBox>())};
     p->setVal(owner);
 
+    const std::vector<IntVect>& pshifts = period.shiftIntVect();
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
     {
         std::vector< std::pair<int,Box> > isects;
-        const std::vector<IntVect>& pshifts = period.shiftIntVect();
         
         for (MFIter mfi(*p); mfi.isValid(); ++mfi)
         {
@@ -1465,18 +1640,6 @@ MultiFab::OverrideSync (const iMultiFab& msk, const Periodicity& period)
     tmpmf.ParallelCopy(*this, period, FabArrayBase::ADD);
 
     MultiFab::Copy(*this, tmpmf, 0, 0, ncomp, 0);
-}
-
-void
-MultiFab::AddProcsToComp (int ioProcNumSCS, int ioProcNumAll,
-                          int scsMyId, MPI_Comm scsComm)
-{
-  // ---- bools
-  int bInit(initialized);
-  if(scsMyId != ioProcNumSCS) {
-    initialized   = bInit;
-  }
-  FabArray<FArrayBox>::AddProcsToComp(ioProcNumSCS, ioProcNumAll, scsMyId, scsComm);
 }
 
 }

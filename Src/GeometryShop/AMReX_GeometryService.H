@@ -1,16 +1,5 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-#ifndef _GEOMETRYSERVICE_H_
-#define _GEOMETRYSERVICE_H_
+#ifndef AMREX_GEOMETRYSERVICE_H_
+#define AMREX_GEOMETRYSERVICE_H_
 
 
 #include <cmath>
@@ -19,7 +8,9 @@
 #include "AMReX_LoHiSide.H"
 #include "AMReX_RealVect.H"
 #include "AMReX_Box.H"
+#include "AMReX_BaseIF.H"
 #include "AMReX_IrregNode.H"
+#include "AMReX_GeomIntersectUtils.H"
 
 
 namespace amrex
@@ -44,6 +35,17 @@ namespace amrex
       
     virtual ~GeometryService();
       
+    ///return true if the geometry service generates higher order moments
+    /**
+       Most of the geometry generating objects we have do *not* generate higher order
+       moments (they only generate the standard stuff (volume fractions, area fractions and centroids)).
+       WrappedGShop, does generate the higher order stuff so that one can return true;
+     */
+    virtual bool generatesHigherOrderMoments() const
+      {
+        return false; 
+      }
+
     ///
     /**
        Return true if every cell in region is regular at the
@@ -79,7 +81,8 @@ namespace amrex
        ghostregion = (grow(validRegion, 1) & domain);
     */
     virtual void fillGraph(BaseFab<int>&        a_regIrregCovered,
-                           Vector<IrregNode>&    a_nodes,
+                           Vector<IrregNode>&   a_nodes,
+                           NodeMap&             a_intersections,
                            const Box&           a_validRegion,
                            const Box&           a_ghostRegion,
                            const Box&           a_domain,
@@ -89,13 +92,31 @@ namespace amrex
       
       
     virtual bool canGenerateMultiCells() const;
-      
+
     virtual InOut InsideOutside(const Box&           a_region,
                                 const Box&           a_domain,
                                 const RealVect&      a_origin,
-                                const Real&          a_dx) const ;
+                                const Real&          a_dx) const;
+
+    virtual bool pointOutside(const RealVect& a_pt) const;
+
+    ///get the implicit function.
+    /**
+       If you have a geometry sevice that does not have an implicit function, it is a runtime error.
+     */
+    virtual std::shared_ptr<const BaseIF> getImplicitFunction() const
+      {
+        BL_ASSERT(hasImplicitFunction());
+        std::shared_ptr<const BaseIF> retval;
+        return retval;
+      }
       
-      
+    ///True if there is an underlying implicit function
+    virtual bool hasImplicitFunction() const
+      {
+        return false;
+      }
+
     ///handy functions to do rectangle intersections in real space
     static bool intersection(const RealVect& a_lo1, const RealVect& a_hi1,
                              const RealVect& a_lo2, const RealVect& a_hi2);
@@ -105,7 +126,7 @@ namespace amrex
                              const Real&          a_dx,
                              const RealVect&      a_lower,
                              const RealVect&      a_upper);
-      
+
   };
 }
 

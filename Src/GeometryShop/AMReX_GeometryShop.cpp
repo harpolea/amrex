@@ -1,22 +1,15 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <list>
+#include <map>
 
+#include <AMReX_EB2.H>
 #include "AMReX_GeometryShop.H"
+#include "AMReX_GeomIntersectUtils.H"
 #include "AMReX_RealVect.H"
 #include "AMReX.H"
 #include "AMReX_Print.H"
@@ -27,9 +20,9 @@
 namespace amrex
 {
 
-//  static const IntVect   gs_debiv(D_DECL(994,213,7));
-//  static const IntVect   gs_debivlo(D_DECL(190,15,0));
-//  static const IntVect   gs_debivhi(D_DECL(191,15,0));
+//  static const IntVect   gs_debiv(AMREX_D_DECL(994,213,7));
+//  static const IntVect   gs_debivlo(AMREX_D_DECL(190,15,0));
+//  static const IntVect   gs_debivhi(AMREX_D_DECL(191,15,0));
   
   bool GeometryShop::isRegularEveryPoint(const Box&           a_region,
                                          const Box&           a_domain,
@@ -42,6 +35,17 @@ namespace amrex
     Box allCorners(a_region);
     allCorners.surroundingNodes();
 
+    shared_ptr<STLExplorer> stlExplorer;
+    if (m_stlIF != NULL)
+    {
+      if (!m_STLBoxSet)
+      {
+        m_stlIF->getExplorer()->Explore(a_domain,a_domain,a_origin,a_dx*RealVect::Unit);
+        m_STLBoxSet = true;
+      }
+
+      stlExplorer = m_stlIF->getExplorer();
+    }
     RealVect physCorner;
     BoxIterator bit(allCorners);
     // If every corner is inside, the box is regular
@@ -61,13 +65,30 @@ namespace amrex
           physCorner[idir] = a_dx*corner[idir] + a_origin[idir];
         }
 
-        // If the implicit function value is positive then the current
-        // corner is outside the domain
-        Real functionValue = m_implicitFunction->value(physCorner);
-
-        if (functionValue > 0.0 )
+        if (m_stlIF == NULL)
         {
-          return false;
+          // If the implicit function value is positive then the current
+          // corner is outside the domain
+          Real functionValue = m_implicitFunction->value(physCorner);
+
+          if (functionValue > 0.0 )
+          {
+            return false;
+          }
+        }
+        else
+        {
+          if (!m_STLBoxSet)
+          {
+            m_stlIF->getExplorer()->Explore(a_domain,a_domain,a_origin,a_dx*RealVect::Unit);
+            m_STLBoxSet = true;
+          }
+          bool influid;
+          stlExplorer->GetPointInOut(corner,influid);
+          if(!influid)
+          {
+            return false;
+          }
         }
       }
       bit.reset();
@@ -89,6 +110,17 @@ namespace amrex
     Box allCorners(a_region);
     allCorners.surroundingNodes();
 
+    shared_ptr<STLExplorer> stlExplorer;
+    if (m_stlIF != NULL)
+    {
+      if (!m_STLBoxSet)
+      {
+        m_stlIF->getExplorer()->Explore(a_domain,a_domain,a_origin,a_dx*RealVect::Unit);
+        m_STLBoxSet = true;
+      }
+
+      stlExplorer = m_stlIF->getExplorer();
+    }
     RealVect physCorner;
     BoxIterator bit(allCorners);
 
@@ -109,13 +141,28 @@ namespace amrex
 
         // If the implicit function value is positive then the current
         // corner is outside the domain
-        Real functionValue = m_implicitFunction->value(physCorner);
-
-        if (functionValue < 0.0 )
+        if (m_stlIF == NULL)
         {
+          Real functionValue = m_implicitFunction->value(physCorner);
 
-
-          return false;
+          if (functionValue < 0.0 )
+          {
+            return false;
+          }
+        }
+        else
+        {
+          if (!m_STLBoxSet)
+          {
+            m_stlIF->getExplorer()->Explore(a_domain,a_domain,a_origin,a_dx*RealVect::Unit);
+            m_STLBoxSet = true;
+          }
+          bool influid;
+          stlExplorer->GetPointInOut(corner,influid);
+          if(influid)
+          {
+            return false;
+          }
         }
       }
       bit.reset();
@@ -129,6 +176,10 @@ namespace amrex
                              Real          a_thrshdVoF)
   {
     m_implicitFunction.reset(a_localGeom.newImplicitFunction());
+
+    // See if this is an STL description - m_stlIF will be NULL if it isn't
+    m_stlIF = dynamic_cast<const STLIF *>(&(*m_implicitFunction));
+    m_STLBoxSet = false;
 
     m_verbosity = a_verbosity;
 
@@ -150,28 +201,13 @@ namespace amrex
                 const Real&          a_dx) const
   {
     GeometryShop::InOut rtn;
-//begin debug
-//    bool debugc = (a_region.contains(gs_debivlo) || a_region.contains(gs_debivhi));
-//end debug
     if(isRegularEveryPoint(a_region, a_domain, a_origin, a_dx))
     {
       rtn = GeometryShop::Regular;
-//begin debug
-//      if(debugc)
-//      {
-//        amrex::AllPrint() << "geometryshop::insideoutside:"<< gs_debiv << " in an all regular box" << endl;
-//      }
-//end debug
     }
     else if(isCoveredEveryPoint(a_region, a_domain, a_origin, a_dx))
     {
       rtn = GeometryShop::Covered;
-//begin debug
-//      if(debugc)
-//      {
-//        amrex::AllPrint() << "geometryshop::insideoutside:"<< gs_debiv << " in an all covered box" << endl;
-//      }
-//end debug
     }
     else
     {
@@ -181,16 +217,52 @@ namespace amrex
 
   }
 
+  bool
+  GeometryShop::pointOutside(const RealVect& a_pt) const
+  {
+    // If the implicit function value is positive then the current
+    // pt is outside the domain
+    return m_implicitFunction->value(a_pt) > 0.0;
+  }
+
+  std::pair<bool,NodeMapIt> InsertNode(const IntVect& p1,const IntVect& p2,const RealVect& intersect,NodeMap& intersects)
+  {
+    NodeMapIt fwd,rev;
+    Edge edge(p1,p2);
+    fwd = intersects.find(edge);
+    if (fwd == intersects.end())
+    {
+      rev = intersects.find(Edge(p2,p1));
+        
+      if (rev == intersects.end())
+      {
+	edge.ID = intersects.size(); // Number this edge
+        Vector<Real> node = {AMREX_D_DECL(intersect[0],intersect[1],intersect[2])};
+	auto it = intersects.insert(make_pair(edge,node));
+	BL_ASSERT(it.second);
+	return make_pair(true,it.first);
+      }
+      else
+      {
+	return make_pair(false,rev);
+      }
+    }
+    return make_pair(false,fwd);
+  }
+
   /*********************************************/
   void
   GeometryShop::fillGraph(BaseFab<int>        & a_regIrregCovered,
-                          Vector<IrregNode>    & a_nodes,
+                          Vector<IrregNode>   & a_nodes,
+                          NodeMap             & a_intersections,
                           const Box           & a_validRegion,
                           const Box           & a_ghostRegion,
                           const Box           & a_domain,
                           const RealVect      & a_origin,
                           const Real          & a_dx) const
   {
+      BL_PROFILE("GeometryShop::fillGraph");
+
     AMREX_ASSERT(a_domain.contains(a_ghostRegion));
     a_nodes.resize(0);
     a_regIrregCovered.resize(a_ghostRegion, 1);
@@ -246,6 +318,7 @@ namespace amrex
       }
 
     // now loop through irregular cells and make nodes for each  one.
+    a_intersections.clear();
     for(IVSIterator ivsit(ivsirreg); ivsit.ok(); ++ivsit)
       {
         const IntVect& iv = ivsit();
@@ -269,6 +342,7 @@ namespace amrex
                             bndryCentroid,
                             loFaceCentroid,
                             hiFaceCentroid,
+                            a_intersections,
                             a_regIrregCovered,
                             a_domain,
                             a_origin,
@@ -284,6 +358,7 @@ namespace amrex
         else
           {
             IrregNode newNode;
+            newNode.m_hasMoments = false;
             newNode.m_cell          = iv;
             newNode.m_volFrac       = volFrac;
             newNode.m_cellIndex     = 0;
@@ -357,14 +432,14 @@ namespace amrex
       }//ivsdrop
     if(m_verbosity > 2)
     {
-      amrex::AllPrint() << "numIrreg  = " << numIrreg << "\n";
-      amrex::AllPrint() << "number of nodes  = " << a_nodes.size() << "\n";
+      amrex::AllPrint() << "GeometryShop:num irreg vofs   = " << numIrreg << "\n";
+      amrex::AllPrint() << "GeometryShop:number of nodes  = " << a_nodes.size() << "\n";
     }
   }
   /*************/
   void
   GeometryShop::
-  fixRegularCellsNextToCovered(Vector<IrregNode>    & a_nodes, 
+  fixRegularCellsNextToCovered(Vector<IrregNode>   & a_nodes, 
                                BaseFab<int>        & a_regIrregCovered,
                                const Box           & a_validRegion,
                                const Box           & a_domain,
@@ -513,6 +588,7 @@ namespace amrex
                                     RealVect&            a_bndryCentroid,
                                     std::array<Vector<RealVect>,SpaceDim>& a_loFaceCentroid,
                                     std::array<Vector<RealVect>,SpaceDim>& a_hiFaceCentroid,
+                                    NodeMap&             a_intersections,
                                     const BaseFab<int>&  a_regIrregCovered,
                                     const Box&           a_domain,
                                     const RealVect&      a_origin,
@@ -537,6 +613,7 @@ namespace amrex
 
         // get edgeType and intersection points
         edgeData2D(edges,
+                   a_intersections,
                    faceCovered,
                    faceRegular,
                    faceDontKnow,
@@ -725,6 +802,7 @@ namespace amrex
                 bool faceRegular;
                 bool faceDontKnow;
                 edgeData3D(edges,
+                           a_intersections,
                            faceCovered,
                            faceRegular,
                            faceDontKnow,
@@ -786,7 +864,8 @@ namespace amrex
                   }
               }
           }
-#if 1
+
+        if (!EB2::compare_with_ch_eb) {
         // iterate over faces recalculating face area
         // face order is xLo,xHi,yLo,yHi,zLo,zHi
         for (int iFace = 0; iFace < 2*SpaceDim; ++iFace)
@@ -1034,22 +1113,27 @@ namespace amrex
                 Real physIntercept = 0;
                 bool dropOrder = false;
 
+                
+                if(m_stlIF == NULL)
+                {
+                  Real fLo = m_implicitFunction->value(physSegLo);
+                  Real fHi = m_implicitFunction->value(physSegHi);
 
-
-                Real fLo = m_implicitFunction->value(physSegLo);
-                Real fHi = m_implicitFunction->value(physSegHi);
-
-                // This guards against the "root must be bracketed" error
-                // by dropping order
-                if (fLo*fHi > 0.0)
+                  // This guards against the "root must be bracketed" error
+                  // by dropping order
+                  if (fLo*fHi > 0.0)
                   {
                     dropOrder = true;
                   }
-                else
+                  else
                   {
                     physIntercept = BrentRootFinder(physSegLo, physSegHi, minDir);
                   }
-
+                }
+                else
+                {
+                  dropOrder = true;
+                }
                 if(!dropOrder)
                 {
                   // put physIntercept into relative coordinates
@@ -1091,7 +1175,8 @@ namespace amrex
                 }
               }
           }
-#endif
+        }
+
         // fill in some arguments of computeVofInternals for the faces
         for (int faceNormal = 0;faceNormal < SpaceDim;++faceNormal)
           {
@@ -1741,6 +1826,7 @@ namespace amrex
 
 
   void GeometryShop::edgeData3D(edgeMo a_edges[4],
+                                NodeMap& a_intersections,
                                 bool& a_faceCovered,
                                 bool& a_faceRegular,
                                 bool& a_faceDontKnow,
@@ -1793,7 +1879,7 @@ namespace amrex
                 RealVect MidPt = LoPt;
                 MidPt += HiPt;
                 MidPt /= 2.0;
-
+                                                       // 
                 Real signHi;
                 Real signLo;
 
@@ -1802,10 +1888,47 @@ namespace amrex
                 bool regular  = false;
                 bool dontKnow = false;
 
-                //                RealVect interceptPt = RealVect::Zero;
+                RealVect interceptPt = RealVect::Zero;
 
-                funcHi = m_implicitFunction->value(HiPt);
-                funcLo = m_implicitFunction->value(LoPt);
+                if(m_stlIF == NULL)
+                {
+                  funcHi = m_implicitFunction->value(HiPt);
+                  funcLo = m_implicitFunction->value(LoPt);
+                }
+                else
+                {
+                  IntVect loIV(a_iv);
+                  loIV[a_faceNormal] += a_hiLoFace;
+                  loIV[dom]          += lohi;
+
+                  IntVect hiIV(a_iv);
+                  hiIV[a_faceNormal] += a_hiLoFace;
+                  hiIV[dom]          += lohi;
+                  hiIV[range]        += 1;
+
+                  CellEdge curEdge(loIV,hiIV);
+
+                  bool loIn,hiIn;
+                  m_stlIF->getExplorer()->GetCellEdgeIntersection(curEdge,interceptPt,loIn,hiIn);
+
+                  if (loIn)
+                  {
+                    funcLo = -1.0;
+                  }
+                  else
+                  {
+                    funcLo = 1.0;
+                  }
+
+                  if (hiIn)
+                  {
+                    funcHi = -1.0;
+                  }
+                  else
+                  {
+                    funcHi = 1.0;
+                  }
+                }
 
                 // For level set data negative -> in the fluid
                 //                    positive -> out of the fluid
@@ -1838,7 +1961,14 @@ namespace amrex
                     Real intercept;
                   
                     // find where the surface intersects the edge
-                    intercept = BrentRootFinder(LoPt, HiPt, range);
+                    if (m_stlIF == NULL)
+                    {
+                      intercept = BrentRootFinder(LoPt, HiPt, range);
+                    }
+                    else
+                    {
+                      intercept = interceptPt[range];
+                    }
 
                     if (funcHi >= 0 && funcLo*funcHi <= 0)
                       {
@@ -1854,6 +1984,22 @@ namespace amrex
                       {
                         amrex::Error("Bogus intersection calculated");
                       }
+
+                    IntVect p1 = a_iv + a_hiLoFace*BASISV(a_faceNormal) + lohi*BASISV(dom);
+                    IntVect p2 = p1   + BASISV(range);
+                    RealVect iPoint;
+                    iPoint[range] = intercept;
+                    pair<bool,NodeMapIt> bpit = InsertNode(p1,p2,iPoint,a_intersections);
+                    if (bpit.first)
+                    {
+                      const NodeMapIt& pmit = bpit.second;
+                      auto& intersect = pmit->second;
+
+                      intersect[a_faceNormal] = a_origin[a_faceNormal]+
+                        (a_iv[a_faceNormal]+a_hiLoFace)*a_dx;
+                      intersect[dom] = a_origin[dom] + (a_iv[dom]+lohi)*a_dx;
+                      intersect[range] = intercept;
+                    }
                   }
 
                 // put LoPt and HiPt in local coordinates
@@ -1915,13 +2061,14 @@ namespace amrex
       }
     return;
   }
-  void GeometryShop::edgeData2D(edgeMo a_edges[4],
-                                bool& a_faceCovered,
-                                bool& a_faceRegular,
-                                bool& a_faceDontKnow,
-                                const Real& a_dx,
-                                const IntVect& a_iv,
-                                const Box& a_domain,
+  void GeometryShop::edgeData2D(edgeMo          a_edges[4],
+                                NodeMap&        a_intersections,
+                                bool&           a_faceCovered,
+                                bool&           a_faceRegular,
+                                bool&           a_faceDontKnow,
+                                const Real&     a_dx,
+                                const IntVect&  a_iv,
+                                const Box&      a_domain,
                                 const RealVect& a_origin) const
   {
     // index counts which edge:xLo=0,xHi=1,yLo=2,yHi=3
@@ -1998,9 +2145,7 @@ namespace amrex
                 a_faceDontKnow = true;
 
                 // find where the surface intersects the edge
-                Real intercept;
-
-                intercept = BrentRootFinder(LoPt, HiPt, range);
+                auto intercept = BrentRootFinder(LoPt, HiPt, range);
 
                 // choose the midpoint for an ill-conditioned problem
                 if (intercept<LoPt[range] || intercept>HiPt[range])
@@ -2023,6 +2168,19 @@ namespace amrex
                   {
                     amrex::Error("Bogus intersection calculated");
                   }
+
+		auto p1 = a_iv + lohi*BASISV(domain);
+		auto p2 = p1   + BASISV(range);
+		RealVect iPoint;
+		iPoint[range] = intercept;
+		auto bpit = InsertNode(p1,p2,iPoint,a_intersections);
+		if (bpit.first)
+		{
+		  const auto& pmit = bpit.second;
+		  auto& intersect = pmit->second;
+                  intersect[domain] = a_origin[domain] + p1[domain]*a_dx;
+                  intersect[range] = intercept;
+		}
               }
 
             // express the answer relative to dx and cell-center
@@ -2206,7 +2364,7 @@ namespace amrex
 
             p = std::abs(p);
 
-            if (2.0 * p < std::min(3.0*xm*q-std::abs(tol1*q), std::abs(e*q)))
+            if (2.0 * p < std::min(3.0*xm*q-std::abs(tol1*q), 1.0*std::abs(e*q)))
               {
                 //  Accept interpolation
                 e = d;

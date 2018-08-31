@@ -1,6 +1,6 @@
 
-#ifndef _Amr_H_
-#define _Amr_H_ 
+#ifndef AMREX_Amr_H_
+#define AMREX_Amr_H_
 
 #include <fstream>
 #include <memory>
@@ -15,11 +15,19 @@
 
 #include <AMReX_AmrCore.H>
 
+#ifdef USE_PERILLA
+#include <RegionGraph.H>
+#include <Perilla.H>
+#endif
+
 namespace amrex {
 
 class AmrLevel;
 class LevelBld;
 class BoxDomain;
+template <class T>
+class MFGraph;
+class AmrTask;
 
 /**
 * \brief Manage hierarchy of levels for time-dependent AMR computations.
@@ -32,7 +40,10 @@ class BoxDomain;
 class Amr
     : public AmrCore
 {
-    typedef std::multimap< std::pair<int, int>, double >  BoundaryPointList;
+  template <class T>
+  friend class MFGraph;
+  friend class AmrTask;
+  typedef std::multimap< std::pair<int, int>, double >  BoundaryPointList;
 
 public:
     //! The constructor.
@@ -196,6 +207,7 @@ public:
     static int initialBaLevels () { return initial_ba.size(); }
     //! Do a complete integration cycle.
     virtual void coarseTimeStep (Real stop_time);
+
     //! Do a complete integration cycle and return the coarse dt.
     Real coarseTimeStepDt (Real stop_time);
     //! Retrieve derived data. User is responsible for deleting pointer.
@@ -301,20 +313,14 @@ public:
         return intersect_hiz;
     };
 
-#ifdef USE_PARTICLES
+#ifdef AMREX_PARTICLES
     //! Redistribute particles
     void RedistributeParticles ();
 #endif
 
     void InstallNewDistributionMap (int lev, const DistributionMapping& newdm);
 
-    void AddProcsToSidecar(int nSidecarProcs, int prevSidecarProcs);
-    void AddProcsToComp(int nSidecarProcs, int prevSidecarProcs);
-    void RedistributeGrids(int how);
-    void BroadcastBoundaryPointList(BoundaryPointList &bpl, int myLocalId, int rootId, MPI_Comm comm);
-    void PrintData(std::ostream& os);
-    static void BroadcastBCRec(BCRec &bcrec, int myLocalId, int rootId, MPI_Comm localComm);
-    void UpdateStateDataDistributionMaps(DistributionMapping& new_dmap);
+    bool UsingPrecreateDirectories();
 
 protected:
 
@@ -391,7 +397,7 @@ protected:
     //
     std::string      regrid_grids_file;   // Grids file that will bypass regridding.
     std::string      initial_grids_file;  // Grids file that will bypass regridding only at initialization.
-    Vector<std::unique_ptr<AmrLevel> > amr_level;    // Array of levels
+    Vector<std::unique_ptr<AmrLevel> > amr_level;    // Vector of levels
     Real             cumtime;      // Physical time variable.
     Real             start_time;   // Physical time this simulation started.
     Vector<Real>      dt_level;     // Timestep at this level.
@@ -400,7 +406,7 @@ protected:
     Vector<int>       n_cycle;
     std::string      subcycling_mode; //Type of subcycling to use.
     Vector<Real>      dt_min;
-    bool             isPeriodic[BL_SPACEDIM];  // Domain periodic?
+    bool             isPeriodic[AMREX_SPACEDIM];  // Domain periodic?
     Vector<int>       regrid_int;      // Interval between regridding.
     int              last_checkpoint; // Step number of previous checkpoint.
     int              check_int;       // How often checkpoint (# time steps).
@@ -435,7 +441,6 @@ protected:
     LevelBld*        levelbld;
     bool             abort_on_stream_retry_failure;
     int              stream_max_tries;
-    int              rebalance_grids;
     int              loadbalance_with_workestimates;
     int              loadbalance_level0_int;
     Real             loadbalance_max_fac;
@@ -455,6 +460,10 @@ protected:
     static Vector<BoxArray> regrid_ba;
 
 public:
+#ifdef USE_PERILLA
+    std::vector<RegionGraph*> graphArray;
+    std::vector<RegionGraph*> &get_graphArray(){return graphArray;}
+#endif
 
     BoundaryPointList intersect_lox;
     BoundaryPointList intersect_loy;

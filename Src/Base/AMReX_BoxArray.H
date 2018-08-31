@@ -26,6 +26,8 @@ namespace amrex
     //! Make a BoxArray from the intersection of Box b and BoxArray(+ghostcells).
     BoxArray intersect (const BoxArray& ba, const Box& b, int ng = 0);
 
+    BoxArray intersect (const BoxArray& ba, const Box& b, const IntVect& ng);
+
     //! Make a BoxArray from the intersection of two BoxArrays.
     BoxArray intersect (const BoxArray& lhs, const BoxArray& rhs);
 
@@ -34,6 +36,9 @@ namespace amrex
 
     BoxArray convert (const BoxArray& ba, IndexType typ);
     BoxArray convert (const BoxArray& ba, const IntVect& typ);
+
+    BoxArray coarsen (const BoxArray& ba, int ratio);
+    BoxArray coarsen (const BoxArray& ba, const IntVect& ratio);
 
     //! Find the ghost cells of a given BoxArray.
     BoxList GetBndryCells (const BoxArray& ba, int ngrow);
@@ -44,7 +49,7 @@ namespace amrex
     //! Create a 1D Array of cells from all boxes in a BoxArray 
     Vector<int> SerializeBoxArray(const BoxArray &ba);
 
-    //! Construct a BoxArray (in BL_SPACEDIM dimensions) from a 1D Array of cells
+    //! Construct a BoxArray (in AMREX_SPACEDIM dimensions) from a 1D Array of cells
     BoxArray UnSerializeBoxArray(const Vector<int> &serarray);
 
     //! Note that two BoxArrays that match are not necessarily equal.
@@ -74,6 +79,16 @@ struct BARef
     void updateMemoryUsage_box (int s);
     void updateMemoryUsage_hash (int s);
 #endif
+
+    inline bool HasHashMap () const {
+        bool r;
+#ifdef _OPENMP
+#pragma omp atomic read
+#endif
+        r = has_hashmap;
+        return r;
+    }
+
     //
     // The data.
     //
@@ -100,6 +115,7 @@ struct BARef
     static long total_hash_bytes_hwm;
         
     static void Initialize ();
+    static void Finalize ();
     static bool initialized;
 };
 
@@ -196,7 +212,7 @@ struct DefaultBATransformer final
 * cannot use any of the List member functions with a BoxList.
 */
 
-  class MFIter;
+class MFIter;
 
 class BoxArray
 {
@@ -250,13 +266,13 @@ public:
     void resize (long len);
 
     //! Return the number of boxes in the BoxArray.
-    long size () const;
+    long size () const { return m_ref->m_abox.size(); }
 
     //! Return the number of boxes that can be held in the current allocated storage
-    long capacity () const;
+    long capacity () const { return m_ref->m_abox.capacity(); }
 
     //! Return whether the BoxArray is empty
-    bool empty () const;
+    bool empty () const { return m_ref->m_abox.empty(); }
 
     //! Returns the total number of cells contained in all boxes in the BoxArray.
     long numPts() const;
@@ -300,6 +316,7 @@ public:
 
     //! Coarsen each Box in the BoxArray to the specified ratio.
     bool coarsenable(int refinement_ratio, int min_width=1) const;
+    bool coarsenable(const IntVect& refinement_ratio, int min_width=1) const;
 
     //! Coarsen each Box in the BoxArray to the specified ratio.
     BoxArray& coarsen (const IntVect& refinement_ratio);
@@ -313,10 +330,20 @@ public:
     //! Grow each Box in the BoxArray by the specified amount.
     BoxArray& grow (const IntVect& iv);
     /**
-    * \brief Grow each Box in the BoxArray on the low and high end
-    * by n_cell cells in idir direction.
+    * \brief Grow each Box in the BoxArray on the low and high ends
+    * by n_cell cells in the idir direction.
     */
     BoxArray& grow (int idir, int n_cell);
+    /**
+    * \brief Grow each Box in the BoxArray on the low end
+    * by n_cell cells in the idir direction.
+    */
+    BoxArray& growLo (int idir, int n_cell);
+    /**
+    * \brief Grow each Box in the BoxArray on the high end
+    * by n_cell cells in the idir direction.
+    */
+    BoxArray& growHi (int idir, int n_cell);
     /**
     * \brief Apply surroundingNodes(Box) to each Box in BoxArray.
     * See the documentation of Box for details.
@@ -352,16 +379,26 @@ public:
     void set (int i, const Box& ibox);
 
     //! Return element index of this BoxArray.
-    Box operator[] (int index) const;
+    Box operator[] (int index) const {
+        Box r = m_ref->m_abox[index];
+        if (m_simple) {
+            r.coarsen(m_crse_ratio).convert(m_typ);
+        } else {
+            r = (*m_transformer)(m_ref->m_abox[index]);
+        }
+        return r;
+    }
 
     //! Return element index of this BoxArray.
-    Box operator[] (const MFIter& index) const;
+    Box operator[] (const MFIter& mfi) const;
 
     //! Return element index of this BoxArray.
     Box get (int index) const { return operator[](index); }
 
     //! Return cell-centered box at element index of this BoxArray.
-    Box getCellCenteredBox (int index) const;
+    Box getCellCenteredBox (int index) const {
+        return amrex::coarsen(m_ref->m_abox[index],m_crse_ratio);
+    }
 
     /**
     * \brief Return true if Box is valid and they all have the same
@@ -389,6 +426,7 @@ public:
 
     //! Return smallest Box that contains all Boxes in this BoxArray.
     Box minimalBox () const;
+    Box minimalBox (int& npts_avg_box) const;
 
     /**
     * \brief True if the Box intersects with this BoxArray(+ghostcells).
@@ -396,11 +434,15 @@ public:
     */
     bool intersects (const Box& b, int ng = 0) const;
 
+    bool intersects (const Box& b, const IntVect& ng) const;
+
     //! Return intersections of Box and BoxArray
     std::vector< std::pair<int,Box> > intersections (const Box& bx) const;
 
     //! Return intersections of Box and BoxArray(+ghostcells).
     std::vector< std::pair<int,Box> > intersections (const Box& bx, bool first_only, int ng) const;
+
+    std::vector< std::pair<int,Box> > intersections (const Box& bx, bool first_only, const IntVect& ng) const;
 
     //! intersect Box and BoxArray, then store the result in isects
     void intersections (const Box& bx, std::vector< std::pair<int,Box> >& isects) const; 
@@ -409,8 +451,12 @@ public:
     void intersections (const Box& bx, std::vector< std::pair<int,Box> >& isects, 
 			bool first_only, int ng) const;
 
+    void intersections (const Box& bx, std::vector< std::pair<int,Box> >& isects, 
+			bool first_only, const IntVect& ng) const;
+
     //! Return box - boxarray
     BoxList complementIn (const Box& b) const;
+    void complementIn (BoxList& bl, const Box& b) const;
 
     //! Clear out the internal hash table used by intersections.
     void clear_hash_bin () const;
@@ -441,14 +487,8 @@ public:
     //! Return crse ratio of this BoxArray
     IntVect crseRatio () const { return m_crse_ratio; }
 
-#ifdef BL_USE_MPI
-    //! Broadcast the BoxArray
-    static void SendBoxArray(const BoxArray &ba, int whichSidecar);
-    //! Receive the BoxArray from root
-    static void RecvBoxArray(BoxArray &ba, int whichSidecar);
-#endif
-
     static void Initialize ();
+    static void Finalize ();
     static bool initialized;
 
     //! Make ourselves unique.

@@ -1,6 +1,6 @@
 #include "AMReX_LoadBalanceKD.H"
 
-using namespace amrex;
+namespace amrex {
 
 int KDTree::min_box_size = 4;
 
@@ -62,30 +62,44 @@ bool KDTree::partitionNode(KDNode* node, const FArrayBox& cost) {
     
     int split;
     Real cost_left, cost_right;
-    int dir = getLongestDir(box);
-    amrex_compute_best_partition(cost.dataPtr(), cost.loVect(), cost.hiVect(),
-                                 box.loVect(), box.hiVect(), node->cost, dir,
-                                 &cost_left, &cost_right, &split);
-    
     Box left, right;
-    bool success = splitBox(split, dir, box, left, right);
-
-    BL_ASSERT(left.numPts()  > 0);
-    BL_ASSERT(right.numPts() > 0);
+    int dir = getLongestDir(box);
+    for (int i = 0; i < AMREX_SPACEDIM; ++i) {
+        amrex_compute_best_partition(cost.dataPtr(), cost.loVect(), cost.hiVect(),
+                                     box.loVect(), box.hiVect(), node->cost, dir,
+                                     &cost_left, &cost_right, &split);    
     
-    if (success) {
-        node->left  = new KDNode(left,  cost_left,  node->num_procs_left/2);
-        node->right = new KDNode(right, cost_right, node->num_procs_left/2);
+        bool success = splitBox(split, dir, box, left, right);        
+        if (not success) return false;
+        
+        BL_ASSERT(left.numPts()  > 0);
+        BL_ASSERT(right.numPts() > 0);
+        
+        amrex_set_box_cost(cost.dataPtr(), cost.loVect(), cost.hiVect(),
+                           left.loVect(), left.hiVect(), &cost_left);
+        
+        amrex_set_box_cost(cost.dataPtr(), cost.loVect(), cost.hiVect(),
+                           right.loVect(), right.hiVect(), &cost_right);
+
+        // if this happens try a new direction
+        if (cost_left < 1e-12 or cost_right < 1e-12) {
+            dir = (dir + 1) % AMREX_SPACEDIM;
+        } else {
+            break;
+        }
     }
 
-    return success;
+    node->left  = new KDNode(left,  cost_left,  node->num_procs_left/2);
+    node->right = new KDNode(right, cost_right, node->num_procs_left/2);
+
+    return true;
 }
 
 int KDTree::getLongestDir(const Box& box) {
     IntVect size = box.size();
     int argmax = 0;
     int max = size[0];
-    for (int i = 1; i < BL_SPACEDIM; ++i) {
+    for (int i = 1; i < AMREX_SPACEDIM; ++i) {
         if (size[i] > max) {
             max = size[i];
             argmax = i;
@@ -118,4 +132,6 @@ bool KDTree::splitBox(int split, int dir,
     right.setSmall(dir, split+1);
 
     return true;
+}
+
 }

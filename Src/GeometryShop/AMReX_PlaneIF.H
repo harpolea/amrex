@@ -1,16 +1,5 @@
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-#ifndef _PLANEIF_H_
-#define _PLANEIF_H_
+#ifndef AMREX_PLANEIF_H_
+#define AMREX_PLANEIF_H_
 
 #include "AMReX_RealVect.H"
 #include "AMReX_BaseIF.H"
@@ -39,13 +28,17 @@ namespace amrex
     {
     }
 
+    ///return the partial derivative at the point
+    virtual Real derivative(const  IntVect& a_deriv,
+                            const RealVect& a_point) const;
+
     ///
     /**
        Return the value of the function at a_point.  When delineating a domain,
        the level set value=0 represents the boundary and value<0 is inside the
        fluid.
     */
-    virtual Real value(const RealVect& a_point) const override;
+    virtual Real value(const RealVect& a_point) const;
 
 
     ///
@@ -53,7 +46,7 @@ namespace amrex
        Return a newly allocated derived class.  The responsibility
        for deleting the memory is left to the calling function.
     */
-    virtual BaseIF* newImplicitFunction() const override;
+    virtual BaseIF* newImplicitFunction() const;
 
   protected:
     RealVect m_normal;

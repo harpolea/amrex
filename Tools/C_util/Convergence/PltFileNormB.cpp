@@ -18,12 +18,12 @@ using std::ios;
 #include <AMReX_Utility.H>
 #include <AMReX_VisMF.H>
 
-#ifndef NDEBUG
+#ifdef AMREX_DEBUG
 #include <TV_TempWrite.H>
 #endif
 
 #define GARBAGE 666.e+40
-
+using namespace amrex;
 static
 void
 PrintUsage (const char* progName)
@@ -110,7 +110,8 @@ main (int   argc,
     {
         const BoxArray& baI = amrDataI.boxArray(iLevel);
 
-        MultiFab dataI(baI, nComp, 0);
+        DistributionMapping dm(baI);
+        MultiFab dataI(baI, dm, nComp, 0);
 
         amrDataI.FillVar(dataI, iLevel, derives, destComps);
 

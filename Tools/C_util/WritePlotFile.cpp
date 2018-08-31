@@ -13,8 +13,10 @@
 #include <AMReX_VisMF.H>
 #include <AMReX_RealBox.H>
 #include <AMReX_Geometry.H>
+#include <AMReX_DistributionMapping.H>
 #include <WritePlotFile.H>
 
+using namespace amrex;
 std::string
 thePlotFileType ()
 {
@@ -91,7 +93,8 @@ writePlotFile (const std::string&        dir,
     }
     const int Coord = 0;
     BoxArray tba = BoxArray(&tmpb,1);
-    MultiFab level0_dat(tba,mf.nComp(),mf.nGrow(),Fab_allocate);
+    DistributionMapping dm {tba};
+    MultiFab level0_dat(tba,dm,mf.nComp(),mf.nGrow());
     for (int j=0; j<mf.nComp(); ++j)
         level0_dat.setVal(0.5*(mf.min(j)+mf.max(j)),j,1);
     //level0_dat.setVal(bgVal);
@@ -287,13 +290,16 @@ writePlotFile (const char*               name,
     
 }
 
-void WritePlotFile(const Vector<MultiFab*> mfa,
-		   AmrData&               amrdToMimic,
-		   const std::string&     oFile,
-		   bool                   verbose)
+void WritePlotFile(const Vector<MultiFab*>&   mfa,
+		   AmrData&                   amrdToMimic,
+		   const std::string&         oFile,
+		   bool                       verbose,
+                   const Vector<std::string>& varNames)
 {
-    const Vector<std::string>& derives = amrdToMimic.PlotVarNames();
-    int ntype = amrdToMimic.NComp();
+    // If varnames not provided, use names in original plotfile
+    const Vector<std::string>& derives = (varNames.size()==0 ? amrdToMimic.PlotVarNames() : varNames);
+    AMREX_ASSERT(derives.size()==(*mfa[0]).nComp());
+    int ntype = derives.size();
     int finestLevel = amrdToMimic.FinestLevel();    
     
     if (ParallelDescriptor::IOProcessor())

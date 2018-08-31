@@ -1,17 +1,5 @@
-
-/*
- *       {_       {__       {__{_______              {__      {__
- *      {_ __     {_ {__   {___{__    {__             {__   {__  
- *     {_  {__    {__ {__ { {__{__    {__     {__      {__ {__   
- *    {__   {__   {__  {__  {__{_ {__       {_   {__     {__     
- *   {______ {__  {__   {_  {__{__  {__    {_____ {__  {__ {__   
- *  {__       {__ {__       {__{__    {__  {_         {__   {__  
- * {__         {__{__       {__{__      {__  {____   {__      {__
- *
- */
-
-#ifndef _ALLREGULARSERVICE_H_
-#define _ALLREGULARSERVICE_H_
+#ifndef AMREX_ALLREGULARSERVICE_H_
+#define AMREX_ALLREGULARSERVICE_H_
 
 #include "AMReX_GeometryService.H"
 
@@ -53,11 +41,12 @@ namespace amrex
      */
     virtual void fillGraph(BaseFab<int>&        a_regIrregCovered,
                            Vector<IrregNode>&   a_nodes,
+                           NodeMap&             a_intersections,
                            const Box&           a_validRegion,
                            const Box&           a_ghostRegion,
                            const Box& a_domain,
                            const RealVect&      a_origin,
-                           const Real&          a_dx) const;
+                           const Real&          a_dx) const override;
   };
 }
 #endif

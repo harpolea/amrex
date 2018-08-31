@@ -1,12 +1,10 @@
-#ifndef _NEIGHBORPARTICLES_H_
-#define _NEIGHBORPARTICLES_H_
-
-#include <unordered_set>
-#include <functional>
+#ifndef AMREX_NEIGHBORPARTICLES_H_
+#define AMREX_NEIGHBORPARTICLES_H_
 
 #include <AMReX_MultiFab.H>
 #include <AMReX_MultiFabUtil.H>
 #include "AMReX_Particles.H"
+#include "AMReX_Particles_F.H"
 
 namespace amrex {
 
@@ -24,17 +22,35 @@ namespace amrex {
 /// Note: For the neighbor particles, we don't communicate the integer components, only the
 /// real data.
 ///
-template <int NStructReal, int NStructInt, int NNeighborReal>
+template <int NStructReal, int NStructInt>
 class NeighborParticleContainer
     : public ParticleContainer<NStructReal, NStructInt, 0, 0>
 {
+
+    struct NeighborIndexMap {
+        int dst_grid;
+        int dst_tile;
+        int dst_index;
+        int src_grid;
+        int src_tile;
+        int src_index;
+        int thread_num;
+
+        NeighborIndexMap(int dgrid, int dtile, int dindex,
+                         int sgrid, int stile, int sindex, int tnum)
+            : dst_grid(dgrid), dst_tile(dtile), dst_index(dindex),
+              src_grid(sgrid), src_tile(stile), src_index(sindex), thread_num(tnum)
+        {}
+    };
     
-    struct NeighborTag {
+    struct NeighborCopyTag {
         int grid;
         int tile;
+        int src_index;
+        int dst_offset;
         int periodic_shift[3];
-        
-        bool operator<(const NeighborTag& other) const {
+
+        bool operator<(const NeighborCopyTag& other) const {
             if (grid != other.grid) return grid < other.grid;
             if (tile != other.tile) return tile < other.tile;
             if (periodic_shift[0] != other.periodic_shift[0]) 
@@ -46,7 +62,7 @@ class NeighborParticleContainer
             return false;
         }
         
-        bool operator==(const NeighborTag& other) const {
+        bool operator==(const NeighborCopyTag& other) const {
             return (grid == other.grid) and (tile == other.tile)
                 and (periodic_shift[0] == other.periodic_shift[0])
                 and (periodic_shift[1] == other.periodic_shift[1])
@@ -105,20 +121,19 @@ public:
     ///
     /// This builds the internal data structure used for looking up neighbors
     ///
-    void BuildLevelMask(int lev, 
-                        const Geometry &geom, 
-                        const DistributionMapping &dmap, 
-                        const BoxArray &ba );
+    void BuildLevelMask(int lev);
 
     ///
     /// This fills the neighbor buffers for each tile with the proper data
     ///
     void fillNeighbors(int lev);
 
+    void cacheNeighborInfo(int lev);
+
     ///
     /// This updates the neighbors with their current particle data.
     ///
-    void updateNeighbors(int lev);
+    void updateNeighbors(int lev, bool reuse_rcv_counts=true);
 
     ///
     /// Each tile clears its neighbors, freeing the memory
@@ -128,51 +143,51 @@ public:
     ///
     /// Build a Neighbor List for each tile
     ///
-    void buildNeighborList(int lev, bool sort=false);
+    template <class CheckPair>
+    void buildNeighborList(int lev, CheckPair check_pair, bool sort=false);
 
     void buildNeighborListFort(int lev, bool sort=false);
 
-    std::map<PairIndex, Vector<char> > neighbors;
-    std::map<PairIndex, Vector<int> > neighbor_list;
-    const size_t pdata_size = (NNeighborReal+BL_SPACEDIM)*
-        sizeof(typename ParticleType::RealType);
+    void setRealCommComp(int i, bool value);
+    void setIntCommComp(int i, bool value);
 
+    std::map<PairIndex, Vector<char> > neighbors;
+    std::map<PairIndex, Vector<int>  > neighbor_list;
+    const size_t pdata_size = sizeof(ParticleType);
+    
 protected:
     
-    NeighborTag getNeighborTag(int lev,
-                               const IntVect& neighbor_cell,
-                               const BaseFab<int>& mask);
-    ///
-    /// Apply periodic shift to particle position, so naive distance calculation
-    /// between neighbors and regular particles will be correct.
-    ///
-    void applyPeriodicShift(int lev, ParticleType& p, const NeighborTag& tag);
-
+    void initializeCommComps();
+    
+    void calcCommSize();
+    
     ///
     /// Perform the MPI communication neccesary to fill neighbor buffers
     ///
-    void fillNeighborsMPI(NeighborCommMap& neighbors_to_comm, bool reuse_rcv_counts=false);
-
+    void fillNeighborsMPI(bool reuse_rcv_counts);
 
     ///
     /// Perform handshake to figure out how many bytes each proc should receive
     ///
-    void getRcvCountsMPI(const std::map<int, Vector<char> >& send_data);
+    void getRcvCountsMPI();
 
-    virtual bool check_pair(const ParticleType& p1, const ParticleType& p2) {
-        return false;
-    };
-
+    size_t cdata_size;
     int num_neighbor_cells;
-    std::vector<NeighborCommTag> local_neighbors;
-    std::unique_ptr<FabArray<BaseFab<int> > > mask_ptr;
-    std::map<PairIndex, Vector<int> > buffer_id_cache;
-    std::map<PairIndex, Vector<NeighborTag> > buffer_tag_cache;
-    
+    amrex::Vector<NeighborCommTag> local_neighbors;
+    std::unique_ptr<iMultiFab> mask_ptr;
+
+    std::map<PairIndex, Vector<Vector<NeighborCopyTag> > > buffer_tag_cache;
+    std::map<PairIndex, int> local_neighbor_sizes;
+
     // each proc knows how many sends it will do, and how many bytes it will rcv 
     // from each other proc.
-    Vector<long> rcvs;
+    amrex::Vector<int> neighbor_procs;
+    amrex::Vector<long> rcvs;
     long num_snds;
+    std::map<int, Vector<char> > send_data;
+
+    std::array<bool, AMREX_SPACEDIM + NStructReal> rc; 
+    std::array<bool, 2 + NStructInt>  ic;
 };
 
 #include "AMReX_NeighborParticlesI.H"

@@ -1,6 +1,6 @@
 
-#ifndef _CGSOLVER_H_
-#define _CGSOLVER_H_
+#ifndef AMREX_CGSOLVER_H_
+#define AMREX_CGSOLVER_H_
 
 #include <cmath>
 
@@ -128,6 +128,10 @@ public:
     // Get  flag determining whether MG preconditioning is used.
     //
     bool getUseMGPrecond () const { return use_mg_precond; }
+
+    void setCGSolver (Solver s) { cg_solver = s; }
+    Solver getCGSolver () const { return cg_solver; }
+
     //
     // Set the verbosity value.
     //
@@ -136,8 +140,6 @@ public:
     // Return the verbosity value.
     //
     int getVerbose () const { return verbose; }
-    //
-    ParallelDescriptor::Color color() const { return Lp.color(); }
 
 protected:
 
@@ -188,6 +190,7 @@ private:
     static Solver def_cg_solver;
     static bool   use_jbb_precond;    // Use JBB's new method as a preconditioner.
     static bool   use_jacobi_precond; // Use Jacobi smoothing as a preconditioner.
+
     //
     // The data.
     //
@@ -197,6 +200,8 @@ private:
     int        verbose;        // Current verbosity level.
     int        lev;            // Level of the linear operator to use
     bool       use_mg_precond; // Use multigrid as a preconditioner.
+    Solver     cg_solver;
+
     //
     // Disable copy constructor and assignment operator.
     //

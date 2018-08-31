@@ -34,8 +34,7 @@ EBFluxRegister::defineExtra (const BoxArray& fba, const DistributionMapping& fdm
 {
     BoxArray cfba = fba;
     cfba.coarsen(m_ratio);
-    m_cfp_inside_mask.define(cfba, fdm, 1, 0);
-
+    m_cfp_inside_mask.define(cfba, fdm, 1, 0, MFInfo(),DefaultFabFactory<IArrayBox>());
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -90,24 +89,36 @@ EBFluxRegister::CrseAdd (const MFIter& mfi,
 
 void
 EBFluxRegister::FineAdd (const MFIter& mfi,
-                         const std::array<FArrayBox const*, AMREX_SPACEDIM>& flux,
+                         const std::array<FArrayBox const*, AMREX_SPACEDIM>& a_flux,
                          const Real* dx, Real dt,
                          const FArrayBox& volfrac,
                          const std::array<FArrayBox const*, AMREX_SPACEDIM>& areafrac,
                          const FArrayBox& dm)
 {
-    BL_ASSERT(m_cfpatch.nComp() == flux[0]->nComp());
+    BL_ASSERT(m_cfpatch.nComp() == a_flux[0]->nComp());
 
     const int li = mfi.LocalIndex();
     Vector<FArrayBox*>& cfp_fabs = m_cfp_fab[li];
     if (cfp_fabs.empty()) return;
 
-    const Box& tbx = mfi.tilebox();
-
-    BL_ASSERT(tbx.cellCentered());
-    AMREX_ALWAYS_ASSERT(tbx.coarsenable(m_ratio));
-    const Box& cbx = amrex::coarsen(tbx, m_ratio);
     const int nc = m_cfpatch.nComp();
+
+    const Box& tbx = mfi.tilebox();
+    BL_ASSERT(tbx.cellCentered());
+    const Box& cbx = amrex::coarsen(tbx, m_ratio);
+    const Box& fbx = amrex::refine(cbx, m_ratio);
+    
+    std::array<FArrayBox const*,AMREX_SPACEDIM> flux{AMREX_D_DECL(a_flux[0],a_flux[1],a_flux[2])};
+    std::array<FArrayBox,AMREX_SPACEDIM> ftmp;
+    if (fbx != tbx) {
+        for (int idim = 0; idim < AMREX_SPACEDIM; ++idim) {
+            const Box& b = amrex::surroundingNodes(fbx,idim);
+            ftmp[idim].resize(b,nc);
+            ftmp[idim].setVal(0.0);
+            ftmp[idim].copy(*a_flux[idim]);
+            flux[idim] = &ftmp[idim];
+        }
+    }
 
     FArrayBox cvol;
 
@@ -156,7 +167,7 @@ EBFluxRegister::FineAdd (const MFIter& mfi,
         }
     }
 
-    FArrayBox dmgrow(amrex::grow(tbx,m_ratio),nc);
+    FArrayBox dmgrow(amrex::grow(fbx,m_ratio),nc);
     dmgrow.setVal(0.0);
     const Box& tbxg1 = amrex::grow(tbx,1);
     dmgrow.copy(dm,tbxg1,0,tbxg1,0,nc);
@@ -201,7 +212,7 @@ EBFluxRegister::Reflux (MultiFab& crse_state, const amrex::MultiFab& crse_vfrac,
 
     {
         MultiFab grown_crse_data(m_crse_data.boxArray(), m_crse_data.DistributionMap(),
-                                 m_ncomp, 1);
+                                 m_ncomp, 1, MFInfo(), FArrayBoxFactory());
         MultiFab::Copy(grown_crse_data, m_crse_data, 0, 0, m_ncomp, 0);
         grown_crse_data.FillBoundary(m_crse_geom.periodicity());
         
@@ -252,7 +263,7 @@ EBFluxRegister::Reflux (MultiFab& crse_state, const amrex::MultiFab& crse_vfrac,
     // The fine-covered cells of m_crse_data contain the data that should go to the fine level
     BoxArray ba = fine_state.boxArray();
     ba.coarsen(m_ratio);
-    MultiFab cf(ba, fine_state.DistributionMap(), m_ncomp, 0);
+    MultiFab cf(ba, fine_state.DistributionMap(), m_ncomp, 0, MFInfo(), FArrayBoxFactory());
     cf.ParallelCopy(m_crse_data);
 
 #ifdef _OPENMP

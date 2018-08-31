@@ -1,6 +1,6 @@
 
-#ifndef _StateData_H_
-#define _StateData_H_ 
+#ifndef AMREX_StateData_H_
+#define AMREX_StateData_H_
 
 #include <memory>
 
@@ -96,12 +96,24 @@ public:
     void swapTimeLevels (Real dt);
     //
     // Swaps old data with a new MultiFab.
+    // Deletes the previous old data.
     //
     void replaceOldData ( MultiFab* mf );
     //
+    // Swaps old data with another StateData.
+    // Does not delete the previous old data.
+    //
+    void replaceOldData ( StateData& s );
+    //
     // Swaps new data with a new MultiFab.
+    // Deletes the previous new data.
     //
     void replaceNewData ( MultiFab* mf );
+    //
+    // Swaps new data with another StateData.
+    // Does not delete the previous new data.
+    //
+    void replaceNewData ( StateData& s );
 
     //
     // Sets time of old and new data.
@@ -252,12 +264,6 @@ public:
     void getData (Vector<MultiFab*>& data,
 		  Vector<Real>& datatime,
 		  Real time) const;
-
-    void AddProcsToComp(const StateDescriptor &sdPtr,
-                        int ioProcNumSCS, int ioProcNumAll,
-                        int scsMyId, MPI_Comm scsComm);
-
-    void Check() const;
 
     //
     // These facilitate prereading FabArray headers to avoid

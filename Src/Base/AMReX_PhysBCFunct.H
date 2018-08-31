@@ -1,24 +1,24 @@
-#ifndef _PhysBCFunct_H_
-#define _PhysBCFunct_H_
+#ifndef AMREX_PhysBCFunct_H_
+#define AMREX_PhysBCFunct_H_
 
 #include <AMReX_BCRec.H>
 #include <AMReX_Geometry.H>
 #include <AMReX_MultiFab.H>
 #include <AMReX_ArrayLim.H>
 
+namespace amrex {
+
 extern "C"
 {
-    typedef void (*BndryFuncDefault)(amrex::Real* data, ARLIM_P(lo), ARLIM_P(hi),
+    typedef void (*BndryFuncDefault)(Real* data, AMREX_ARLIM_P(lo), AMREX_ARLIM_P(hi),
                                      const int* dom_lo, const int* dom_hi,
-                                     const amrex::Real* dx, const amrex::Real* grd_lo,
-                                     const amrex::Real* time, const int* bc);
-    typedef void (*BndryFunc3DDefault)(amrex::Real* data, const int* lo, const int* hi,
+                                     const Real* dx, const Real* grd_lo,
+                                     const Real* time, const int* bc);
+    typedef void (*BndryFunc3DDefault)(Real* data, const int* lo, const int* hi,
                                        const int* dom_lo, const int* dom_hi,
-                                       const amrex::Real* dx, const amrex::Real* grd_lo,
-                                       const amrex::Real* time, const int* bc);
+                                       const Real* dx, const Real* grd_lo,
+                                       const Real* time, const int* bc);
 }
-
-namespace amrex {
 
 class BndryFunctBase
 {
@@ -44,6 +44,8 @@ protected:
 
 class PhysBCFunctBase {
 public:
+    // note this is pure virtual and must be implemented in a derived class
+    // (see PhysBCFunct below for an example)
     virtual void FillBoundary (MultiFab& mf, int dcomp, int ncomp, Real time) = 0;
     virtual void FillBoundary (MultiFab& mf, Real time)
 	{ FillBoundary(mf, 0, mf.nComp(), time); }
@@ -52,6 +54,12 @@ public:
 
 inline PhysBCFunctBase::~PhysBCFunctBase () {}
 
+// PhyBCFunct is an example of how to derive from PhysBCFunctBase and is
+// not meant to be a base class. PhysBCFunctBase is the base class.
+// PhysBCFunctBase is designed for users to derive and extend. 
+// You could/should write your own class derived from PhysBCFuncBase.
+// There you can make modifications such as storing a vector of BCRecs for, e.g.,
+// multiple component MultiFabs.
 class PhysBCFunct
     : public PhysBCFunctBase
 {

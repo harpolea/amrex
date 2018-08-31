@@ -24,6 +24,7 @@ NFilesIter::NFilesIter(int noutfiles, const std::string &fileprefix,
   fileNumber    = FileNumber(nOutFiles, myProc, groupSets);
   filePrefix    = fileprefix;
   fullFileName  = FileName(fileNumber, filePrefix);
+  useSparseFPP  = false;
 
   finishedWriting = false;
 
@@ -91,11 +92,7 @@ void NFilesIter::SetDynamic(int deciderproc)
     currentDeciderIndex = 0;
   }
   if(myProc == deciderProc) {
-    int wsp(NFilesIter::WhichSetPosition(myProc, nProcs, nOutFiles, groupSets));
-#ifdef DEBUG
-    std::cout << myProc << "::DDDDDDDD:  idecide:  currentDeciderIndex setpos nSets = " << currentDeciderIndex
-              << "  " << wsp << "  " << nSets  << std::endl;
-#endif
+    NFilesIter::WhichSetPosition(myProc, nProcs, nOutFiles, groupSets);
   }
 
   deciderTag = ParallelDescriptor::SeqNum();
@@ -111,6 +108,56 @@ void NFilesIter::SetDynamic(int deciderproc)
     fileNumbersWriteOrder.clear();
     fileNumbersWriteOrder.resize(nOutFiles);
   }
+}
+
+
+void NFilesIter::SetSparseFPP(const Vector<int> &ranksToWrite)
+{
+  if(ranksToWrite.empty()) {
+    return;
+  }
+  if(ranksToWrite.size() > nProcs) {
+    amrex::Abort("**** Error in NFilesIter::SetSparseFPP:  ranksToWrite.size() > nProcs.");
+  }
+
+  sparseWritingRanks = ranksToWrite;
+
+  // ---- do more error checking here
+  // ---- ranks in range, is dynamic on already
+  mySparseFileNumber = -1;
+  for(int r(0); r < ranksToWrite.size(); ++r) {
+    if(ranksToWrite[r] < 0 || ranksToWrite[r] >= nProcs) {
+      amrex::Abort("**** Error in NFilesIter::SetSparseFPP:  rank out of range.");
+    }
+    if(ranksToWrite[r] == myProc) {
+      if(mySparseFileNumber == -1) {
+        mySparseFileNumber = myProc;
+      } else {
+        amrex::Abort("**** Error in NFilesIter::SetSparseFPP:  ranksToWrite not unique.");
+      }
+    }
+  }
+
+  nOutFiles = ranksToWrite.size();
+
+  if(myProc == coordinatorProc) {
+    // ---- get the write order from ranksToWrite
+    fileNumbersWriteOrder.clear();
+    fileNumbersWriteOrder.resize(nOutFiles);
+    for(int i(0); i < fileNumbersWriteOrder.size(); ++i) {
+      fileNumbersWriteOrder[i].push_back(ranksToWrite[i]);
+    }
+  }
+
+  if(mySparseFileNumber != -1) {
+    fileNumber    = mySparseFileNumber;
+    fullFileName  = FileName(fileNumber, filePrefix);
+  } else {
+    fullFileName  = "fullFileNameUndefined";
+  }
+
+  useSparseFPP = true;
+  useStaticSetSelection = true;
 }
 
 
@@ -166,6 +213,27 @@ bool NFilesIter::ReadyToWrite(bool appendFirst) {
 
   if(useStaticSetSelection) {
 
+    if(useSparseFPP) {
+
+      if(mySparseFileNumber != -1) {
+        if( ! appendFirst) {
+          fileStream.open(fullFileName.c_str(),
+                          std::ios::out | std::ios::trunc | std::ios::binary);
+        } else {
+          fileStream.open(fullFileName.c_str(),
+                          std::ios::out | std::ios::app | std::ios::binary);
+        }
+        if( ! fileStream.good()) {
+          amrex::FileOpenFailed(fullFileName);
+        }
+        return true;
+      } else {
+        return false;
+      }
+
+
+    } else {  // ---- the general static set selection
+
     for(int iSet(0); iSet < nSets; ++iSet) {
       if(mySetPosition == iSet) {
         if(iSet == 0 && ! appendFirst) {   // ---- first set
@@ -191,6 +259,7 @@ bool NFilesIter::ReadyToWrite(bool appendFirst) {
         ParallelDescriptor::Recv(&iBuff, 1, waitForPID, stWriteTag);
       }
     }
+    }
 
   } else {    // ---- use dynamic set selection
 
@@ -214,9 +283,6 @@ bool NFilesIter::ReadyToWrite(bool appendFirst) {
       BL_PROFILE("NFI::ReadyToWrite:decider");
       // ---- the first message received is the coordinator
       ParallelDescriptor::Recv(&coordinatorProc, 1, MPI_ANY_SOURCE, deciderTag);
-#ifdef DEBUG
-      std::cout << myProc << ":: coordinatorProc = " << coordinatorProc << std::endl;
-#endif
       for(int i(0); i < setZeroProcs.size(); ++i) {  // ---- tell the set zero ranks  who is coordinating
         ParallelDescriptor::Send(&coordinatorProc, 1, setZeroProcs[i], coordinatorTag);
       }
@@ -295,6 +361,17 @@ NFilesIter &NFilesIter::operator++() {
   } else {  // ---- writing
 
     if(useStaticSetSelection) {
+
+      if(useSparseFPP) {
+
+        if(mySparseFileNumber != -1) {
+          fileStream.flush();
+          fileStream.close();
+	}
+        finishedWriting = true;
+
+      } else {  // ---- the general static set selection
+
       fileStream.flush();
       fileStream.close();
 
@@ -311,6 +388,8 @@ NFilesIter &NFilesIter::operator++() {
         }
       }
       finishedWriting = true;
+
+      }
 
     } else {    // ---- use dynamic set selection
 
@@ -366,7 +445,7 @@ NFilesIter &NFilesIter::operator++() {
             }
 	    if(nextProcToWrite == -1) {
               --remainingWriters;
-	      amrex::Print() << myProc << "::IOIOIOIO:  nptw == -1  rW = " << remainingWriters << std::endl;
+//	      amrex::Print() << myProc << "::IOIOIOIO:  nptw == -1  rW = " << remainingWriters << std::endl;
 	    } else {
 
 	    fileNumbersWriteOrder[nextFileNumberToWrite].push_back(nextProcToWrite);
@@ -426,10 +505,10 @@ bool NFilesIter::CheckNFiles(int nProcs, int nOutFiles, bool groupSets)
     for(int i(0); i < nProcs; ++i) {
       fileNumbers.insert(FileNumber(nOutFiles, i, groupSets));
     }
-    std::cout << "nOutFiles fileNumbers.size() = " << nOutFiles
-              << "  " << fileNumbers.size() << std::endl;
+//    amrex::Print() << "nOutFiles fileNumbers.size() = " << nOutFiles
+//              << "  " << fileNumbers.size() << std::endl;
     if(nOutFiles != static_cast<int>(fileNumbers.size())) {
-      std::cout << "**** Different number of files." << std::endl;
+//      amrex::Print() << "**** Different number of files." << std::endl;
       return false;
     }
   }
@@ -444,7 +523,7 @@ Vector<int> NFilesIter::FileNumbersWritten()
 
   if(myProc == coordinatorProc) {
 
-#ifdef DEBUG
+#if 0
     int total(0);
     std::set<int> procSet;
     for(int f(0); f < fileNumbersWriteOrder.size(); ++f) {
@@ -454,7 +533,7 @@ Vector<int> NFilesIter::FileNumbersWritten()
       }
     }
     if(total != nProcs || static_cast<int>(procSet.size()) != nProcs) {
-      std::cout << "**** Error in NFilesIter::FileNumbersWritten():  "
+      amrex::AllPrint() << "**** Error in NFilesIter::FileNumbersWritten():  "
                 << " coordinatorProc nProcs total procSet.size() = "
                 << coordinatorProc << "  " << nProcs << "  "
 		<< total << "  " << procSet.size() << std::endl;
@@ -479,8 +558,8 @@ void NFilesIter::CleanUpMessages() {
   for(int i(0); i < unreadMessages.size(); ++i) {
     std::pair<int, int> & pii = unreadMessages[i];
     int fromProc, tag(pii.first), nMessages(pii.second);
-#ifdef DEBUG
-    std::cout << ParallelDescriptor::MyProc() << ":: cleaning up " << nMessages
+#if 0
+    amrex::AllPrint() << ParallelDescriptor::MyProc() << ":: cleaning up " << nMessages
               << " messages for tag " << tag << std::endl;
 #endif
     for(int n(0); n < nMessages; ++n) {

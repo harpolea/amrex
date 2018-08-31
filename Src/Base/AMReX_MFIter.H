@@ -6,6 +6,7 @@
 #include <AMReX_FabArrayBase.H>
 #include <AMReX_IntVect.H>
 #include <AMReX_FArrayBox.H>
+#include <AMReX_RealBox.H>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -89,14 +90,21 @@ public:
     //! Return the tilebox with provided nodal flag
     Box tilebox (const IntVect& nodal) const;
 
+    //! Return the tilebox with provided nodal flag and grown cells
+    Box tilebox (const IntVect& nodal, const IntVect& ngrow) const;
+
     //! Return the dir-nodal (or all nodal if dir<0) Box at the current index.
     Box nodaltilebox (int dir=-1) const;
 
     //! Return the tile box at the current index grown to include ghost cells.
     Box growntilebox (int ng=-1000000) const;
 
+    Box growntilebox (const IntVect& ng) const;
+
     //! Return the dir-nodal (or all nodal if dir<0) box grown to include ghost cells.
     Box grownnodaltilebox (int dir=-1, int ng=-1000000) const;
+
+    Box grownnodaltilebox (int dir, const IntVect& ng) const;
 
     //! Return the valid Box in which the current tile resides.
     Box validbox () const { return fabArray.box((*index_map)[currentIndex]); }
@@ -129,6 +137,8 @@ public:
   
     //! The the number of tiles in the current grid;
     int numLocalTiles() const {return num_local_tiles ? (*num_local_tiles)[currentIndex] : 1;}
+
+    const RealBox& registerRealBox (const RealBox& rbox) const;
 
     /**
     * \brief Return local index into the vector of fab pointers, m_fabs_v
@@ -169,6 +179,13 @@ protected:
   
     void Initialize ();
 };
+
+inline
+const RealBox&
+MFIter::registerRealBox(const RealBox& rbox) const
+{
+    return rbox;
+}
 
 //! Iterate over ghost cells.  Lots of MFIter functions do not work.
 class MFGhostIter

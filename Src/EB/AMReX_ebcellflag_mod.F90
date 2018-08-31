@@ -4,8 +4,10 @@ module amrex_ebcellflag_module
   implicit none
   private
   public :: is_regular_cell, is_single_valued_cell, is_multi_valued_cell, &
-       is_covered_cell, get_neighbor_cells, num_neighbor_cells, &
-       set_regular_cell, amrex_ebcellflag_count
+       is_covered_cell, get_cell_type, get_neighbor_cells, num_neighbor_cells, pos_ngbr, &
+       set_regular_cell, set_covered_cell, set_single_valued_cell, set_neighbor, clear_neighbor, &
+       clear_allneighbors, is_neighbor, amrex_ebcellflag_count, get_neighbor_cells_int_single, &
+       regular, single_valued, multi_valued, covered
   
   integer, parameter :: w_type      = 2
   integer, parameter :: w_numvofs   = 3
@@ -25,6 +27,18 @@ module amrex_ebcellflag_module
   end interface get_neighbor_cells
 
 contains
+
+  elemental function get_neighbor_cells_int_single (flag,i,j,k)
+    integer, intent(in) :: flag
+    integer, intent(in) :: i, j, k
+    integer :: get_neighbor_cells_int_single
+
+    if (btest(flag,pos_ngbr(i,j,k))) then
+      get_neighbor_cells_int_single = 1
+    else
+      get_neighbor_cells_int_single = 0
+    end if
+  end function get_neighbor_cells_int_single
   
   elemental logical function is_regular_cell (flag)
     integer, intent(in) :: flag
@@ -46,11 +60,25 @@ contains
     is_covered_cell = ibits(flag,0,w_type) .eq. covered
   end function is_covered_cell
 
+  elemental function get_cell_type (flag) result(r)
+    integer, intent(in) :: flag
+    integer :: r
+    r = ibits(flag,0,w_type)
+  end function get_cell_type
+
+  elemental function clear_allneighbors (flag) result(r)
+    integer, intent(in) :: flag
+    integer :: r
+    r = flag
+    call mvbits(0, 0, 27, r, pos_ngbr(-1,-1,-1))
+    r = ibset(r, pos_ngbr(0,0,0))
+  end function clear_allneighbors
+
 #if (AMREX_SPACEDIM == 2)
 
   pure subroutine get_neighbor_cells_int (flag, ngbr)
     integer, intent(in) :: flag
-    integer, intent(inout) :: ngbr(-1:1,-1:1)
+    integer, intent(out) :: ngbr(-1:1,-1:1)
     integer :: i, j
     do j = -1,1
        do i = -1,1
@@ -65,7 +93,7 @@ contains
 
   pure subroutine get_neighbor_cells_real (flag, ngbr)
     integer, intent(in) :: flag
-    real(amrex_real), intent(inout) :: ngbr(-1:1,-1:1)
+    real(amrex_real), intent(out) :: ngbr(-1:1,-1:1)
     integer :: i, j
     do j = -1,1
        do i = -1,1
@@ -85,11 +113,29 @@ contains
     num_neighbor_cells = count(ngbr.eq.1)
   end function num_neighbor_cells
 
+  elemental function set_neighbor (flag,i,j) result(r)
+    integer, intent(in) :: flag,i,j
+    integer :: r
+    r = ibset(flag, pos_ngbr(i,j,0))
+  end function set_neighbor
+
+  elemental function clear_neighbor (flag,i,j) result(r)
+    integer, intent(in) :: flag,i,j
+    integer :: r
+    r = ibclr(flag, pos_ngbr(i,j,0))
+  end function clear_neighbor
+
+  elemental function is_neighbor (flag,i,j) result(r)
+    integer, intent(in) :: flag,i,j
+    logical :: r
+    r = btest(flag,pos_ngbr(i,j,0))
+  end function is_neighbor
+
 #else
 
   pure subroutine get_neighbor_cells_int (flag, ngbr)
     integer, intent(in) :: flag
-    integer, intent(inout) :: ngbr(-1:1,-1:1,-1:1)
+    integer, intent(out) :: ngbr(-1:1,-1:1,-1:1)
     integer :: i, j, k
     do k = -1,1
        do j = -1,1
@@ -106,7 +152,7 @@ contains
 
   pure subroutine get_neighbor_cells_real (flag, ngbr)
     integer, intent(in) :: flag
-    real(amrex_real), intent(inout) :: ngbr(-1:1,-1:1,-1:1)
+    real(amrex_real), intent(out) :: ngbr(-1:1,-1:1,-1:1)
     integer :: i, j, k
     do k = -1,1
        do j = -1,1
@@ -128,12 +174,41 @@ contains
     num_neighbor_cells = count(ngbr.eq.1)
   end function num_neighbor_cells
 
+  elemental function set_neighbor (flag,i,j,k) result(r)
+    integer, intent(in) :: flag,i,j,k
+    integer :: r
+    r = ibset(flag, pos_ngbr(i,j,k))
+  end function set_neighbor
+
+  elemental function clear_neighbor (flag,i,j,k) result(r)
+    integer, intent(in) :: flag,i,j,k
+    integer :: r
+    r = ibclr(flag, pos_ngbr(i,j,k))
+  end function clear_neighbor
+
+  elemental function is_neighbor (flag,i,j,k) result(r)
+    integer, intent(in) :: flag,i,j,k
+    logical :: r
+    r = btest(flag,pos_ngbr(i,j,k))
+  end function is_neighbor
+
 #endif
 
   elemental subroutine set_regular_cell (flag)
     integer, intent(inout) :: flag
     call mvbits(regular, 0, w_type, flag, 0)
   end subroutine set_regular_cell
+
+  elemental subroutine set_covered_cell (flag)
+    integer, intent(inout) :: flag
+    call mvbits(covered, 0, w_type, flag, 0)
+    call mvbits(0, 0, w_numvofs, flag, pos_numvofs)
+  end subroutine set_covered_cell
+
+  elemental subroutine set_single_valued_cell (flag)
+    integer, intent(inout) :: flag
+    call mvbits(single_valued, 0, w_type, flag, 0)
+  end subroutine set_single_valued_cell
 
   subroutine amrex_ebcellflag_count(lo,hi,flag,flo,fhi,nregular,nsingle,nmulti,ncovered) &
        bind(c,name='amrex_ebcellflag_count')

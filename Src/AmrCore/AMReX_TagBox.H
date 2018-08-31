@@ -1,6 +1,6 @@
 
-#ifndef _TagBox_H_
-#define _TagBox_H_
+#ifndef AMREX_TagBox_H_
+#define AMREX_TagBox_H_
 
 #include <AMReX_IntVect.H>
 #include <AMReX_Box.H>
@@ -70,7 +70,7 @@ public:
     // starting at given location.  Returns the number of
     // collated points.
     //
-    long collate (std::vector<IntVect>& ar, int start) const;
+    long collate (Vector<IntVect>& ar, int start) const;
     //
     // Returns number of tagged cells in specified Box.
     //
@@ -178,10 +178,7 @@ public:
     //
     // Calls collate() on all contained TagBoxes.
     //
-    void collate (std::vector<IntVect>& TheGlobalCollateSpace) const;
-
-    virtual void AddProcsToComp (int ioProcNumSCS, int ioProcNumAll,
-                                 int scsMyId, MPI_Comm scsComm) override;
+    void collate (Vector<IntVect>& TheGlobalCollateSpace) const;
 };
 
 }

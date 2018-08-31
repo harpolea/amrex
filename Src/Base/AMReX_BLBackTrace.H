@@ -1,5 +1,5 @@
-#ifndef _BL_BACKTRACE_H_
-#define _BL_BACKTRACE_H_
+#ifndef AMREX_BL_BACKTRACE_H_
+#define AMREX_BL_BACKTRACE_H_
 
 #include <stack>
 #include <string>
@@ -35,7 +35,10 @@ namespace amrex {
 struct BLBackTrace
 {
     static void handler(int s);
+    // Abort backtrace. Used automatically.
     static void print_backtrace_info (FILE* f);
+    // Non-abort backtrace. Prints to specified file and continues.
+    static void print_backtrace_info (const std::string& filename);
 
 #ifdef BL_BACKTRACING
     static std::stack<std::pair<std::string, std::string> > bt_stack;

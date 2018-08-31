@@ -21,6 +21,8 @@ namespace amrex
     //! Returns BoxList defining the compliment of b2 in b1in.
     BoxList boxDiff (const Box& b1in, const Box& b2);
 
+    void boxDiff (BoxList& bl_diff, const Box& b1in, const Box& b2);
+
     //! Returns a new BoxList in which each Box is refined by the given ratio.
     BoxList refine (const BoxList&  bl, int ratio);
 
@@ -73,10 +75,18 @@ public:
     //! Make a boxList consisting of non-overlapping tile box from a single Box
     BoxList (const Box& bx, const IntVect& tilesize);
 
+    //! Make a BoxList consisting of nboxes Boxes from a single Box
+    BoxList (const Box& bx, int nboxes);
+
+    //! Make a BoxList consisting of nboxes Boxes chopped in dir-direction from a single Box
+    BoxList (const Box& bx, int nboxes, Direction dir);
+
     BoxList (const BoxList& rhs) = default;
     BoxList (BoxList&& rhs) = default;
     BoxList& operator= (const BoxList& rhs) = default;
     BoxList& operator= (BoxList&& rhs) = default;
+
+    void reserve (std::size_t n) { m_lbox.reserve(n); }
 
     //! Append a Box to this BoxList.
     void push_back (const Box& bn) { BL_ASSERT(ixType() == bn.ixType()); m_lbox.push_back(bn); }
@@ -96,6 +106,8 @@ public:
     void clear ();
     //! The number of Boxes in this BoxList.
     int size () const { return m_lbox.size(); }
+
+    std::size_t capacity () const { return m_lbox.capacity(); }
 
     iterator begin () { return m_lbox.begin(); }
     const_iterator begin () const { return m_lbox.begin(); }
@@ -128,6 +140,9 @@ public:
 
     BoxList& complementIn (const Box&     b,
                            const BoxList& bl);
+    BoxList& complementIn (const Box&     b,
+                            BoxList&&     bl);
+    BoxList& complementIn (const Box& b, const BoxArray& ba);
     //! Refine each Box in the BoxList by the ratio.
     BoxList& refine (int ratio);
     //! Refine each Box in the BoxList by the ratio.
@@ -188,6 +203,11 @@ public:
     Vector<Box>& data() { return m_lbox; }
     //! Returns a constant reference to the Vector<Box>.
     const Vector<Box>& data() const { return m_lbox; }
+
+    void swap (BoxList& rhs) {
+	std::swap(m_lbox, rhs.m_lbox);
+	std::swap(btype, rhs.btype);
+    }
 
 private:
     //! Core simplify routine.
