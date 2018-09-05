@@ -29,9 +29,10 @@ if sys.version_info < (2, 7):
 
 if sys.version[0] == "2":
     reload(sys)
-    sys.setdefaultencoding('utf8')
+    sys.setdefaultencoding('latin-1')
 
 
+import io
 import re
 import os
 import argparse
@@ -71,13 +72,13 @@ def run(command, stdin=False, outfile=None):
     p0.stdout.close()
 
     if outfile is not None:
-        try: cf = open(outfile, "w")
+        try: cf = io.open(outfile, "w", encoding="latin-1")
         except IOError:
             sys.exit("ERROR: unable to open file for writing: {}".format(outfile))
         else:
             for line in stdout0:
                 if line is not None:
-                    cf.write(line.decode("utf8"))
+                    cf.write(line.decode('latin-1'))
             cf.close()
 
     return stdout0, rc
@@ -163,7 +164,7 @@ class SourceFile(object):
 
         defines = []
 
-        with open(self.search_name(), "r") as f:
+        with io.open(self.search_name(), "r", encoding="latin-1") as f:
 
             for line in f:
 
@@ -188,7 +189,7 @@ class SourceFile(object):
 
         depends = []
 
-        with open(self.search_name(), "r") as f:
+        with io.open(self.search_name(), "r", encoding="latin-1") as f:
 
             for line in f:
 
@@ -212,7 +213,7 @@ def doit(prefix, search_path, files, cpp, debug=False):
     """ main routine that processes the files"""
 
     if debug:
-        df = open("dependencies.out", "w")
+        df = io.open("dependencies.out", "w", encoding="latin-1")
 
 
     # module_files is a dictionary where the keys are the name of the

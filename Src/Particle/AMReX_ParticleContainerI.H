@@ -5,7 +5,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::do_tiling = f
 
 template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 IntVect
-ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::tile_size   { AMREX_D_DECL(1024000,8,8) };
+ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::tile_size { AMREX_D_DECL(1024000,8,8) };
 
 template <int NStructReal, int NStructInt, int NArrayReal, int NArrayInt>
 void
@@ -968,6 +968,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>
                               soa.GetRealData(comp)[pindex] = soa.GetRealData(comp)[last];
                           for (int comp = 0; comp < NArrayInt; comp++)
                               soa.GetIntData(comp)[pindex] = soa.GetIntData(comp)[last];
+			  correctCellVectors(last, pindex, grid, aos[pindex]);
                           --last;
                           continue;
 		      }
@@ -981,6 +982,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>
                               soa.GetRealData(comp)[pindex] = soa.GetRealData(comp)[last];
                           for (int comp = 0; comp < NArrayInt; comp++)
                               soa.GetIntData(comp)[pindex] = soa.GetIntData(comp)[last];
+			  correctCellVectors(last, pindex, grid, aos[pindex]);
                           --last;
                           continue;
 		      }
@@ -1034,6 +1036,7 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>
                               soa.GetRealData(comp)[pindex] = soa.GetRealData(comp)[last];
                           for (int comp = 0; comp < NArrayInt; comp++)
                               soa.GetIntData(comp)[pindex] = soa.GetIntData(comp)[last];
+			  correctCellVectors(last, pindex, grid, aos[pindex]);
                           --last;
                           continue;
 		      }
@@ -2228,8 +2231,8 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>
   if (dual_grid) {
       for (int lev = 0; lev <= finestLevel(); lev++) {
           SetParticleBoxArray(lev, particle_box_arrays[lev]);
-          DistributionMapping dm(particle_box_arrays[lev]);
-          SetParticleDistributionMap(lev, dm);
+          DistributionMapping pdm(particle_box_arrays[lev]);
+          SetParticleDistributionMap(lev, pdm);
       }
   }
   
@@ -2500,9 +2503,9 @@ ParticleContainer<NStructReal, NStructInt, NArrayReal, NArrayInt>::WriteAsciiFil
             //
             // Each CPU opens the file for appending and adds its particles.
             //
-            std::ofstream File;
-
             VisMF::IO_Buffer io_buffer(VisMF::IO_Buffer_Size);
+
+            std::ofstream File;
 
             File.rdbuf()->pubsetbuf(io_buffer.dataPtr(), io_buffer.size());
 
@@ -2640,9 +2643,9 @@ ParticleContainer<NStructReal,NStructInt,NArrayReal, NArrayInt>::WriteCoarsenedA
             //
             // Each CPU opens the file for appending and adds its particles.
             //
-            std::ofstream File;
-
             VisMF::IO_Buffer io_buffer(VisMF::IO_Buffer_Size);
+
+            std::ofstream File;
 
             File.rdbuf()->pubsetbuf(io_buffer.dataPtr(), io_buffer.size());
 

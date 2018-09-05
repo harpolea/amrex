@@ -350,6 +350,8 @@ amrex::Initialize (int& argc, char**& argv, bool build_parm_parse,
     upcxx::init(&argc, &argv);
     if (upcxx::myrank() != ParallelDescriptor::MyProc())
 	amrex::Abort("UPC++ rank != MPI rank");
+#elif defined PERILLA_USE_UPCXX
+    upcxx::init();
 #endif
 
 #ifdef BL_USE_MPI3
@@ -412,7 +414,7 @@ amrex::Initialize (int& argc, char**& argv, bool build_parm_parse,
         if (system::signal_handling)
         {
             // We could save the singal handlers and restore them in Finalize.
-            prev_handler_sigsegv = signal(SIGSEGV, BLBackTrace::handler); // catch seg falult
+            prev_handler_sigsegv = signal(SIGSEGV, BLBackTrace::handler); // catch seg fault
             prev_handler_sigint = signal(SIGINT,  BLBackTrace::handler);
             prev_handler_sigabrt = signal(SIGABRT, BLBackTrace::handler);
 
@@ -529,7 +531,7 @@ amrex::Finalize (bool finalize_parallel)
     // The MemPool stuff is not using The_Finalize_Function_Stack so that
     // it can be used in Fortran BoxLib.
 #ifndef BL_AMRPROF
-    if (amrex::system::verbose)
+    if (amrex::system::verbose > 1)
     {
 	int mp_min, mp_max, mp_tot;
 	amrex_mempool_get_stats(mp_min, mp_max, mp_tot);  // in MB
