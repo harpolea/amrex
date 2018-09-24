@@ -3,6 +3,10 @@ AMREX_BASE=EXE
 
 C$(AMREX_BASE)_headers += AMReX_ccse-mpi.H AMReX_Array.H AMReX_Vector.H AMReX_BaseIndex.H AMReX_Tuple.H
 
+ifeq ($(USE_CUDA),TRUE)
+  C$(AMREX_BASE)_headers += AMReX_MVector.H
+endif
+
 #
 # Utility classes.
 #
@@ -105,7 +109,7 @@ ifneq ($(BL_NO_FORT),TRUE)
 endif
 
 #
-# Boundary-related 
+# Boundary-related
 #
 ifneq ($(BL_NO_FORT),TRUE)
   C$(AMREX_BASE)_sources += AMReX_BCRec.cpp AMReX_PhysBCFunct.cpp AMReX_BCUtil.cpp
@@ -174,7 +178,7 @@ ifeq ($(USE_DEVICE),TRUE)
 endif
 
 ifeq ($(USE_CUDA),TRUE)
-  F90$(AMREX_BASE)_sources += AMReX_CUDA.F90 
+  F90$(AMREX_BASE)_sources += AMReX_CUDA.F90
   C$(AMREX_BASE)_headers += AMReX_CudaAllocators.H
 endif
 
@@ -211,4 +215,3 @@ endif
 
 VPATH_LOCATIONS += $(AMREX_HOME)/Src/Base
 INCLUDE_LOCATIONS += $(AMREX_HOME)/Src/Base
-
