@@ -3,6 +3,7 @@
 #
 add_sources ( AMReX_ccse-mpi.H AMReX_Array.H AMReX_Vector.H AMReX_BaseIndex.H AMReX_Tuple.H )
 add_sources ( AMReX.cpp AMReX_error_fi.cpp )
+add_sources ( AMReX_MVector.H )
 
 add_sources ( AMReX.H AMReX_Exception.H )
 add_sources ( AMReX.cpp AMReX_error_fi.cpp )
@@ -31,13 +32,13 @@ add_sources ( AMReX_BLProfiler.H AMReX_BLBackTrace.H AMReX_BLFort.H )
 
 add_sources ( AMReX_NFiles.cpp )
 add_sources ( AMReX_NFiles.H )
-   
+
 add_sources ( AMReX_parstream.cpp )
 add_sources ( AMReX_parstream.H )
 
 #
 # I/O stuff
-# 
+#
 add_sources ( AMReX_FabConv.cpp AMReX_FPC.cpp AMReX_IntConv.cpp AMReX_VectorIO.cpp)
 add_sources ( AMReX_FabConv.H AMReX_FPC.H AMReX_Print.H AMReX_IntConv.H AMReX_VectorIO.H)
 
@@ -63,7 +64,7 @@ add_sources ( AMReX_BoxList.H AMReX_BoxArray.H AMReX_BoxDomain.H )
 
 #
 # Fortran array data
-# 
+#
 add_sources ( AMReX_FArrayBox.cpp AMReX_IArrayBox.cpp AMReX_BaseFab.cpp )
 add_sources ( AMReX_FArrayBox.H AMReX_IArrayBox.H AMReX_MakeType.H
    AMReX_TypeTraits.H AMReX_BaseFab.H AMReX_FabFactory.H )
@@ -83,8 +84,8 @@ add_sources ( AMReX_FabArrayBase.H AMReX_MFIter.H AMReX_LayoutData.H)
 
 #
 # Geometry / Coordinate system routines.
-# In GNUMake system, this is included only if BL_NO_FORT=FALSE 
-# 
+# In GNUMake system, this is included only if BL_NO_FORT=FALSE
+#
 add_sources ( AMReX_CoordSys.cpp AMReX_Geometry.cpp AMReX_MultiFabUtil.cpp )
 add_sources ( AMReX_CoordSys.H AMReX_Geometry.H AMReX_MultiFabUtil.H )
 
@@ -96,7 +97,7 @@ add_sources ( AMReX_BCRec.H AMReX_PhysBCFunct.H AMReX_BC_TYPES.H AMReX_BCUtil.H 
 
 #
 # Plotfile
-# 
+#
 add_sources ( AMReX_PlotFileUtil.cpp )
 add_sources ( AMReX_PlotFileUtil.H )
 
